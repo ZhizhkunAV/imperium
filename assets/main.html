@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Имперская кампания</title>
+
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700;900&family=EB+Garamond:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
+
+    <style>
+        :root {
+            --gold: #c9a84c;
+            --gold-light: #e0c878;
+            --bronze: #6b5a3a;
+            --text: #d4c5a9;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background: #0a0604;
+            background-image:
+                radial-gradient(ellipse at 50% 40%, rgba(40, 25, 10, 0.35) 0%, transparent 70%),
+                radial-gradient(ellipse at center, transparent 30%, rgba(0, 0, 0, 0.6) 100%);
+            font-family: 'EB Garamond', 'Georgia', serif;
+            color: var(--text);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            user-select: none;
+            padding: 20px;
+            gap: 30px;
+        }
+
+        /* === ЗАГОЛОВОК === */
+        .header-section {
+            text-align: center;
+        }
+
+        .main-title {
+            font-family: 'Cinzel', serif;
+            font-size: 2.4rem;
+            font-weight: 900;
+            letter-spacing: 6px;
+            text-transform: uppercase;
+            color: var(--gold-light);
+            text-shadow: 0 0 30px rgba(201, 168, 76, 0.5), 0 0 60px rgba(201, 168, 76, 0.2);
+            margin-bottom: 10px;
+        }
+
+        .gold-divider {
+            width: 400px;
+            max-width: 80vw;
+            height: 2px;
+            background: linear-gradient(90deg, transparent, var(--gold), var(--gold-light), var(--gold), transparent);
+            margin: 0 auto 10px;
+        }
+
+        .subtitle {
+            font-family: 'Cinzel', serif;
+            font-size: 0.85rem;
+            letter-spacing: 4px;
+            text-transform: uppercase;
+            color: var(--gold);
+            text-shadow: 0 0 10px rgba(201, 168, 76, 0.3);
+        }
+
+        /* === КНОПКИ === */
+        .menu-buttons {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            width: 380px;
+            max-width: 90vw;
+        }
+
+        .btn-menu {
+            font-family: 'Cinzel', serif;
+            font-size: 1rem;
+            font-weight: 700;
+            letter-spacing: 3px;
+            text-transform: uppercase;
+            padding: 16px 30px;
+            cursor: pointer;
+            transition: all 0.35s;
+            background: rgba(0, 0, 0, 0.5);
+            border: 2px solid rgba(201, 168, 76, 0.4);
+            color: var(--text);
+            text-align: center;
+            text-decoration: none;
+            display: block;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .btn-menu::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(201, 168, 76, 0.08), transparent);
+            transition: left 0.5s;
+        }
+
+        .btn-menu:hover {
+            border-color: var(--gold);
+            color: var(--gold-light);
+            box-shadow: 0 0 35px rgba(201, 168, 76, 0.25), inset 0 0 30px rgba(201, 168, 76, 0.05);
+            transform: translateY(-2px);
+        }
+
+        .btn-menu:hover::before {
+            left: 100%;
+        }
+
+        .btn-menu .btn-icon {
+            display: block;
+            font-size: 1.6rem;
+            margin-bottom: 4px;
+        }
+
+        /* === ПОДВАЛ === */
+        .footer-note {
+            font-family: 'Cinzel', serif;
+            font-size: 0.6rem;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            color: rgba(201, 168, 76, 0.4);
+            text-align: center;
+        }
+
+        @media (max-width: 500px) {
+            .main-title {
+                font-size: 1.6rem;
+                letter-spacing: 3px;
+            }
+
+            .btn-menu {
+                font-size: 0.85rem;
+                padding: 14px 20px;
+                letter-spacing: 2px;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- ЗАГОЛОВОК -->
+    <div class="header-section">
+        <div class="main-title">Имперская кампания</div>
+        <div class="gold-divider"></div>
+        <div class="subtitle">Rome Total War</div>
+    </div>
+
+    <!-- МЕНЮ -->
+    <div class="menu-buttons">
+        <a href="faction-select.html" class="btn-menu">
+            <span class="btn-icon">⚔️</span>
+            Кампания
+        </a>
+        <a href="settings.html" class="btn-menu">
+            <span class="btn-icon">⚙️</span>
+            Настройки
+        </a>
+        <a href="about.html" class="btn-menu">
+            <span class="btn-icon">📜</span>
+            Об игре
+        </a>
+        <a href="creators.html" class="btn-menu">
+            <span class="btn-icon">🏛️</span>
+            О создателях
+        </a>
+    </div>
+
+    <!-- ПОДВАЛ -->
+    <div class="footer-note">Выберите раздел</div>
+
+</body>
+</html>

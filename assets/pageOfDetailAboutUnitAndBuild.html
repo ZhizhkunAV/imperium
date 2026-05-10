@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Описание</title>
+
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700;900&family=EB+Garamond:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
+
+    <style>
+        :root {
+            --gold: #c9a84c;
+            --gold-light: #e0c878;
+            --gold-dark: #8b6914;
+            --bronze: #6b5a3a;
+            --text: #d4c5a9;
+            --bg-panel: rgba(5, 3, 1, 0.92);
+            --border-panel: rgba(180, 140, 60, 0.5);
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            background: #0a0502;
+            background-image:
+                radial-gradient(ellipse at 50% 50%, rgba(40, 25, 10, 0.4) 0%, transparent 70%),
+                radial-gradient(ellipse at center, transparent 30%, rgba(0,0,0,0.6) 100%);
+            font-family: 'EB Garamond', 'Georgia', serif;
+            color: var(--text);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: flex-start;
+            user-select: none;
+            padding: 15px;
+        }
+
+        .detail-panel {
+            width: 40%;
+            min-width: 350px;
+            max-width: 500px;
+            background: var(--bg-panel);
+            border: 2px solid var(--border-panel);
+            padding: 50px 35px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 16px;
+            box-shadow: 0 0 40px rgba(0,0,0,0.8), 0 0 80px rgba(139,105,20,0.1);
+            position: relative;
+            text-align: center;
+            margin-left: 10px;
+        }
+
+        .close-btn {
+            position: absolute;
+            top: 10px;
+            right: 14px;
+            width: 30px;
+            height: 30px;
+            cursor: pointer;
+            background: rgba(139, 26, 26, 0.2);
+            border: 1px solid rgba(200, 80, 80, 0.4);
+            color: #c08080;
+            font-size: 1rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s;
+            font-family: 'Cinzel', serif;
+            z-index: 10;
+        }
+
+        .close-btn:hover {
+            background: rgba(139, 26, 26, 0.4);
+            color: #ffaaaa;
+        }
+
+        /* Изображение */
+        .detail-image {
+            width: 180px;
+            height: 165px;
+            background: rgba(201,168,76,0.06);
+            border: 2px solid rgba(201,168,76,0.4);
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 4rem;
+            box-shadow: 0 0 20px rgba(0,0,0,0.5);
+            overflow: hidden;
+        }
+
+        .detail-image img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        /* Название */
+        .detail-title {
+            font-family: 'Cinzel', serif;
+            font-size: 1.1rem;
+            font-weight: 900;
+            letter-spacing: 3px;
+            color: var(--gold-light);
+            text-transform: uppercase;
+            text-shadow: 0 0 15px rgba(201,168,76,0.3);
+        }
+
+        /* Метка */
+        .detail-badge {
+            display: inline-block;
+            font-family: 'Cinzel', serif;
+            font-size: 0.5rem;
+            letter-spacing: 2px;
+            padding: 3px 12px;
+            border-radius: 3px;
+            text-transform: uppercase;
+        }
+
+        .detail-badge.unit { background: #cc4444; color: #fff; }
+        .detail-badge.building { background: #44aacc; color: #fff; }
+        .detail-badge.civil { background: var(--gold); color: #000; }
+
+        /* Описание */
+        .detail-description {
+            font-size: 0.7rem;
+            line-height: 1.5;
+            color: #b0a080;
+            text-align: center;
+        }
+
+        /* Характеристики */
+        .detail-stats {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 12px;
+            justify-items: center;
+            font-size: 0.6rem;
+            color: var(--gold);
+            font-family: 'Cinzel', serif;
+            width: 100%;
+        }
+
+        .detail-stat {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 2px;
+        }
+
+        .detail-stat span {
+            color: #fff;
+            font-size: 0.75rem;
+            font-weight: 700;
+        }
+
+        /* Разделитель */
+        .divider-line {
+            width: 100%;
+            height: 1px;
+            background: rgba(201,168,76,0.25);
+        }
+    </style>
+</head>
+<body>
+
+<div class="detail-panel" id="detailPanel">
+
+    <button class="close-btn" onclick="closeDetail()" title="Закрыть">✕</button>
+
+    <!-- Изображение -->
+    <div class="detail-image" id="detailImage">🛡️</div>
+
+    <!-- Название -->
+    <div class="detail-title" id="detailTitle">Легионер</div>
+
+    <!-- Метка -->
+    <div class="detail-badge unit" id="detailBadge">ЮНИТ</div>
+
+    <!-- Характеристики -->
+    <div class="detail-stats" id="detailStats">
+        <div class="detail-stat">⚔️ Атака<span>14</span></div>
+        <div class="detail-stat">🛡️ Защита<span>18</span></div>
+        <div class="detail-stat">❤️ Здоровье<span>120</span></div>
+        <div class="detail-stat">👥 Солдат<span>100</span></div>
+        <div class="detail-stat">⏳ Найм<span>1 ход</span></div>
+        <div class="detail-stat">ⓓ Цена<span>500</span></div>
+    </div>
+
+    <div class="divider-line"></div>
+
+    <!-- Историческая справка -->
+    <div class="detail-description" id="detailDesc">
+        Римский легионер — основа военной мощи Республики.<br>
+        Тяжёлая пехота, вооружённая гладиусом и скутумом.<br>
+        Бронзовая лорика сегментата защищает корпус.<br>
+        Красный плащ и бронзовый шлем с гребнем — символ легиона.<br>
+        Легионеры сражались в манипулярном строю.<br>
+        Дисциплина и тренировки делали их непобедимыми.
+    </div>
+
+</div>
+
+<script>
+    const entityData = {
+        legionary: {
+            icon: '🛡️', title: 'Легионер', badge: 'ЮНИТ', badgeClass: 'unit',
+            stats: [
+                { label: '⚔️ Атака', value: '14' },
+                { label: '🛡️ Защита', value: '18' },
+                { label: '❤️ Здоровье', value: '120' },
+                { label: '👥 Солдат', value: '100' },
+                { label: '⏳ Найм', value: '1 ход' },
+                { label: 'ⓓ Цена', value: '500' }
+            ],
+            description: 'Римский легионер — основа военной мощи Республики.<br>Тяжёлая пехота, вооружённая гладиусом и скутумом.<br>Бронзовая лорика сегментата защищает корпус.<br>Красный плащ и бронзовый шлем с гребнем — символ легиона.<br>Легионеры сражались в манипулярном строю.<br>Дисциплина и тренировки делали их непобедимыми.'
+        },
+        veles: {
+            icon: '🗡️', title: 'Велит', badge: 'ЮНИТ', badgeClass: 'unit',
+            stats: [
+                { label: '⚔️ Атака', value: '8' },
+                { label: '🛡️ Защита', value: '6' },
+                { label: '❤️ Здоровье', value: '80' },
+                { label: '👥 Солдат', value: '100' },
+                { label: '⏳ Найм', value: '1 ход' },
+                { label: 'ⓓ Цена', value: '300' }
+            ],
+            description: 'Велиты — лёгкие застрельщики римской армии.<br>Набирались из молодых и бедных граждан.<br>Носили волчьи шкуры как отличительный знак.<br>Вооружены дротиками (пилумами) и коротким мечом.<br>Их задача — изматывать врага перед атакой тяжёлой пехоты.<br>Были самой многочисленной частью легиона.'
+        },
+        equites: {
+            icon: '🐴', title: 'Эквиты', badge: 'ЮНИТ', badgeClass: 'unit',
+            stats: [
+                { label: '⚔️ Атака', value: '18' },
+                { label: '🛡️ Защита', value: '12' },
+                { label: '❤️ Здоровье', value: '150' },
+                { label: '👥 Солдат', value: '100' },
+                { label: '⏳ Найм', value: '2 хода' },
+                { label: 'ⓓ Цена', value: '800' }
+            ],
+            description: 'Эквиты — римская кавалерия из всаднического сословия.<br>Носили бронзовые доспехи и круглые щиты.<br>Использовались для фланговых ударов и разведки.<br>Набирались из богатых граждан, способных купить коня.<br>Сыграли ключевую роль в победах Сципиона Африканского.<br>После Второй Пунической войны их тактика улучшилась.'
+        },
+        barracks: {
+            icon: '🏛️', title: 'Казармы', badge: 'ЗДАНИЕ', badgeClass: 'building',
+            stats: [
+                { label: '⭐ Уровень', value: 'II' },
+                { label: '⏳ Строит.', value: '3 хода' },
+                { label: 'ⓓ Цена', value: '1 200' },
+                { label: '👥 Гарнизон', value: '+500' },
+                { label: '📋 Найм', value: '+1 слот' },
+                { label: '🛡️ Опыт', value: '+1 ур.' }
+            ],
+            description: 'Казармы (castra) — военный комплекс для размещения и обучения легионеров.<br>Строились из камня, с внутренним плацем для тренировок.<br>Вмещают до 500 человек постоянного гарнизона.<br>Ускоряют найм и повышают начальный опыт войск.<br>Казармы II уровня открывают доступ к принципам и триариям.<br>Необходимы для строительства кузницы и стен.'
+        }
+        stable: {
+            icon: '🐴', title: 'Конюшни', badge: 'ЗДАНИЕ', badgeClass: 'building',
+            stats: [
+                { label: '⭐ Уровень', value: 'I' },
+                { label: '⏳ Строит.', value: '2 хода' },
+                { label: 'ⓓ Цена', value: '800' },
+                { label: '👥 Конный состав', value: '+200' },
+                { label: '🐎 Мобилизация', value: '+1 ур.' },
+                { label: '🏹 Быстрота', value: '+5%' }
+            ],
+            description: 'Конюшни позволяют содержать римскую кавалерию и ускоряют подготовку эквитов.<br>Служат опорой для отрядов, атакующих фланги.<br>Обеспечивают новые упряжки и лошадей для стремительных вылазок.'
+        },
+        range: {
+            icon: '🏹', title: 'Стрельбище', badge: 'ЗДАНИЕ', badgeClass: 'building',
+            stats: [
+                { label: '⭐ Уровень', value: 'I' },
+                { label: '⏳ Строит.', value: '2 хода' },
+                { label: 'ⓓ Цена', value: '900' },
+                { label: '🎯 Точность', value: '+10%' },
+                { label: '🛡️ Защита', value: '+5%' },
+                { label: '📋 Найм', value: '+1 лучник' }
+            ],
+            description: 'Стрельбище улучшает подготовку метательных войск и увеличивает дальность стрельбы.<br>Стрелки получают больше опыта и становятся опаснее на поле боя.'
+        },
+        temple: {
+            icon: '🏛️', title: 'Храм', badge: 'ЗДАНИЕ', badgeClass: 'civil',
+            stats: [
+                { label: '⭐ Уровень', value: 'I' },
+                { label: '⏳ Строит.', value: '3 хода' },
+                { label: 'ⓓ Цена', value: '1 100' },
+                { label: '🙏 Благослов.', value: '+2' },
+                { label: '📈 Порядок', value: '+8' },
+                { label: '👥 Лояльность', value: '+4%' }
+            ],
+            description: 'Храм укрепляет религиозное влияние и порядок в провинции.<br>Оказывает моральную поддержку легионам и населению.<br>Подарки богам стабилизируют государственную власть.'
+        },
+        arena: {
+            icon: '🏟️', title: 'Арена', badge: 'ЗДАНИЕ', badgeClass: 'civil',
+            stats: [
+                { label: '⭐ Уровень', value: 'I' },
+                { label: '⏳ Строит.', value: '4 хода' },
+                { label: 'ⓓ Цена', value: '2 400' },
+                { label: '🎭 Забава', value: '+12' },
+                { label: '👥 Народ', value: '+300' },
+                { label: '🛡️ Статус', value: '+2' }
+            ],
+            description: 'Арена собирает народ на зрелища гладиаторов и богословские праздники.<br>Повышает порядок и показывает силу римской культуры.<br>Укрепляет власть за счёт удовольствия населения.'
+        },
+        market: {
+            icon: '🏥', title: 'Торговая площадь', badge: 'ЗДАНИЕ', badgeClass: 'civil',
+            stats: [
+                { label: '⭐ Уровень', value: 'I' },
+                { label: '⏳ Строит.', value: '2 хода' },
+                { label: 'ⓓ Цена', value: '1 000' },
+                { label: '💰 Торговля', value: '+10%' },
+                { label: '📦 Снабжение', value: '+8' },
+                { label: '👥 Торговцы', value: '+120' }
+            ],
+            description: 'Торговая площадь оживляет рынок и улучшает снабжение провинции.<br>Здесь встречаются купцы и ремесленники, укрепляя экономику.'
+        }
+    };
+
+    function closeDetail() {
+        if (window.parent && window.parent.closeSecondaryModal) {
+            window.parent.closeSecondaryModal();
+        } else if (window.parent && window.parent.closeModal) {
+            window.parent.closeModal();
+        } else if (window.parent && window.parent.document) {
+            const popup = window.parent.document.getElementById('detailPopup');
+            if (popup) {
+                popup.style.display = 'none';
+                return;
+            }
+            window.close();
+        } else {
+            window.close();
+        }
+    }
+
+    function loadEntityData(entityId) {
+        const data = entityData[entityId];
+        if (!data) {
+            document.getElementById('detailImage').innerHTML = '❓';
+            document.getElementById('detailTitle').textContent = 'Нет данных';
+            const badge = document.getElementById('detailBadge');
+            badge.textContent = 'НЕИЗВЕСТНО';
+            badge.className = 'detail-badge civil';
+            document.getElementById('detailStats').innerHTML = '<div class="detail-stat">—<span>—</span></div>';
+            document.getElementById('detailDesc').innerHTML = 'Информация по этой сущности пока отсутствует.';
+            return;
+        }
+
+        document.getElementById('detailImage').innerHTML = data.icon;
+        document.getElementById('detailTitle').textContent = data.title;
+
+        const badge = document.getElementById('detailBadge');
+        badge.textContent = data.badge;
+        badge.className = 'detail-badge ' + data.badgeClass;
+
+        const statsContainer = document.getElementById('detailStats');
+        statsContainer.innerHTML = data.stats.map(s =>
+            `<div class="detail-stat">${s.label}<span>${s.value}</span></div>`
+        ).join('');
+
+        document.getElementById('detailDesc').innerHTML = data.description;
+    }
+
+    const urlParams = new URLSearchParams(window.location.search);
+    const entityParam = urlParams.get('entity') || 'legionary';
+    loadEntityData(entityParam);
+</script>
+
+</body>
+</html>

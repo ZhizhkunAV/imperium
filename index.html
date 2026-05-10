@@ -1,0 +1,179 @@
+﻿<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Загрузка — Имперская кампания</title>
+
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700;900&family=EB+Garamond:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
+
+    <style>
+        :root {
+            --gold: #c9a84c;
+            --gold-light: #e0c878;
+            --gold-dark: #8b6914;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            background: #000;
+            font-family: 'EB Garamond', 'Georgia', serif;
+            color: var(--gold);
+            min-height: 100vh;
+            overflow: hidden;
+            user-select: none;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        #loadingScreen {
+            width: 100vw;
+            height: 100vh;
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-end;
+            padding-bottom: 6vh;
+        }
+
+        .loading-bg {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            z-index: 1;
+        }
+
+        .loading-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: radial-gradient(ellipse at 50% 50%, transparent 30%, rgba(0,0,0,0.55) 100%);
+            z-index: 2;
+        }
+
+        .loading-title {
+            position: absolute;
+            top: 40%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-family: 'Cinzel', serif;
+            font-size: 3rem;
+            font-weight: 900;
+            letter-spacing: 10px;
+            text-transform: uppercase;
+            color: var(--gold-light);
+            text-shadow: 0 0 40px rgba(201,168,76,0.5), 0 0 80px rgba(201,168,76,0.3), 2px 2px 4px rgba(0,0,0,0.9);
+            z-index: 5;
+            opacity: 0.9;
+        }
+
+        .loading-bar-container {
+            width: 66%;
+            max-width: 800px;
+            height: 7px;
+            background: rgba(0,0,0,0.7);
+            border: 1px solid rgba(201,168,76,0.45);
+            position: relative;
+            z-index: 5;
+            border-radius: 2px;
+        }
+
+        .loading-bar-fill {
+            height: 100%;
+            width: 0%;
+            background: linear-gradient(90deg, var(--gold-dark), var(--gold), var(--gold-light));
+            box-shadow: 0 0 20px rgba(201,168,76,0.7);
+            transition: width 0.05s linear;
+            border-radius: 2px;
+        }
+
+        .loading-hint {
+            margin-top: 14px;
+            font-family: 'Cinzel', serif;
+            font-size: 0.65rem;
+            letter-spacing: 2px;
+            color: rgba(201,168,76,0.7);
+            text-transform: uppercase;
+            text-align: center;
+            min-height: 24px;
+            z-index: 5;
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.9);
+        }
+    </style>
+</head>
+<body>
+
+    <div id="loadingScreen">
+        <img id="loadingBg" class="loading-bg" src="assets/images/startScreen/1.png" alt="Loading screen">
+        <div class="loading-overlay"></div>
+        <div class="loading-title">IMPERIVM</div>
+
+        <div class="loading-bar-container">
+            <div class="loading-bar-fill" id="loadingBar"></div>
+        </div>
+        <div class="loading-hint" id="loadingHint">Загрузка легионов...</div>
+    </div>
+
+    <script>
+        const loadingBg = document.getElementById('loadingBg');
+        const loadingBar = document.getElementById('loadingBar');
+        const loadingHint = document.getElementById('loadingHint');
+
+        const loadingImages = [
+            'assets/images/startScreen/1.png',
+            'assets/images/startScreen/2.png'
+        ];
+
+        const hints = [
+            'Загрузка легионов...',
+            'Построение когорт...',
+            'Точение гладиусов...',
+            'Полировка доспехов...'
+        ];
+
+        const TOTAL_DURATION = 4000;
+        const TICK = 50;
+        const steps = TOTAL_DURATION / TICK;
+        const incrementPerStep = 100 / steps;
+
+        let hintIndex = 0;
+        const hintInterval = setInterval(() => {
+            hintIndex = (hintIndex + 1) % hints.length;
+            loadingHint.textContent = hints[hintIndex];
+        }, 1000);
+
+        let progress = 0;
+        let imageIndex = 0;
+        const imageSwapTime = TOTAL_DURATION / loadingImages.length;
+        const loadInterval = setInterval(() => {
+            progress = Math.min(100, progress + incrementPerStep);
+            loadingBar.style.width = progress + '%';
+
+            if (progress >= imageSwapTime * (imageIndex + 1) / TOTAL_DURATION * 100 && imageIndex < loadingImages.length - 1) {
+                imageIndex += 1;
+                loadingBg.src = loadingImages[imageIndex];
+            }
+
+            if (progress >= 100) {
+                clearInterval(loadInterval);
+                clearInterval(hintInterval);
+                loadingHint.textContent = 'Загрузка завершена';
+                loadingBar.style.width = '100%';
+
+                setTimeout(() => {
+                    window.location.href = 'pages/main.html';
+                }, 400);
+            }
+        }, TICK);
+    </script>
+
+</body>
+</html>

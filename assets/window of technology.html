@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Описание технологии</title>
+
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700;900&family=EB+Garamond:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
+
+    <style>
+        :root {
+            --gold: #c9a84c;
+            --gold-light: #e0c878;
+            --gold-dark: #8b6914;
+            --bronze: #6b5a3a;
+            --text: #d4c5a9;
+            --bg-panel: rgba(5, 3, 1, 0.92);
+            --border-panel: rgba(180, 140, 60, 0.5);
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            background: #0a0502;
+            background-image:
+                radial-gradient(ellipse at 50% 50%, rgba(40, 25, 10, 0.4) 0%, transparent 70%),
+                radial-gradient(ellipse at center, transparent 30%, rgba(0,0,0,0.6) 100%);
+            font-family: 'EB Garamond', 'Georgia', serif;
+            color: var(--text);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            user-select: none;
+            padding: 15px;
+        }
+
+        .detail-panel {
+            width: 100%;
+            max-width: calc(1050px + 85px + 85px);
+            background: var(--bg-panel);
+            border: 2px solid var(--border-panel);
+            padding: 125px 60px 0 60px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 20px;
+            box-shadow: 0 0 40px rgba(0,0,0,0.8), 0 0 80px rgba(139,105,20,0.1);
+            position: relative;
+            text-align: center;
+        }
+
+        .close-btn {
+            position: absolute;
+            top: 10px;
+            right: 14px;
+            width: 30px;
+            height: 30px;
+            cursor: pointer;
+            background: rgba(139, 26, 26, 0.2);
+            border: 1px solid rgba(200, 80, 80, 0.4);
+            color: #c08080;
+            font-size: 1rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s;
+            font-family: 'Cinzel', serif;
+            z-index: 10;
+        }
+
+        .close-btn:hover {
+            background: rgba(139, 26, 26, 0.4);
+            color: #ffaaaa;
+        }
+
+        /* Изображение технологии: шире на 20%, выше на 10% от 180 */
+        .detail-image {
+            width: 216px;
+            height: 198px;
+            background: rgba(201,168,76,0.06);
+            border: 2px solid rgba(201,168,76,0.4);
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 5rem;
+            box-shadow: 0 0 20px rgba(0,0,0,0.5);
+        }
+
+        .detail-image img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            border-radius: 6px;
+        }
+
+        /* Название технологии */
+        .detail-title {
+            font-family: 'Cinzel', serif;
+            font-size: 1.2rem;
+            font-weight: 900;
+            letter-spacing: 3px;
+            color: var(--gold-light);
+            text-transform: uppercase;
+            text-shadow: 0 0 15px rgba(201,168,76,0.3);
+        }
+
+        /* Метка */
+        .detail-badge {
+            display: inline-block;
+            font-family: 'Cinzel', serif;
+            font-size: 0.5rem;
+            letter-spacing: 2px;
+            padding: 3px 12px;
+            border-radius: 3px;
+            text-transform: uppercase;
+        }
+
+        .detail-badge.military {
+            background: #cc4444;
+            color: #fff;
+        }
+
+        .detail-badge.peaceful {
+            background: #44aacc;
+            color: #fff;
+        }
+
+        .detail-badge.root {
+            background: var(--gold);
+            color: #000;
+        }
+
+        /* Историческая справка */
+        .detail-description {
+            font-size: 0.75rem;
+            line-height: 1.6;
+            color: #b0a080;
+            text-align: center;
+        }
+
+        /* Что открывает */
+        .detail-unlocks {
+            font-size: 0.65rem;
+            color: #4caf50;
+            font-style: italic;
+            border-top: 1px solid rgba(201,168,76,0.2);
+            padding-top: 12px;
+            width: 100%;
+            text-align: center;
+        }
+
+        /* Стоимость */
+        .detail-cost {
+            font-family: 'Cinzel', serif;
+            font-size: 0.6rem;
+            color: var(--gold);
+            letter-spacing: 1px;
+        }
+
+        /* Контейнер для низа: черта + кнопка */
+        .bottom-section {
+            width: 100%;
+            margin-top: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 0;
+        }
+
+        .divider-line {
+            width: 100%;
+            height: 1px;
+            background: rgba(201,168,76,0.25);
+        }
+
+        .btn-container {
+            width: 100%;
+            display: flex;
+            justify-content: flex-end;
+            padding: 0;
+            margin: 0;
+        }
+
+        .btn-research {
+            font-family: 'Cinzel', serif;
+            font-size: 0.7rem;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            padding: 10px 30px;
+            cursor: pointer;
+            transition: all 0.3s;
+            background: rgba(201,168,76,0.1);
+            border: 2px solid var(--gold);
+            color: var(--gold-light);
+            margin: 0;
+        }
+
+        .btn-research:hover {
+            background: rgba(201,168,76,0.2);
+            box-shadow: 0 0 20px rgba(201,168,76,0.3);
+            color: #fff;
+        }
+
+        .btn-research.researched {
+            background: rgba(76,175,80,0.15);
+            border-color: #4caf50;
+            color: #4caf50;
+            pointer-events: none;
+        }
+    </style>
+</head>
+<body>
+
+<div class="detail-panel" id="detailPanel">
+
+    <button class="close-btn" onclick="closeDetail()" title="Закрыть">✕</button>
+
+    <div class="detail-image" id="detailImage">🌾</div>
+
+    <div class="detail-title" id="detailTitle">Земледелие</div>
+
+    <div class="detail-badge root" id="detailBadge">ОСНОВА</div>
+
+    <div class="detail-description" id="detailDesc">
+        Переход от скотоводства к оседлому земледелию стал поворотным моментом в истории Рима.<br>
+        Осушение болот Лациума позволило превратить дикие поля в плодородные пашни.<br>
+        Пшеница, ячмень и оливки составили основу рациона растущего города.<br>
+        Излишки зерна позволили содержать постоянную армию, не зависящую от сезона.<br>
+        Зерновые склады (horrea) защищали Рим от голода в неурожайные годы.<br>
+        Аграрная реформа положила начало римскому господству над Средиземноморьем.
+    </div>
+
+    <div class="detail-cost" id="detailCost">✅ Уже изучено</div>
+
+    <div class="detail-unlocks" id="detailUnlocks">
+        Открывает: Фермы, зерновые склады, амбары
+    </div>
+
+    <div class="bottom-section">
+        <div class="divider-line"></div>
+        <div class="btn-container">
+            <button class="btn-research researched" id="btnResearch" onclick="researchTech()">✓ Изучено</button>
+        </div>
+    </div>
+
+</div>
+
+<script>
+    const techData = {
+        farming: {
+            icon: '🌾', title: 'Земледелие', badge: 'ОСНОВА', badgeClass: 'root',
+            image: './images/technology/RomeErth.png',
+            description: 'Переход от скотоводства к оседлому земледелию стал поворотным моментом в истории Рима.<br>Осушение болот Лациума позволило превратить дикие поля в плодородные пашни.<br>Пшеница, ячмень и оливки составили основу рациона растущего города.<br>Излишки зерна позволили содержать постоянную армию, не зависящую от сезона.<br>Зерновые склады (horrea) защищали Рим от голода в неурожайные годы.<br>Аграрная реформа положила начало римскому господству над Средиземноморьем.',
+            cost: '✅ Уже изучено', unlocks: 'Открывает: Фермы, зерновые склады, амбары', researched: true
+        },
+        tactics: {
+            icon: '🛡️', title: 'Тактика легиона', badge: 'ВОЕННАЯ', badgeClass: 'military',
+            image: './images/technology/kogorta.jpeg',
+            description: 'Манипулярный строй заменил неповоротливую греческую фалангу на гибкую систему независимых отрядов.<br>Легион делился на манипулы — группы по 120 человек, способные действовать самостоятельно.<br>Три линии (гастаты, принципы, триарии) позволяли изматывать врага волнами.<br>Велиты — лёгкие застрельщики — начинали бой, забрасывая противника дротиками.<br>Построение «черепаха» (testudo) делало легион неуязвимым для стрел и камней.<br>Эта тактика принесла Риму победы над Пирром, Ганнибалом и македонской фалангой.',
+            cost: '⏳ 3 хода | ⓓ 800', unlocks: 'Открывает: Велиты, принципы, триарии', researched: false
+        },
+        roads: {
+            icon: '🛣️', title: 'Римские дороги', badge: 'МИРНАЯ', badgeClass: 'peaceful',
+            image: './images/technology/road.png',
+            description: 'Via Appia — первая римская дорога, проложенная в 312 г. до н.э. при цензоре Аппии Клавдии.<br>Дороги строились по многослойной технологии: песок, гравий, булыжник и каменные плиты.<br>Выпуклая форма полотна отводила дождевую воду в дренажные канавы по бокам.<br>Легионы перемещались по дорогам втрое быстрее, чем по грунтовым трактам.<br>Вдоль дорог устанавливались мильные камни, указывающие расстояние до Рима.<br>К концу Республики сеть дорог покрыла всю Италию, связав Рим с провинциями.',
+            cost: '⏳ 2 хода | ⓓ 600', unlocks: 'Открывает: Дороги I уровня, торговые посты', researched: false
+        },
+        gladius: {
+            icon: '⚔️', title: 'Гладиус', badge: 'ВОЕННАЯ', badgeClass: 'military',
+            image: './images/technology/gladius.png',
+            description: 'Гладиус Hispaniensis — короткий меч, заимствованный римлянами у кельтиберов Испании.<br>Клинок длиной 50-60 см, обоюдоострый, с усиленным остриём для колющих ударов.<br>В сочетании с большим щитом (скутумом) легионер наносил удары из-за укрытия.<br>Рукоять из слоновой кости с шарообразным навершием обеспечивала надёжный хват.<br>Гладиус оказался идеален для ближнего боя в плотном строю, где длинные мечи бесполезны.<br>Массовое производство гладиусов стало возможным благодаря римским кузницам.',
+            cost: '🔒 Нужна «Тактика» | 3 хода | ⓓ 1 000', unlocks: 'Открывает: Легионеров (тяжёлая пехота)', researched: false
+        },
+        masonry: {
+            icon: '🏛️', title: 'Каменная кладка', badge: 'МИРНАЯ', badgeClass: 'peaceful',
+            image: './images/technology/stone.png',
+            description: 'Opus quadratum — техника кладки из тёсаных каменных блоков, перенятая у этрусков.<br>Блоки укладывались без раствора, удерживаясь собственным весом и точной подгонкой.<br>Римляне использовали вулканический туф и травертин — лёгкие, но прочные породы.<br>Каменная кладка позволила строить городские стены, казармы и акведуки на века.<br>В отличие от деревянных построек, каменные здания не горели при пожарах и осадах.<br>Многие римские сооружения из opus quadratum сохранились до наших дней.',
+            cost: '🔒 Нужны «Дороги» | 3 хода | ⓓ 1 200', unlocks: 'Открывает: Городские стены, казармы, акведук', researched: false
+        },
+        pilum: {
+            icon: '🏹', title: 'Пилум', badge: 'ВОЕННАЯ', badgeClass: 'military',
+            description: 'Пилум — тяжёлый метательный дротик, ставший визитной карточкой римского легионера.<br>Длинный железный наконечник крепился к деревянному древку заклёпками или штифтом.<br>При попадании в щит наконечник гнулся, делая щит врага бесполезным в ближнем бою.<br>Каждый легионер нёс два пилума: лёгкий (для дальнего броска) и тяжёлый (для ближнего).<br>Залп пилумов перед атакой деморализовал врага и пробивал бреши в строю.<br>Пилум оказался настолько эффективен, что оставался на вооружении до падения Империи.',
+            cost: '🔒 Нужен «Гладиус» | 4 хода | ⓓ 1 500', unlocks: 'Открывает: Бросок пилума перед атакой (+ урон)', researched: false
+        },
+        forge: {
+            icon: '🔥', title: 'Горн', badge: 'МИРНАЯ', badgeClass: 'peaceful',
+            image: './images/technology/gorn.png',
+            description: 'Кузнечный горн на каменном основании — сердце римской металлургии и оружейного дела.<br>Мехи из кожи и дерева нагнетали воздух, поднимая температуру в горне до 1200°C.<br>Древесный уголь служил топливом, обеспечивая чистый жар без примесей серы.<br>В горне нагревали железные заготовки перед ковкой в гладиусы, наконечники и доспехи.<br>Переход от бронзового оружия к железному дал римлянам решающее преимущество.<br>Кузницы при легионах позволяли чинить оружие прямо в походе, не возвращаясь в Рим.',
+            cost: '🔒 Нужна «Кладка» | 3 хода | ⓓ 1 500', unlocks: 'Открывает: Кузницу, улучшение оружия и доспехов', researched: false
+        },
+        cavalry: {
+            icon: '🐴', title: 'Римская конница', badge: 'ВОЕННАЯ', badgeClass: 'military',
+            description: 'Эквиты — римская кавалерия, набиравшаяся из всаднического сословия (ordo equester).<br>В отличие от пехоты, эквиты носили круглые щиты (парма) и длинные копья (hasta).<br>Бронзовый шлем, кольчуга и поножи защищали всадника в ближнем бою.<br>Кавалерия использовалась для фланговых ударов, разведки и преследования отступающих.<br>После Второй Пунической войны римляне переняли тактику нумидийской лёгкой конницы.<br>Эквиты сыграли ключевую роль в победах Сципиона Африканского при Заме.',
+            cost: '🔒 Нужен «Пилум» + «Горн» | 5 ходов | ⓓ 2 500', unlocks: 'Открывает: Эквитов (тяжёлая кавалерия)', researched: false
+        },
+        colosseum: {
+            icon: '🏟️', title: 'Колизей', badge: 'МИРНАЯ', badgeClass: 'peaceful',
+            description: 'Амфитеатр Флавиев, известный как Колизей, был построен в 72-80 гг. н.э. на месте озера.<br>Огромное сооружение вмещало до 50 000 зрителей и имело 80 входов-выходов.<br>Под ареной располагался гипогей — подземный лабиринт для зверей, гладиаторов и декораций.<br>Гладиаторские бои, морские сражения (навмахии) и казни стали любимым зрелищем плебса.<br>«Хлеба и зрелищ» — политическая формула, позволявшая сенаторам контролировать настроения толпы.<br>Колизей остаётся символом инженерного гения Рима и его культурного наследия.',
+            cost: '🔒 Нужен «Горн» | 6 ходов | ⓓ 4 000', unlocks: 'Открывает: Колизей, гладиаторов (+50 к порядку)', researched: false
+        }
+    };
+
+    function closeDetail() {
+        if (window.parent && window.parent.closeSecondaryModal) {
+            window.parent.closeSecondaryModal();
+        } else if (window.parent && window.parent.closeModal) {
+            window.parent.closeModal();
+        } else if (window.parent && window.parent.document) {
+            const detailPopup = window.parent.document.getElementById('detailPopup');
+            if (detailPopup) {
+                detailPopup.style.display = 'none';
+            }
+        } else {
+            window.close();
+        }
+    }
+
+    function loadTechData(techId) {
+        const data = techData[techId];
+        if (!data) return;
+        document.getElementById('detailImage').innerHTML = data.image ? `<img src="${data.image}" alt="${data.title}">` : data.icon;
+        document.getElementById('detailTitle').textContent = data.title;
+        const badge = document.getElementById('detailBadge');
+        badge.textContent = data.badge;
+        badge.className = 'detail-badge ' + data.badgeClass;
+        document.getElementById('detailDesc').innerHTML = data.description;
+        document.getElementById('detailCost').textContent = data.cost;
+        document.getElementById('detailUnlocks').textContent = data.unlocks;
+        const btn = document.getElementById('btnResearch');
+        if (data.researched) {
+            btn.textContent = '✓ Изучено';
+            btn.className = 'btn-research researched';
+        } else {
+            btn.textContent = '📚 Изучить';
+            btn.className = 'btn-research';
+        }
+    }
+
+    function researchTech() {
+        const btn = document.getElementById('btnResearch');
+        if (btn.classList.contains('researched')) return;
+        btn.textContent = '✓ Изучено';
+        btn.className = 'btn-research researched';
+        document.getElementById('detailCost').textContent = '✅ Изучено!';
+    }
+
+    const urlParams = new URLSearchParams(window.location.search);
+    const techParam = urlParams.get('tech') || 'farming';
+    loadTechData(techParam);
+</script>
+
+</body>
+</html>

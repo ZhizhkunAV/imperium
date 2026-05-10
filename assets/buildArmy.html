@@ -1,0 +1,458 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Панель армии</title>
+
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700;900&family=EB+Garamond:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
+
+    <style>
+        :root {
+            --gold: #c9a84c;
+            --gold-light: #e0c878;
+            --gold-dark: #8b6914;
+            --bronze: #6b5a3a;
+            --text: #d4c5a9;
+            --bg-panel: rgba(5, 3, 1, 0.95);
+            --border-panel: rgba(180, 140, 60, 0.5);
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            background: transparent;
+            font-family: 'EB Garamond', 'Georgia', serif;
+            color: var(--text);
+            height: 100vh;
+            overflow: hidden;
+            user-select: none;
+            display: flex;
+            justify-content: flex-end;
+            align-items: flex-start;
+            pointer-events: none;
+        }
+
+        .army-panel {
+            width: 100%;
+            max-width: none;
+            height: 100%;
+            background: var(--bg-panel);
+            border: 2px solid var(--gold);
+            border-right: none;
+            pointer-events: auto;
+            display: flex;
+            flex-direction: column;
+            box-shadow: -10px 0 30px rgba(0,0,0,0.8);
+            margin: 0;
+        }
+
+        .army-panel-header {
+            padding: 10px 14px;
+            border-bottom: 1px solid var(--border-panel);
+            display: flex; justify-content: space-between; align-items: center;
+            flex-shrink: 0;
+        }
+
+        .army-panel-title {
+            font-family: 'Cinzel', serif;
+            font-size: 0.9rem; font-weight: 900;
+            color: var(--gold-light);
+            letter-spacing: 2px; text-transform: uppercase;
+        }
+
+        .army-panel-close {
+            width: 30px; height: 30px;
+            cursor: pointer;
+            background: rgba(139,26,26,0.2);
+            border: 1px solid rgba(200,80,80,0.4);
+            color: #c08080; font-size: 0.9rem;
+            display: flex; align-items: center; justify-content: center;
+            transition: all 0.3s;
+            font-family: 'Cinzel', serif;
+        }
+        .army-panel-close:hover { background: rgba(139,26,26,0.4); color: #ffaaaa; }
+
+        .army-panel-content {
+            flex: 1; padding: 10px 14px;
+            overflow-y: auto;
+            display: flex; flex-direction: column; gap: 8px;
+        }
+
+        .army-section-title {
+            font-family: 'Cinzel', serif;
+            font-size: 0.65rem; color: var(--gold);
+            letter-spacing: 1.5px; text-transform: uppercase;
+            border-bottom: 1px solid rgba(201,168,76,0.2);
+            padding-bottom: 3px; margin-bottom: 0;
+        }
+
+        .army-general-section {
+            display: flex; gap: 10px; align-items: center;
+            padding: 6px; background: rgba(0,0,0,0.3);
+            border: 1px solid rgba(201,168,76,0.2);
+        }
+
+        .army-general-portrait {
+            width: 64px; height: 76px;
+            background: rgba(0,0,0,0.5);
+            border: 2px solid rgba(201,168,76,0.4);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 2rem; flex-shrink: 0;
+        }
+
+        .army-general-info { display: flex; flex-direction: column; gap: 3px; }
+
+        .army-general-name {
+            font-family: 'Cinzel', serif;
+            font-size: 0.75rem; font-weight: 700;
+            color: var(--gold-light); letter-spacing: 1px;
+        }
+
+        .army-general-stats { font-size: 0.58rem; color: #8b7355; display: flex; gap: 10px; }
+        .army-general-stat { display: flex; align-items: center; gap: 2px; }
+
+        /* Вкладки */
+        .army-tabs { display: flex; gap: 3px; flex-shrink: 0; }
+
+        .army-tab {
+            font-family: 'Cinzel', serif;
+            font-size: 0.55rem; letter-spacing: 1px; text-transform: uppercase;
+            cursor: pointer; background: transparent;
+            border: 1px solid rgba(201,168,76,0.25); color: #8b7355;
+            transition: all 0.2s; padding: 6px 12px;
+        }
+        .army-tab:hover { color: var(--gold-light); border-color: rgba(201,168,76,0.5); }
+        .army-tab.active {
+            color: #fff; border-color: var(--gold);
+            background: rgba(201,168,76,0.15);
+            box-shadow: 0 0 8px rgba(201,168,76,0.2);
+        }
+
+        /* Сетка */
+        .army-unit-grid {
+            display: grid;
+            grid-template-columns: repeat(9, 1fr);
+            gap: 4px; flex-shrink: 0;
+        }
+
+        .army-unit-card {
+            aspect-ratio: 3/4;
+            background: rgba(0,0,0,0.5);
+            border: 1px solid rgba(201,168,76,0.2);
+            cursor: pointer; transition: all 0.2s;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 1.4rem; position: relative;
+        }
+        .army-unit-card:hover { border-color: var(--gold); background: rgba(201,168,76,0.08); }
+
+        /* Здание в очереди — скрыто из доступных */
+        .army-unit-card.used {
+            display: none;
+            pointer-events: none;
+        }
+
+        /* Здание в сетке очереди */
+        .army-unit-card.queue-filled {
+            border-color: rgba(201,168,76,0.5);
+            background: rgba(201,168,76,0.1);
+        }
+        .army-unit-card.queue-filled:hover {
+            border-color: #c05050;
+            background: rgba(200,80,80,0.15);
+        }
+
+        .army-unit-card .card-label {
+            position: absolute; bottom: 2px;
+            font-family: 'Cinzel', serif; font-size: 0.4rem;
+            color: rgba(201,168,76,0.6); text-align: center;
+            letter-spacing: 0.5px; text-transform: uppercase;
+        }
+
+        .hidden { display: none !important; }
+
+        /* Полоса */
+        .recruit-queue {
+            flex-shrink: 0;
+            border: 1px solid rgba(201,168,76,0.3);
+            background: rgba(0,0,0,0.3);
+            min-height: 24px; display: flex; align-items: center;
+            padding: 2px 10px;
+        }
+
+        .recruit-queue-label {
+            font-family: 'Cinzel', serif;
+            font-size: 0.55rem; color: var(--gold);
+            letter-spacing: 1px; margin-right: 10px; white-space: nowrap;
+        }
+    </style>
+</head>
+<body>
+
+<div class="army-panel">
+
+    <div class="army-panel-header">
+        <div class="army-panel-title">⚔️ Армия</div>
+        <button class="army-panel-close" onclick="closePanel()">✕</button>
+    </div>
+
+    <div class="army-panel-content">
+
+        <!-- Командующий -->
+        <div class="army-section-title">👤 Командующий</div>
+        <div class="army-general-section">
+            <div class="army-general-portrait">🏛️</div>
+            <div class="army-general-info">
+                <div class="army-general-name">Сципион Африканский</div>
+                <div class="army-general-stats">
+                    <span class="army-general-stat">🛡️ 10</span>
+                    <span class="army-general-stat">⚔️ 8</span>
+                    <span class="army-general-stat">🏛️ 7</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Вкладки -->
+        <div class="army-tabs">
+            <button class="army-tab active" data-tab="recruit" onclick="switchTab('recruit')">📋 Найм</button>
+            <button class="army-tab" data-tab="build" onclick="switchTab('build')">🏗️ Строительство</button>
+            <button class="army-tab" data-tab="repair" onclick="switchTab('repair')">🔧 Ремонт</button>
+            <button class="army-tab" data-tab="retrain" onclick="switchTab('retrain')">🔄 Переобучение</button>
+        </div>
+
+        <!-- ====== НАЙМ ====== -->
+        <div id="tab-recruit">
+            <div class="army-section-title">⚔️ Состав (<span id="recruitCount">0</span>/18)</div>
+            <div class="army-unit-grid" id="recruitGrid">
+                <div class="army-unit-card" data-entity="legionary" oncontextmenu="openDetail(event,'legionary')" onclick="addUnitToQueue(this, 'legioner', './images/leg.png')">
+                    <img src="./images/leg.png" alt="Легионер" style="width:100%;height:100%;object-fit:contain;">
+                    <span class="card-label">Легионер</span>
+                </div>
+                <div class="army-unit-card" data-entity="veles" oncontextmenu="openDetail(event,'veles')" onclick="addUnitToQueue(this, 'velit', './images/velit.png')">
+                    <img src="./images/velit.png" alt="Велит" style="width:100%;height:100%;object-fit:contain;">
+                    <span class="card-label">Велит</span>
+                </div>
+                <div class="army-unit-card"></div>
+                <div class="army-unit-card"></div>
+                <div class="army-unit-card"></div>
+                <div class="army-unit-card"></div>
+                <div class="army-unit-card"></div>
+                <div class="army-unit-card"></div>
+                <div class="army-unit-card"></div>
+            </div>
+            <div class="recruit-queue"><span class="recruit-queue-label">📋 Очередь найма:</span></div>
+            <div class="army-unit-grid" id="queueGridRecruit">
+                <div class="army-unit-card"></div><div class="army-unit-card"></div><div class="army-unit-card"></div>
+                <div class="army-unit-card"></div><div class="army-unit-card"></div><div class="army-unit-card"></div>
+                <div class="army-unit-card"></div><div class="army-unit-card"></div><div class="army-unit-card"></div>
+            </div>
+            <div class="army-unit-grid" id="queueGridRecruit2">
+                <div class="army-unit-card"></div><div class="army-unit-card"></div><div class="army-unit-card"></div>
+                <div class="army-unit-card"></div><div class="army-unit-card"></div><div class="army-unit-card"></div>
+                <div class="army-unit-card"></div><div class="army-unit-card"></div><div class="army-unit-card"></div>
+            </div>
+        </div>
+
+        <!-- ====== СТРОИТЕЛЬСТВО ====== -->
+        <div id="tab-build" class="hidden">
+            <div class="army-section-title">🏗️ Доступные постройки</div>
+            <div class="army-unit-grid" id="buildGrid1">
+                <div class="army-unit-card" data-id="casarmy" data-entity="barracks" oncontextmenu="openDetail(event,'barracks')" data-img="./images/building/casarmy.png" data-alt="Казармы" onclick="addToQueue(this, '🏛️')">
+                    <img src="./images/building/casarmy.png" alt="Казармы" style="width:100%;height:100%;object-fit:contain;">
+                    <span class="card-label">Казармы</span>
+                </div>
+                <div class="army-unit-card" data-id="stable" data-entity="stable" oncontextmenu="openDetail(event,'stable')" onclick="addToQueue(this, '🐴')">
+                    <span>🐴</span>
+                    <span class="card-label">Конюшни</span>
+                </div>
+                <div class="army-unit-card" data-id="range" data-entity="range" oncontextmenu="openDetail(event,'range')" data-img="./images/building/campVelit.png" data-alt="Стрельбище" onclick="addToQueue(this, '🏹')">
+                    <img src="./images/building/campVelit.png" alt="Стрельбище" style="width:100%;height:100%;object-fit:contain;">
+                    <span class="card-label">Стрельбище</span>
+                </div>
+                <div class="army-unit-card" data-id="temple" data-entity="temple" oncontextmenu="openDetail(event,'temple')" data-img="./images/building/temple.png" data-alt="Храм" onclick="addToQueue(this, '🏛️')">
+                    <img src="./images/building/temple.png" alt="Храм" style="width:100%;height:100%;object-fit:contain;">
+                    <span class="card-label">Храм</span>
+                </div>
+                <div class="army-unit-card" data-id="roads" data-entity="roads" oncontextmenu="openDetail(event,'roads')" onclick="addToQueue(this, '🛣️')"><span>🛣️</span><span class="card-label">Дороги</span></div>
+                <div class="army-unit-card" data-id="farm" data-entity="farm" oncontextmenu="openDetail(event,'farm')" onclick="addToQueue(this, '🌾')"><span>🌾</span><span class="card-label">Фермы</span></div>
+                <div class="army-unit-card" data-id="mine" data-entity="mine" oncontextmenu="openDetail(event,'mine')" onclick="addToQueue(this, '⛏️')"><span>⛏️</span><span class="card-label">Рудник</span></div>
+                <div class="army-unit-card" data-id="walls" data-entity="walls" oncontextmenu="openDetail(event,'walls')" onclick="addToQueue(this, '🏰')"><span>🏰</span><span class="card-label">Стены</span></div>
+                <div class="army-unit-card" data-id="market" data-entity="market" oncontextmenu="openDetail(event,'market')" data-img="./images/building/placeWithBuy.png" data-alt="Торговая площадь" onclick="addToQueue(this, '🏥')">
+                    <img src="./images/building/placeWithBuy.png" alt="Торговая площадь" style="width:100%;height:100%;object-fit:contain;">
+                    <span class="card-label">Торговая площадь</span>
+                </div>
+            </div>
+            <div class="army-unit-grid" id="buildGrid2">
+                <div class="army-unit-card" data-id="port" data-entity="port" oncontextmenu="openDetail(event,'port')" onclick="addToQueue(this, '⚓')"><span>⚓</span><span class="card-label">Порт</span></div>
+                <div class="army-unit-card" data-id="academy" data-entity="academy" oncontextmenu="openDetail(event,'academy')" onclick="addToQueue(this, '📜')"><span>📜</span><span class="card-label">Академия</span></div>
+                <div class="army-unit-card" data-id="arena" data-entity="arena" oncontextmenu="openDetail(event,'arena')" data-img="./images/building/arena.png" data-alt="Арена" onclick="addToQueue(this, '🏟️')">
+                    <img src="./images/building/arena.png" alt="Арена" style="width:100%;height:100%;object-fit:contain;">
+                    <span class="card-label">Арена</span>
+                </div>
+                <div class="army-unit-card" data-id="forge" data-entity="forge" oncontextmenu="openDetail(event,'forge')" onclick="addToQueue(this, '🛡️')"><span>🛡️</span><span class="card-label">Кузница</span></div>
+                <div class="army-unit-card" data-id="aqueduct" data-entity="aqueduct" oncontextmenu="openDetail(event,'aqueduct')" onclick="addToQueue(this, '💧')"><span>💧</span><span class="card-label">Акведук</span></div>
+                <div class="army-unit-card" data-id="forum" data-entity="forum" oncontextmenu="openDetail(event,'forum')" onclick="addToQueue(this, '🏛️')"><span>🏛️</span><span class="card-label">Форум</span></div>
+                <div class="army-unit-card" data-id="theater" data-entity="theater" oncontextmenu="openDetail(event,'theater')" onclick="addToQueue(this, '🎭')"><span>🎭</span><span class="card-label">Театр</span></div>
+                <div class="army-unit-card" data-id="baths" data-entity="baths" oncontextmenu="openDetail(event,'baths')" onclick="addToQueue(this, '🛁')"><span>🛁</span><span class="card-label">Термы</span></div>
+                <div class="army-unit-card" data-id="mine2" data-entity="mine2" oncontextmenu="openDetail(event,'mine2')" onclick="addToQueue(this, '🏔️')"><span>🏔️</span><span class="card-label">Шахта</span></div>
+            </div>
+
+            <div class="recruit-queue"><span class="recruit-queue-label">🏗️ Очередь строительства:</span></div>
+            <div class="army-unit-grid" id="queueGridBuild">
+                <div class="army-unit-card"></div><div class="army-unit-card"></div><div class="army-unit-card"></div>
+                <div class="army-unit-card"></div><div class="army-unit-card"></div><div class="army-unit-card"></div>
+                <div class="army-unit-card"></div><div class="army-unit-card"></div><div class="army-unit-card"></div>
+            </div>
+        </div>
+
+        <!-- ====== РЕМОНТ ====== -->
+        <div id="tab-repair" class="hidden">
+            <div class="army-section-title">🔧 Ремонт</div>
+            <div style="font-size:0.6rem;color:#8b7355;text-align:center;padding:20px;">Ремонт доступен при наличии повреждённых зданий.</div>
+        </div>
+
+        <!-- ====== ПЕРЕОБУЧЕНИЕ ====== -->
+        <div id="tab-retrain" class="hidden">
+            <div class="army-section-title">🔄 Переобучение</div>
+            <div style="font-size:0.6rem;color:#8b7355;text-align:center;padding:20px;">Переобучение доступно при наличии отрядов с опытом.</div>
+        </div>
+
+    </div>
+</div>
+
+<script>
+    let recruitQueue = [];
+    const recruitQueueMax = 18;
+
+    function switchTab(tab) {
+        document.querySelectorAll('div[id^="tab-"]').forEach(el => el.classList.add('hidden'));
+        document.getElementById('tab-' + tab).classList.remove('hidden');
+        document.querySelectorAll('.army-tab').forEach(el => el.classList.remove('active'));
+        document.querySelector(`.army-tab[data-tab="${tab}"]`).classList.add('active');
+    }
+
+    function addUnitToQueue(card, unitType, imageSrc) {
+        if (recruitQueue.length < recruitQueueMax) {
+            recruitQueue.push({ type: unitType, src: imageSrc });
+            updateQueueDisplay();
+        }
+    }
+
+    function updateQueueDisplay() {
+        const allQueueCards = document.querySelectorAll('#queueGridRecruit .army-unit-card, #queueGridRecruit2 .army-unit-card');
+        allQueueCards.forEach(card => {
+            card.innerHTML = '';
+            card.classList.remove('queue-filled');
+            card.onclick = null;
+            card.style.cursor = 'default';
+        });
+        recruitQueue.forEach((unit, idx) => {
+            if (idx < allQueueCards.length) {
+                const card = allQueueCards[idx];
+                card.innerHTML = `<img src="${unit.src}" style="width:90%;height:90%;object-fit:cover;">`;
+                card.classList.add('queue-filled');
+                card.style.cursor = 'pointer';
+                card.onclick = () => removeFromRecruitQueue(idx);
+            }
+        });
+        document.getElementById('recruitCount').textContent = recruitQueue.length;
+    }
+
+    function removeFromRecruitQueue(index) {
+        if (index < 0 || index >= recruitQueue.length) return;
+        recruitQueue.splice(index, 1);
+        updateQueueDisplay();
+    }
+
+    function closePanel() {
+        if (window.parent && window.parent.closeModal) {
+            window.parent.closeModal();
+        }
+    }
+
+    function openDetail(event, entity) {
+        if (event) {
+            event.preventDefault();
+        }
+        if (!entity) return;
+        if (window.parent && window.parent.openSecondaryModal) {
+            window.parent.openSecondaryModal(`./pageOfDetailAboutUnitAndBuild.html?entity=${encodeURIComponent(entity)}`, { position: 'left' });
+        } else if (window.parent && window.parent.openModal) {
+            window.parent.openModal(`./pageOfDetailAboutUnitAndBuild.html?entity=${encodeURIComponent(entity)}`, true);
+        }
+    }
+
+    // Инициализация на загрузке
+    window.addEventListener('load', function() {
+        const params = new URLSearchParams(window.location.search);
+        const tab = params.get('tab') || 'recruit';
+        switchTab(tab);
+    });
+
+    // =====================
+    // ПЕРЕКЛЮЧЕНИЕ ВКЛАДОК
+    // =====================
+    function switchTab(tab) {
+        document.querySelectorAll('.army-tab').forEach(b => b.classList.remove('active'));
+        document.querySelector(`[data-tab="${tab}"]`).classList.add('active');
+        ['recruit', 'build', 'repair', 'retrain'].forEach(t => {
+            document.getElementById('tab-' + t).classList.add('hidden');
+        });
+        document.getElementById('tab-' + tab).classList.remove('hidden');
+    }
+
+    // =====================
+    // ОЧЕРЕДЬ СТРОИТЕЛЬСТВА
+    // =====================
+    let buildQueue = [];
+
+    // Добавить здание в очередь
+    function addToQueue(card, icon) {
+        if (buildQueue.length >= 9) return; // максимум 9
+        const id = card.dataset.id;
+        if (card.classList.contains('used')) return; // уже в очереди
+
+        const img = card.dataset.img || null;
+        const alt = card.dataset.alt || card.querySelector('.card-label')?.textContent || '';
+        buildQueue.push({ id, icon, img, alt });
+        card.classList.add('used'); // скрыть из доступных
+        renderQueue();
+    }
+
+    // Удалить здание из очереди (клик по карточке очереди)
+    function removeFromQueue(index) {
+        const item = buildQueue[index];
+        buildQueue.splice(index, 1);
+
+        // Вернуть карточку в доступные постройки
+        const card = document.querySelector(`.army-unit-card[data-id="${item.id}"]`);
+        if (card) card.classList.remove('used');
+
+        renderQueue();
+    }
+
+    // Перерисовать сетку очереди
+    function renderQueue() {
+        const grid = document.getElementById('queueGridBuild');
+        const cards = grid.querySelectorAll('.army-unit-card');
+        cards.forEach((card, i) => {
+            if (i < buildQueue.length) {
+                const item = buildQueue[i];
+                if (item.img) {
+                    card.innerHTML = `<img src="${item.img}" alt="${item.alt}" style="width:90%;height:90%;object-fit:contain;">`;
+                } else {
+                    card.innerHTML = `<span>${item.icon}</span>`;
+                }
+                card.classList.add('queue-filled');
+                card.onclick = () => removeFromQueue(i);
+            } else {
+                card.innerHTML = '';
+                card.classList.remove('queue-filled');
+                card.onclick = null;
+            }
+        });
+    }
+</script>
+
+</body>
+</html>

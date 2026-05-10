@@ -1,0 +1,466 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Настройки — Имперская кампания</title>
+
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700;900&family=EB+Garamond:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
+
+    <style>
+        :root {
+            --gold: #c9a84c;
+            --gold-light: #e0c878;
+            --bronze: #6b5a3a;
+            --text: #d4c5a9;
+            --bg-panel: rgba(0, 0, 0, 0.55);
+            --border-panel: rgba(201, 168, 76, 0.35);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background: #0a0604;
+            background-image:
+                radial-gradient(ellipse at 50% 40%, rgba(40, 25, 10, 0.35) 0%, transparent 70%),
+                radial-gradient(ellipse at center, transparent 30%, rgba(0, 0, 0, 0.6) 100%);
+            font-family: 'EB Garamond', 'Georgia', serif;
+            color: var(--text);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            user-select: none;
+            padding: 20px;
+            gap: 20px;
+        }
+
+        /* === ЗАГОЛОВОК === */
+        .header-section {
+            text-align: center;
+        }
+
+        .main-title {
+            font-family: 'Cinzel', serif;
+            font-size: 2rem;
+            font-weight: 900;
+            letter-spacing: 5px;
+            text-transform: uppercase;
+            color: var(--gold-light);
+            text-shadow: 0 0 25px rgba(201, 168, 76, 0.4);
+            margin-bottom: 6px;
+        }
+
+        .gold-divider {
+            width: 350px;
+            max-width: 80vw;
+            height: 1px;
+            background: linear-gradient(90deg, transparent, var(--gold), var(--gold-light), var(--gold), transparent);
+            margin: 0 auto;
+        }
+
+        /* === ОСНОВНОЙ БЛОК === */
+        .settings-container {
+            width: 600px;
+            max-width: 95vw;
+            background: var(--bg-panel);
+            border: 2px solid var(--border-panel);
+            padding: 30px 35px;
+            display: flex;
+            flex-direction: column;
+            gap: 24px;
+        }
+
+        /* === ГРУППА НАСТРОЕК === */
+        .settings-group {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .settings-group-title {
+            font-family: 'Cinzel', serif;
+            font-size: 0.8rem;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            color: var(--gold);
+            padding-bottom: 8px;
+            border-bottom: 1px solid rgba(201, 168, 76, 0.2);
+            margin-bottom: 4px;
+        }
+
+        /* === ПОЛЗУНОК === */
+        .slider-row {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+        }
+
+        .slider-label {
+            width: 160px;
+            flex-shrink: 0;
+            font-size: 0.85rem;
+            letter-spacing: 1px;
+            color: #b0a080;
+        }
+
+        .slider-label .icon {
+            margin-right: 6px;
+        }
+
+        .slider-input {
+            flex: 1;
+            -webkit-appearance: none;
+            appearance: none;
+            height: 6px;
+            background: linear-gradient(90deg, #3a2a10, var(--gold), var(--gold-light));
+            border-radius: 3px;
+            outline: none;
+            cursor: pointer;
+        }
+
+        .slider-input::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: var(--gold);
+            border: 2px solid var(--gold-light);
+            cursor: pointer;
+            box-shadow: 0 0 12px rgba(201, 168, 76, 0.5);
+            transition: all 0.2s;
+        }
+
+        .slider-input::-webkit-slider-thumb:hover {
+            background: var(--gold-light);
+            box-shadow: 0 0 20px rgba(201, 168, 76, 0.7);
+            transform: scale(1.1);
+        }
+
+        .slider-value {
+            width: 40px;
+            text-align: right;
+            font-family: 'Cinzel', serif;
+            font-size: 0.75rem;
+            color: var(--gold-light);
+            flex-shrink: 0;
+        }
+
+        /* === ВЫПАДАЮЩИЙ СПИСОК === */
+        .select-row {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+        }
+
+        .select-label {
+            width: 160px;
+            flex-shrink: 0;
+            font-size: 0.85rem;
+            letter-spacing: 1px;
+            color: #b0a080;
+        }
+
+        .select-dropdown {
+            flex: 1;
+            font-family: 'Cinzel', serif;
+            font-size: 0.75rem;
+            letter-spacing: 1px;
+            padding: 8px 12px;
+            background: rgba(0, 0, 0, 0.6);
+            border: 1px solid rgba(201, 168, 76, 0.4);
+            color: var(--text);
+            cursor: pointer;
+            transition: all 0.2s;
+            outline: none;
+        }
+
+        .select-dropdown:hover,
+        .select-dropdown:focus {
+            border-color: var(--gold);
+            box-shadow: 0 0 10px rgba(201, 168, 76, 0.2);
+        }
+
+        .select-dropdown option {
+            background: #1a1008;
+            color: var(--text);
+        }
+
+        /* === ЧЕКБОКС === */
+        .checkbox-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            cursor: pointer;
+            font-size: 0.85rem;
+            letter-spacing: 1px;
+            color: #b0a080;
+            padding: 4px 0;
+            transition: color 0.2s;
+            margin-left: 174px;
+        }
+
+        .checkbox-row:hover {
+            color: var(--text-light);
+        }
+
+        .checkbox-box {
+            width: 18px;
+            height: 18px;
+            border: 2px solid rgba(201, 168, 76, 0.4);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.7rem;
+            color: var(--gold);
+            flex-shrink: 0;
+            transition: all 0.2s;
+        }
+
+        .checkbox-box.checked {
+            background: rgba(201, 168, 76, 0.2);
+            border-color: var(--gold);
+            box-shadow: 0 0 8px rgba(201, 168, 76, 0.3);
+        }
+
+        /* === КНОПКИ === */
+        .btn-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding-top: 10px;
+            border-top: 1px solid rgba(201, 168, 76, 0.2);
+        }
+
+        .btn-nav {
+            font-family: 'Cinzel', serif;
+            font-size: 0.7rem;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            padding: 10px 20px;
+            cursor: pointer;
+            transition: all 0.3s;
+            background: transparent;
+            border: 2px solid var(--bronze);
+            color: var(--bronze);
+            white-space: nowrap;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .btn-nav:hover {
+            border-color: var(--gold);
+            color: var(--gold);
+            box-shadow: 0 0 15px rgba(201, 168, 76, 0.15);
+        }
+
+        .btn-nav .arrow {
+            font-size: 1rem;
+        }
+
+        .btn-save {
+            font-family: 'Cinzel', serif;
+            font-size: 0.7rem;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            padding: 10px 20px;
+            cursor: pointer;
+            transition: all 0.3s;
+            background: rgba(201, 168, 76, 0.1);
+            border: 2px solid var(--gold);
+            color: var(--gold-light);
+            white-space: nowrap;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .btn-save:hover {
+            background: rgba(201, 168, 76, 0.2);
+            box-shadow: 0 0 25px rgba(201, 168, 76, 0.3);
+            color: #fff;
+        }
+
+        @media (max-width: 600px) {
+            .settings-container {
+                padding: 20px 15px;
+                gap: 16px;
+            }
+
+            .slider-row,
+            .select-row {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 6px;
+            }
+
+            .slider-label,
+            .select-label {
+                width: auto;
+            }
+
+            .slider-input,
+            .select-dropdown {
+                width: 100%;
+            }
+
+            .slider-value {
+                align-self: flex-end;
+            }
+
+            .checkbox-row {
+                margin-left: 0;
+            }
+
+            .btn-row {
+                flex-wrap: wrap;
+                gap: 10px;
+                justify-content: center;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- ЗАГОЛОВОК -->
+    <div class="header-section">
+        <div class="main-title">Настройки</div>
+        <div class="gold-divider"></div>
+    </div>
+
+    <!-- КОНТЕЙНЕР НАСТРОЕК -->
+    <div class="settings-container">
+
+        <!-- ЗВУК -->
+        <div class="settings-group">
+            <div class="settings-group-title">🎵 Звук</div>
+
+            <div class="slider-row">
+                <span class="slider-label"><span class="icon">🎼</span> Громкость музыки</span>
+                <input type="range" class="slider-input" id="musicVolume" min="0" max="100" value="80" oninput="updateSlider(this)">
+                <span class="slider-value" id="musicVolumeVal">80</span>
+            </div>
+
+            <div class="slider-row">
+                <span class="slider-label"><span class="icon">🔊</span> Громкость звуков</span>
+                <input type="range" class="slider-input" id="sfxVolume" min="0" max="100" value="90" oninput="updateSlider(this)">
+                <span class="slider-value" id="sfxVolumeVal">90</span>
+            </div>
+
+            <div class="slider-row">
+                <span class="slider-label"><span class="icon">🗣️</span> Громкость голоса</span>
+                <input type="range" class="slider-input" id="voiceVolume" min="0" max="100" value="85" oninput="updateSlider(this)">
+                <span class="slider-value" id="voiceVolumeVal">85</span>
+            </div>
+        </div>
+
+        <!-- ВИДЕО -->
+        <div class="settings-group">
+            <div class="settings-group-title">🖥️ Видео</div>
+
+            <div class="select-row">
+                <span class="select-label">Разрешение</span>
+                <select class="select-dropdown" id="resolution">
+                    <option value="1920x1080">1920 × 1080 (Full HD)</option>
+                    <option value="2560x1440">2560 × 1440 (Quad HD)</option>
+                    <option value="1280x720">1280 × 720 (HD)</option>
+                    <option value="3840x2160">3840 × 2160 (4K)</option>
+                </select>
+            </div>
+
+            <div class="select-row">
+                <span class="select-label">Качество графики</span>
+                <select class="select-dropdown" id="graphics">
+                    <option value="ultra">Ультра</option>
+                    <option value="high" selected>Высокое</option>
+                    <option value="medium">Среднее</option>
+                    <option value="low">Низкое</option>
+                </select>
+            </div>
+        </div>
+
+        <!-- ЯЗЫК -->
+        <div class="settings-group">
+            <div class="settings-group-title">🌐 Язык</div>
+
+            <div class="select-row">
+                <span class="select-label">Язык интерфейса</span>
+                <select class="select-dropdown" id="language">
+                    <option value="ru" selected>Русский</option>
+                    <option value="en">English</option>
+                    <option value="de">Deutsch</option>
+                    <option value="fr">Français</option>
+                    <option value="it">Italiano</option>
+                </select>
+            </div>
+        </div>
+
+        <!-- ИГРОВЫЕ ОПЦИИ -->
+        <div class="settings-group">
+            <div class="settings-group-title">🎮 Игровые опции</div>
+
+            <div class="checkbox-row" onclick="toggleCheckbox(this)">
+                <span class="checkbox-box" id="checkArcade"></span>
+                <span>Аркадные сражения</span>
+            </div>
+
+            <div class="checkbox-row" onclick="toggleCheckbox(this)">
+                <span class="checkbox-box checked" id="checkManage"></span>
+                <span>Управлять всеми поселениями</span>
+            </div>
+
+            <div class="checkbox-row" onclick="toggleCheckbox(this)">
+                <span class="checkbox-box" id="checkTrackAI"></span>
+                <span>Следить за компьютерными персонажами</span>
+            </div>
+        </div>
+
+        <!-- КНОПКИ -->
+        <div class="btn-row">
+            <a href="main.html" class="btn-nav">
+                <span class="arrow">←</span> Назад
+            </a>
+            <button class="btn-save" onclick="saveSettings()">
+                💾 Сохранить настройки
+            </button>
+        </div>
+
+    </div>
+
+    <script>
+        function updateSlider(slider) {
+            const valId = slider.id + 'Val';
+            const valEl = document.getElementById(valId);
+            if (valEl) {
+                valEl.textContent = slider.value;
+            }
+        }
+
+        function toggleCheckbox(row) {
+            const box = row.querySelector('.checkbox-box');
+            box.classList.toggle('checked');
+        }
+
+        function saveSettings() {
+            const btn = document.querySelector('.btn-save');
+            btn.textContent = '✓ Сохранено!';
+            btn.style.borderColor = '#4caf50';
+            btn.style.color = '#4caf50';
+            setTimeout(() => {
+                btn.innerHTML = '💾 Сохранить настройки';
+                btn.style.borderColor = '';
+                btn.style.color = '';
+            }, 1500);
+        }
+    </script>
+
+</body>
+</html>
