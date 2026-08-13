@@ -1,0 +1,328 @@
+﻿<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Описание технологии</title>
+
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700;900&family=EB+Garamond:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
+
+    <style>
+        :root {
+            --gold: #c9a84c;
+            --gold-light: #e0c878;
+            --gold-dark: #8b6914;
+            --bronze: #6b5a3a;
+            --text: #d4c5a9;
+            --bg-panel: rgba(5, 3, 1, 0.92);
+            --border-panel: rgba(180, 140, 60, 0.5);
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            background: #0a0502;
+            background-image:
+                radial-gradient(ellipse at 50% 50%, rgba(40, 25, 10, 0.4) 0%, transparent 70%),
+                radial-gradient(ellipse at center, transparent 30%, rgba(0,0,0,0.6) 100%);
+            font-family: 'EB Garamond', 'Georgia', serif;
+            color: var(--text);
+            height: 100vh;
+            width: 100%;
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            display: flex;
+            align-items: stretch;
+            justify-content: stretch;
+            user-select: none;
+        }
+
+        .detail-panel {
+            width: 100%;
+            height: 100%;
+            max-width: none;
+            background: var(--bg-panel);
+            border: none;
+            padding: 48px 36px 24px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 16px;
+            box-shadow: none;
+            position: relative;
+            text-align: center;
+            overflow-y: auto;
+            box-sizing: border-box;
+        }
+
+        .close-btn {
+            position: sticky;
+            top: 0;
+            align-self: flex-end;
+            margin-left: auto;
+            margin-bottom: -30px;
+            width: 30px;
+            height: 30px;
+            cursor: pointer;
+            background: rgba(139, 26, 26, 0.2);
+            border: 1px solid rgba(200, 80, 80, 0.4);
+            color: #c08080;
+            font-size: 1rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s;
+            font-family: 'Cinzel', serif;
+            z-index: 100;
+            pointer-events: auto;
+            flex-shrink: 0;
+        }
+
+        .close-btn:hover {
+            background: rgba(139, 26, 26, 0.4);
+            color: #ffaaaa;
+        }
+
+        /* Изображение технологии: шире на 20%, выше на 10% от 180 */
+        .detail-image {
+            width: 216px;
+            height: 198px;
+            background: rgba(201,168,76,0.06);
+            border: 2px solid rgba(201,168,76,0.4);
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 5rem;
+            box-shadow: 0 0 20px rgba(0,0,0,0.5);
+        }
+
+        .detail-image img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            border-radius: 6px;
+        }
+
+        /* Название технологии */
+        .detail-title {
+            font-family: 'Cinzel', serif;
+            font-size: 1.2rem;
+            font-weight: 900;
+            letter-spacing: 3px;
+            color: var(--gold-light);
+            text-transform: uppercase;
+            text-shadow: 0 0 15px rgba(201,168,76,0.3);
+        }
+
+        /* Метка */
+        .detail-badge {
+            display: inline-block;
+            font-family: 'Cinzel', serif;
+            font-size: 0.5rem;
+            letter-spacing: 2px;
+            padding: 3px 12px;
+            border-radius: 3px;
+            text-transform: uppercase;
+        }
+
+        .detail-badge.military {
+            background: #cc4444;
+            color: #fff;
+        }
+
+        .detail-badge.peaceful {
+            background: #44aacc;
+            color: #fff;
+        }
+
+        .detail-badge.root {
+            background: var(--gold);
+            color: #000;
+        }
+
+        /* Историческая справка */
+        .detail-description {
+            font-size: 0.75rem;
+            line-height: 1.6;
+            color: #b0a080;
+            text-align: center;
+        }
+
+        /* Что открывает */
+        .detail-unlocks {
+            font-size: 0.65rem;
+            color: #4caf50;
+            font-style: italic;
+            border-top: 1px solid rgba(201,168,76,0.2);
+            padding-top: 12px;
+            width: 100%;
+            text-align: center;
+        }
+
+        /* Стоимость */
+        .detail-cost {
+            font-family: 'Cinzel', serif;
+            font-size: 0.6rem;
+            color: var(--gold);
+            letter-spacing: 1px;
+        }
+
+        /* Контейнер для низа: черта + кнопка */
+        .bottom-section {
+            width: 100%;
+            margin-top: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 0;
+        }
+
+        .divider-line {
+            width: 100%;
+            height: 1px;
+            background: rgba(201,168,76,0.25);
+        }
+
+        .btn-container {
+            width: 100%;
+            display: flex;
+            justify-content: flex-end;
+            padding: 0;
+            margin: 0;
+        }
+
+        .btn-research {
+            font-family: 'Cinzel', serif;
+            font-size: 0.7rem;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            padding: 10px 30px;
+            cursor: pointer;
+            transition: all 0.3s;
+            background: rgba(201,168,76,0.1);
+            border: 2px solid var(--gold);
+            color: var(--gold-light);
+            margin: 0;
+        }
+
+        .btn-research:hover {
+            background: rgba(201,168,76,0.2);
+            box-shadow: 0 0 20px rgba(201,168,76,0.3);
+            color: #fff;
+        }
+
+        .btn-research.researched {
+            background: rgba(76,175,80,0.15);
+            border-color: #4caf50;
+            color: #4caf50;
+            pointer-events: none;
+        }
+    </style>
+</head>
+<body data-i18n-page-title="page.techDetail">
+
+<div class="detail-panel" id="detailPanel">
+
+    <button class="close-btn" onclick="closeDetail()" data-i18n-title="detail.close" title="Закрыть">✕</button>
+
+    <div class="detail-image" id="detailImage">🌾</div>
+
+    <div class="detail-title" id="detailTitle">Земледелие</div>
+
+    <div class="detail-badge root" id="detailBadge">ОСНОВА</div>
+
+    <div class="detail-description" id="detailDesc">
+        Переход от скотоводства к оседлому земледелию стал поворотным моментом в истории Рима.<br>
+        Осушение болот Лациума позволило превратить дикие поля в плодородные пашни.<br>
+        Пшеница, ячмень и оливки составили основу рациона растущего города.<br>
+        Излишки зерна позволили содержать постоянную армию, не зависящую от сезона.<br>
+        Зерновые склады (horrea) защищали Рим от голода в неурожайные годы.<br>
+        Аграрная реформа положила начало римскому господству над Средиземноморьем.
+    </div>
+
+    <div class="detail-cost" id="detailCost">✅ Уже изучено</div>
+
+    <div class="detail-unlocks" id="detailUnlocks">
+        Открывает: Фермы, зерновые склады, амбары
+    </div>
+
+    <div class="bottom-section">
+        <div class="divider-line"></div>
+        <div class="btn-container">
+            <button class="btn-research researched" id="btnResearch" onclick="researchTech()">✓ Изучено</button>
+        </div>
+    </div>
+
+</div>
+
+<script src="../js/i18n.js"></script>
+<script src="../js/i18n-content.js"></script>
+<script src="../js/tech-state.js"></script>
+<script>
+    let currentTechId = 'farming';
+
+    function closeDetail() {
+        if (window.parent && window.parent.closeSecondaryModal) {
+            window.parent.closeSecondaryModal();
+            return;
+        }
+        if (window.parent && window.parent.closeChildModal) {
+            window.parent.closeChildModal();
+            return;
+        }
+        if (window.parent && window.parent.closeModal) {
+            window.parent.closeModal();
+            return;
+        }
+        if (window.parent && window.parent.document) {
+            const detailPopup = window.parent.document.getElementById('detailPopup');
+            if (detailPopup) {
+                detailPopup.style.display = 'none';
+                return;
+            }
+        }
+        window.close();
+    }
+
+    function loadTechData(techId) {
+        currentTechId = techId;
+        const data = window.GameContent ? GameContent.getTech(techId) : null;
+        if (!data) return;
+        const researched = window.TechState ? TechState.isResearched(techId) : data.researched;
+        document.getElementById('detailImage').innerHTML = data.image ? `<img src="${data.image}" alt="${data.title}">` : data.icon;
+        document.getElementById('detailTitle').textContent = data.title;
+        const badge = document.getElementById('detailBadge');
+        badge.textContent = data.badge;
+        badge.className = 'detail-badge ' + data.badgeClass;
+        document.getElementById('detailDesc').innerHTML = data.detail || data.desc;
+        document.getElementById('detailCost').textContent = researched ? GameI18n.t('techDetail.researchedCost') : data.cost;
+        document.getElementById('detailUnlocks').textContent = data.unlocks;
+        const btn = document.getElementById('btnResearch');
+        if (researched) {
+            btn.textContent = GameI18n.t('techDetail.researched');
+            btn.className = 'btn-research researched';
+        } else {
+            btn.textContent = GameI18n.t('techDetail.research');
+            btn.className = 'btn-research';
+        }
+    }
+
+    function researchTech() {
+        const btn = document.getElementById('btnResearch');
+        if (btn.classList.contains('researched')) return;
+        if (window.TechState) TechState.setResearched(currentTechId, true);
+        btn.textContent = GameI18n.t('techDetail.researched');
+        btn.className = 'btn-research researched';
+        document.getElementById('detailCost').textContent = GameI18n.t('techDetail.researchedCost');
+    }
+
+    window.addEventListener('load', () => {
+        if (window.GameI18n) GameI18n.apply();
+        const urlParams = new URLSearchParams(window.location.search);
+        loadTechData(urlParams.get('tech') || 'farming');
+    });
+</script>
+
+</body>
+</html>

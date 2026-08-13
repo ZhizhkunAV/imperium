@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
@@ -88,28 +88,42 @@
         }
 
         .army-general-section {
-            display: flex; gap: 10px; align-items: center;
-            padding: 6px; background: rgba(0,0,0,0.3);
+            display: flex; gap: 14px; align-items: center;
+            min-height: 164px;
+            padding: 12px; background: rgba(0,0,0,0.3);
             border: 1px solid rgba(201,168,76,0.2);
         }
 
         .army-general-portrait {
-            width: 64px; height: 76px;
+            width: 128px; height: 152px;
             background: rgba(0,0,0,0.5);
             border: 2px solid rgba(201,168,76,0.4);
             display: flex; align-items: center; justify-content: center;
-            font-size: 2rem; flex-shrink: 0;
+            font-size: 3rem; flex-shrink: 0;
+            overflow: hidden;
         }
 
-        .army-general-info { display: flex; flex-direction: column; gap: 3px; }
+        .army-general-portrait img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: block;
+        }
+
+        .army-commander-block {
+            flex-shrink: 0;
+            margin-bottom: 4px;
+        }
+
+        .army-general-info { display: flex; flex-direction: column; gap: 6px; }
 
         .army-general-name {
             font-family: 'Cinzel', serif;
-            font-size: 0.75rem; font-weight: 700;
+            font-size: 0.85rem; font-weight: 700;
             color: var(--gold-light); letter-spacing: 1px;
         }
 
-        .army-general-stats { font-size: 0.58rem; color: #8b7355; display: flex; gap: 10px; }
+        .army-general-stats { font-size: 0.68rem; color: #8b7355; display: flex; gap: 12px; flex-wrap: wrap; }
         .army-general-stat { display: flex; align-items: center; gap: 2px; }
 
         /* Вкладки */
@@ -132,8 +146,8 @@
         /* Сетка */
         .army-unit-grid {
             display: grid;
-            grid-template-columns: repeat(9, 1fr);
-            gap: 4px; flex-shrink: 0;
+            grid-template-columns: repeat(8, 1fr);
+            gap: 5px; flex-shrink: 0;
         }
 
         .army-unit-card {
@@ -142,7 +156,7 @@
             border: 1px solid rgba(201,168,76,0.2);
             cursor: pointer; transition: all 0.2s;
             display: flex; align-items: center; justify-content: center;
-            font-size: 1.4rem; position: relative;
+            font-size: 1.55rem; position: relative;
         }
         .army-unit-card:hover { border-color: var(--gold); background: rgba(201,168,76,0.08); }
 
@@ -164,7 +178,7 @@
 
         .army-unit-card .card-label {
             position: absolute; bottom: 2px;
-            font-family: 'Cinzel', serif; font-size: 0.4rem;
+            font-family: 'Cinzel', serif; font-size: 0.45rem;
             color: rgba(201,168,76,0.6); text-align: center;
             letter-spacing: 0.5px; text-transform: uppercase;
         }
@@ -187,49 +201,51 @@
         }
     </style>
 </head>
-<body>
+<body data-i18n-page-title="page.army">
 
 <div class="army-panel">
 
     <div class="army-panel-header">
-        <div class="army-panel-title">⚔️ Армия</div>
+        <div class="army-panel-title" data-i18n="army.title">⚔️ Армия</div>
         <button class="army-panel-close" onclick="closePanel()">✕</button>
     </div>
 
     <div class="army-panel-content">
 
         <!-- Командующий -->
-        <div class="army-section-title">👤 Командующий</div>
-        <div class="army-general-section">
-            <div class="army-general-portrait">🏛️</div>
-            <div class="army-general-info">
-                <div class="army-general-name">Сципион Африканский</div>
-                <div class="army-general-stats">
-                    <span class="army-general-stat">🛡️ 10</span>
-                    <span class="army-general-stat">⚔️ 8</span>
-                    <span class="army-general-stat">🏛️ 7</span>
+        <div class="army-commander-block">
+            <div class="army-section-title" data-i18n="army.commander">👤 Командующий</div>
+            <div class="army-general-section">
+                <div class="army-general-portrait" id="commanderPortrait">🏛️</div>
+                <div class="army-general-info">
+                    <div class="army-general-name" id="commanderName" data-i18n="army.commanderName">Сципион Африканский</div>
+                    <div class="army-general-stats">
+                        <span class="army-general-stat">🛡️ 10</span>
+                        <span class="army-general-stat">⚔️ 8</span>
+                        <span class="army-general-stat">🏛️ 7</span>
+                    </div>
                 </div>
             </div>
         </div>
 
         <!-- Вкладки -->
         <div class="army-tabs">
-            <button class="army-tab active" data-tab="recruit" onclick="switchTab('recruit')">📋 Найм</button>
-            <button class="army-tab" data-tab="build" onclick="switchTab('build')">🏗️ Строительство</button>
-            <button class="army-tab" data-tab="repair" onclick="switchTab('repair')">🔧 Ремонт</button>
-            <button class="army-tab" data-tab="retrain" onclick="switchTab('retrain')">🔄 Переобучение</button>
+            <button class="army-tab active" data-tab="recruit" onclick="switchTab('recruit')" data-i18n="army.tab.recruit">📋 Найм</button>
+            <button class="army-tab" data-tab="build" onclick="switchTab('build')" data-i18n="army.tab.build">🏗️ Строительство</button>
+            <button class="army-tab" data-tab="repair" onclick="switchTab('repair')" data-i18n="army.tab.repair">🔧 Ремонт</button>
+            <button class="army-tab" data-tab="retrain" onclick="switchTab('retrain')" data-i18n="army.tab.retrain">🔄 Переобучение</button>
         </div>
 
         <!-- ====== НАЙМ ====== -->
         <div id="tab-recruit">
-            <div class="army-section-title">⚔️ Состав (<span id="recruitCount">0</span>/18)</div>
+            <div class="army-section-title"><span data-i18n="army.roster">⚔️ Состав</span> (<span id="recruitCount">0</span>/8)</div>
             <div class="army-unit-grid" id="recruitGrid">
-                <div class="army-unit-card" data-entity="legionary" oncontextmenu="openDetail(event,'legionary')" onclick="addUnitToQueue(this, 'legioner', './images/leg.png')">
-                    <img src="./images/leg.png" alt="Легионер" style="width:100%;height:100%;object-fit:contain;">
+                <div class="army-unit-card" data-entity="legionary" oncontextmenu="openDetail(event,'legionary')" onclick="addUnitToQueue(this, 'legioner', '../images/leg.png')">
+                    <img src="../images/leg.png" alt="Легионер" style="width:100%;height:100%;object-fit:contain;">
                     <span class="card-label">Легионер</span>
                 </div>
-                <div class="army-unit-card" data-entity="veles" oncontextmenu="openDetail(event,'veles')" onclick="addUnitToQueue(this, 'velit', './images/velit.png')">
-                    <img src="./images/velit.png" alt="Велит" style="width:100%;height:100%;object-fit:contain;">
+                <div class="army-unit-card" data-entity="veles" oncontextmenu="openDetail(event,'veles')" onclick="addUnitToQueue(this, 'velit', '../images/velit.png')">
+                    <img src="../images/velit.png" alt="Велит" style="width:100%;height:100%;object-fit:contain;">
                     <span class="card-label">Велит</span>
                 </div>
                 <div class="army-unit-card"></div>
@@ -238,55 +254,45 @@
                 <div class="army-unit-card"></div>
                 <div class="army-unit-card"></div>
                 <div class="army-unit-card"></div>
-                <div class="army-unit-card"></div>
             </div>
-            <div class="recruit-queue"><span class="recruit-queue-label">📋 Очередь найма:</span></div>
+            <div class="recruit-queue"><span class="recruit-queue-label" data-i18n="army.queue.recruit">📋 Очередь найма:</span></div>
             <div class="army-unit-grid" id="queueGridRecruit">
                 <div class="army-unit-card"></div><div class="army-unit-card"></div><div class="army-unit-card"></div>
                 <div class="army-unit-card"></div><div class="army-unit-card"></div><div class="army-unit-card"></div>
-                <div class="army-unit-card"></div><div class="army-unit-card"></div><div class="army-unit-card"></div>
-            </div>
-            <div class="army-unit-grid" id="queueGridRecruit2">
-                <div class="army-unit-card"></div><div class="army-unit-card"></div><div class="army-unit-card"></div>
-                <div class="army-unit-card"></div><div class="army-unit-card"></div><div class="army-unit-card"></div>
-                <div class="army-unit-card"></div><div class="army-unit-card"></div><div class="army-unit-card"></div>
+                <div class="army-unit-card"></div><div class="army-unit-card"></div>
             </div>
         </div>
 
         <!-- ====== СТРОИТЕЛЬСТВО ====== -->
         <div id="tab-build" class="hidden">
-            <div class="army-section-title">🏗️ Доступные постройки</div>
+            <div class="army-section-title" data-i18n="army.buildings">🏗️ Доступные постройки</div>
             <div class="army-unit-grid" id="buildGrid1">
-                <div class="army-unit-card" data-id="casarmy" data-entity="barracks" oncontextmenu="openDetail(event,'barracks')" data-img="./images/building/casarmy.png" data-alt="Казармы" onclick="addToQueue(this, '🏛️')">
-                    <img src="./images/building/casarmy.png" alt="Казармы" style="width:100%;height:100%;object-fit:contain;">
+                <div class="army-unit-card" data-id="casarmy" data-entity="barracks" oncontextmenu="openDetail(event,'barracks')" data-img="../images/building/casarmy.png" data-alt="Казармы" onclick="addToQueue(this, '🏛️')">
+                    <img src="../images/building/casarmy.png" alt="Казармы" style="width:100%;height:100%;object-fit:contain;">
                     <span class="card-label">Казармы</span>
                 </div>
                 <div class="army-unit-card" data-id="stable" data-entity="stable" oncontextmenu="openDetail(event,'stable')" onclick="addToQueue(this, '🐴')">
                     <span>🐴</span>
                     <span class="card-label">Конюшни</span>
                 </div>
-                <div class="army-unit-card" data-id="range" data-entity="range" oncontextmenu="openDetail(event,'range')" data-img="./images/building/campVelit.png" data-alt="Стрельбище" onclick="addToQueue(this, '🏹')">
-                    <img src="./images/building/campVelit.png" alt="Стрельбище" style="width:100%;height:100%;object-fit:contain;">
+                <div class="army-unit-card" data-id="range" data-entity="range" oncontextmenu="openDetail(event,'range')" data-img="../images/building/campVelit.png" data-alt="Стрельбище" onclick="addToQueue(this, '🏹')">
+                    <img src="../images/building/campVelit.png" alt="Стрельбище" style="width:100%;height:100%;object-fit:contain;">
                     <span class="card-label">Стрельбище</span>
                 </div>
-                <div class="army-unit-card" data-id="temple" data-entity="temple" oncontextmenu="openDetail(event,'temple')" data-img="./images/building/temple.png" data-alt="Храм" onclick="addToQueue(this, '🏛️')">
-                    <img src="./images/building/temple.png" alt="Храм" style="width:100%;height:100%;object-fit:contain;">
+                <div class="army-unit-card" data-id="temple" data-entity="temple" oncontextmenu="openDetail(event,'temple')" data-img="../images/building/temple.png" data-alt="Храм" onclick="addToQueue(this, '🏛️')">
+                    <img src="../images/building/temple.png" alt="Храм" style="width:100%;height:100%;object-fit:contain;">
                     <span class="card-label">Храм</span>
                 </div>
                 <div class="army-unit-card" data-id="roads" data-entity="roads" oncontextmenu="openDetail(event,'roads')" onclick="addToQueue(this, '🛣️')"><span>🛣️</span><span class="card-label">Дороги</span></div>
                 <div class="army-unit-card" data-id="farm" data-entity="farm" oncontextmenu="openDetail(event,'farm')" onclick="addToQueue(this, '🌾')"><span>🌾</span><span class="card-label">Фермы</span></div>
                 <div class="army-unit-card" data-id="mine" data-entity="mine" oncontextmenu="openDetail(event,'mine')" onclick="addToQueue(this, '⛏️')"><span>⛏️</span><span class="card-label">Рудник</span></div>
                 <div class="army-unit-card" data-id="walls" data-entity="walls" oncontextmenu="openDetail(event,'walls')" onclick="addToQueue(this, '🏰')"><span>🏰</span><span class="card-label">Стены</span></div>
-                <div class="army-unit-card" data-id="market" data-entity="market" oncontextmenu="openDetail(event,'market')" data-img="./images/building/placeWithBuy.png" data-alt="Торговая площадь" onclick="addToQueue(this, '🏥')">
-                    <img src="./images/building/placeWithBuy.png" alt="Торговая площадь" style="width:100%;height:100%;object-fit:contain;">
-                    <span class="card-label">Торговая площадь</span>
-                </div>
             </div>
             <div class="army-unit-grid" id="buildGrid2">
                 <div class="army-unit-card" data-id="port" data-entity="port" oncontextmenu="openDetail(event,'port')" onclick="addToQueue(this, '⚓')"><span>⚓</span><span class="card-label">Порт</span></div>
                 <div class="army-unit-card" data-id="academy" data-entity="academy" oncontextmenu="openDetail(event,'academy')" onclick="addToQueue(this, '📜')"><span>📜</span><span class="card-label">Академия</span></div>
-                <div class="army-unit-card" data-id="arena" data-entity="arena" oncontextmenu="openDetail(event,'arena')" data-img="./images/building/arena.png" data-alt="Арена" onclick="addToQueue(this, '🏟️')">
-                    <img src="./images/building/arena.png" alt="Арена" style="width:100%;height:100%;object-fit:contain;">
+                <div class="army-unit-card" data-id="arena" data-entity="arena" oncontextmenu="openDetail(event,'arena')" data-img="../images/building/arena.png" data-alt="Арена" onclick="addToQueue(this, '🏟️')">
+                    <img src="../images/building/arena.png" alt="Арена" style="width:100%;height:100%;object-fit:contain;">
                     <span class="card-label">Арена</span>
                 </div>
                 <div class="army-unit-card" data-id="forge" data-entity="forge" oncontextmenu="openDetail(event,'forge')" onclick="addToQueue(this, '🛡️')"><span>🛡️</span><span class="card-label">Кузница</span></div>
@@ -294,41 +300,63 @@
                 <div class="army-unit-card" data-id="forum" data-entity="forum" oncontextmenu="openDetail(event,'forum')" onclick="addToQueue(this, '🏛️')"><span>🏛️</span><span class="card-label">Форум</span></div>
                 <div class="army-unit-card" data-id="theater" data-entity="theater" oncontextmenu="openDetail(event,'theater')" onclick="addToQueue(this, '🎭')"><span>🎭</span><span class="card-label">Театр</span></div>
                 <div class="army-unit-card" data-id="baths" data-entity="baths" oncontextmenu="openDetail(event,'baths')" onclick="addToQueue(this, '🛁')"><span>🛁</span><span class="card-label">Термы</span></div>
-                <div class="army-unit-card" data-id="mine2" data-entity="mine2" oncontextmenu="openDetail(event,'mine2')" onclick="addToQueue(this, '🏔️')"><span>🏔️</span><span class="card-label">Шахта</span></div>
             </div>
 
-            <div class="recruit-queue"><span class="recruit-queue-label">🏗️ Очередь строительства:</span></div>
+            <div class="recruit-queue"><span class="recruit-queue-label" data-i18n="army.queue.build">🏗️ Очередь строительства:</span></div>
             <div class="army-unit-grid" id="queueGridBuild">
                 <div class="army-unit-card"></div><div class="army-unit-card"></div><div class="army-unit-card"></div>
                 <div class="army-unit-card"></div><div class="army-unit-card"></div><div class="army-unit-card"></div>
-                <div class="army-unit-card"></div><div class="army-unit-card"></div><div class="army-unit-card"></div>
+                <div class="army-unit-card"></div><div class="army-unit-card"></div>
             </div>
         </div>
 
         <!-- ====== РЕМОНТ ====== -->
         <div id="tab-repair" class="hidden">
             <div class="army-section-title">🔧 Ремонт</div>
-            <div style="font-size:0.6rem;color:#8b7355;text-align:center;padding:20px;">Ремонт доступен при наличии повреждённых зданий.</div>
+            <div style="font-size:0.6rem;color:#8b7355;text-align:center;padding:20px;" data-i18n="army.repair.empty">Ремонт доступен при наличии повреждённых зданий.</div>
         </div>
 
         <!-- ====== ПЕРЕОБУЧЕНИЕ ====== -->
         <div id="tab-retrain" class="hidden">
             <div class="army-section-title">🔄 Переобучение</div>
-            <div style="font-size:0.6rem;color:#8b7355;text-align:center;padding:20px;">Переобучение доступно при наличии отрядов с опытом.</div>
+            <div style="font-size:0.6rem;color:#8b7355;text-align:center;padding:20px;" data-i18n="army.retrain.empty">Переобучение доступно при наличии отрядов с опытом.</div>
         </div>
 
     </div>
 </div>
 
+<script src="../js/i18n.js"></script>
+<script src="../js/i18n-content.js"></script>
 <script>
     let recruitQueue = [];
-    const recruitQueueMax = 18;
+    const recruitQueueMax = 8;
+
+    function loadCommander() {
+        const params = new URLSearchParams(window.location.search);
+        const faction = (params.get('faction') || 'rome').toLowerCase();
+        if (!window.GameContent) return;
+        const data = GameContent.getFaction(faction);
+        if (!data) return;
+
+        const portraitEl = document.getElementById('commanderPortrait');
+        if (portraitEl && data.portrait) {
+            portraitEl.innerHTML = `<img src="${data.portrait}" alt="">`;
+        }
+
+        const nameEl = document.getElementById('commanderName');
+        if (nameEl && data.commander) {
+            nameEl.removeAttribute('data-i18n');
+            nameEl.textContent = data.commander;
+        }
+    }
 
     function switchTab(tab) {
-        document.querySelectorAll('div[id^="tab-"]').forEach(el => el.classList.add('hidden'));
+        document.querySelectorAll('.army-tab').forEach(b => b.classList.remove('active'));
+        document.querySelector(`[data-tab="${tab}"]`).classList.add('active');
+        ['recruit', 'build', 'repair', 'retrain'].forEach(t => {
+            document.getElementById('tab-' + t).classList.add('hidden');
+        });
         document.getElementById('tab-' + tab).classList.remove('hidden');
-        document.querySelectorAll('.army-tab').forEach(el => el.classList.remove('active'));
-        document.querySelector(`.army-tab[data-tab="${tab}"]`).classList.add('active');
     }
 
     function addUnitToQueue(card, unitType, imageSrc) {
@@ -339,7 +367,7 @@
     }
 
     function updateQueueDisplay() {
-        const allQueueCards = document.querySelectorAll('#queueGridRecruit .army-unit-card, #queueGridRecruit2 .army-unit-card');
+        const allQueueCards = document.querySelectorAll('#queueGridRecruit .army-unit-card');
         allQueueCards.forEach(card => {
             card.innerHTML = '';
             card.classList.remove('queue-filled');
@@ -371,35 +399,21 @@
     }
 
     function openDetail(event, entity) {
-        if (event) {
-            event.preventDefault();
-        }
+        if (event) event.preventDefault();
         if (!entity) return;
+        const url = `./pageOfDetailAboutUnitAndBuild.html?entity=${encodeURIComponent(entity)}`;
         if (window.parent && window.parent.openSecondaryModal) {
-            window.parent.openSecondaryModal(`./pageOfDetailAboutUnitAndBuild.html?entity=${encodeURIComponent(entity)}`, { position: 'left' });
-        } else if (window.parent && window.parent.openModal) {
-            window.parent.openModal(`./pageOfDetailAboutUnitAndBuild.html?entity=${encodeURIComponent(entity)}`, true);
+            window.parent.openSecondaryModal(url, { position: 'left' });
         }
     }
 
-    // Инициализация на загрузке
     window.addEventListener('load', function() {
+        if (window.GameI18n) GameI18n.apply();
+        loadCommander();
         const params = new URLSearchParams(window.location.search);
         const tab = params.get('tab') || 'recruit';
         switchTab(tab);
     });
-
-    // =====================
-    // ПЕРЕКЛЮЧЕНИЕ ВКЛАДОК
-    // =====================
-    function switchTab(tab) {
-        document.querySelectorAll('.army-tab').forEach(b => b.classList.remove('active'));
-        document.querySelector(`[data-tab="${tab}"]`).classList.add('active');
-        ['recruit', 'build', 'repair', 'retrain'].forEach(t => {
-            document.getElementById('tab-' + t).classList.add('hidden');
-        });
-        document.getElementById('tab-' + tab).classList.remove('hidden');
-    }
 
     // =====================
     // ОЧЕРЕДЬ СТРОИТЕЛЬСТВА
@@ -408,7 +422,7 @@
 
     // Добавить здание в очередь
     function addToQueue(card, icon) {
-        if (buildQueue.length >= 9) return; // максимум 9
+        if (buildQueue.length >= 8) return; // максимум 8
         const id = card.dataset.id;
         if (card.classList.contains('used')) return; // уже в очереди
 

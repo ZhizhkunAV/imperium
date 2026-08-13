@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
@@ -151,37 +151,44 @@
         }
     </style>
 </head>
-<body>
+<body data-i18n-page-title="page.main">
 
     <!-- ЗАГОЛОВОК -->
     <div class="header-section">
-        <div class="main-title">Имперская кампания</div>
+        <div class="main-title" data-i18n="main.title">Имперская кампания</div>
         <div class="gold-divider"></div>
-        <div class="subtitle">Rome Total War</div>
+        <div class="subtitle">IMPERIUM</div>
     </div>
 
     <!-- МЕНЮ -->
     <div class="menu-buttons">
-        <a href="faction-select.html" class="btn-menu">
+        <a href="pageOfCampain.html" class="btn-menu">
             <span class="btn-icon">⚔️</span>
-            Кампания
+            <span data-i18n="menu.campaign">Кампания</span>
         </a>
         <a href="settings.html" class="btn-menu">
             <span class="btn-icon">⚙️</span>
-            Настройки
+            <span data-i18n="menu.settings">Настройки</span>
         </a>
         <a href="about.html" class="btn-menu">
             <span class="btn-icon">📜</span>
-            Об игре
+            <span data-i18n="menu.about">Об игре</span>
         </a>
         <a href="creators.html" class="btn-menu">
             <span class="btn-icon">🏛️</span>
-            О создателях
+            <span data-i18n="menu.creators">О создателях</span>
         </a>
     </div>
 
     <!-- ПОДВАЛ -->
-    <div class="footer-note">Выберите раздел</div>
+    <div class="footer-note" data-i18n="menu.footer">Выберите раздел</div>
+
+    <script src="../js/i18n.js"></script>
+    <script>
+        window.addEventListener('load', () => {
+            if (window.GameI18n) GameI18n.apply();
+        });
+    </script>
 
 </body>
 </html>

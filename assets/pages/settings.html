@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
@@ -328,11 +328,11 @@
         }
     </style>
 </head>
-<body>
+<body data-i18n-page-title="page.settings">
 
     <!-- ЗАГОЛОВОК -->
     <div class="header-section">
-        <div class="main-title">Настройки</div>
+        <div class="main-title" data-i18n="settings.title">Настройки</div>
         <div class="gold-divider"></div>
     </div>
 
@@ -341,22 +341,22 @@
 
         <!-- ЗВУК -->
         <div class="settings-group">
-            <div class="settings-group-title">🎵 Звук</div>
+            <div class="settings-group-title" data-i18n="settings.sound">🎵 Звук</div>
 
             <div class="slider-row">
-                <span class="slider-label"><span class="icon">🎼</span> Громкость музыки</span>
+                <span class="slider-label"><span class="icon">🎼</span> <span data-i18n="settings.musicVolume">Громкость музыки</span></span>
                 <input type="range" class="slider-input" id="musicVolume" min="0" max="100" value="80" oninput="updateSlider(this)">
                 <span class="slider-value" id="musicVolumeVal">80</span>
             </div>
 
             <div class="slider-row">
-                <span class="slider-label"><span class="icon">🔊</span> Громкость звуков</span>
+                <span class="slider-label"><span class="icon">🔊</span> <span data-i18n="settings.sfxVolume">Громкость звуков</span></span>
                 <input type="range" class="slider-input" id="sfxVolume" min="0" max="100" value="90" oninput="updateSlider(this)">
                 <span class="slider-value" id="sfxVolumeVal">90</span>
             </div>
 
             <div class="slider-row">
-                <span class="slider-label"><span class="icon">🗣️</span> Громкость голоса</span>
+                <span class="slider-label"><span class="icon">🗣️</span> <span data-i18n="settings.voiceVolume">Громкость голоса</span></span>
                 <input type="range" class="slider-input" id="voiceVolume" min="0" max="100" value="85" oninput="updateSlider(this)">
                 <span class="slider-value" id="voiceVolumeVal">85</span>
             </div>
@@ -364,10 +364,10 @@
 
         <!-- ВИДЕО -->
         <div class="settings-group">
-            <div class="settings-group-title">🖥️ Видео</div>
+            <div class="settings-group-title" data-i18n="settings.video">🖥️ Видео</div>
 
             <div class="select-row">
-                <span class="select-label">Разрешение</span>
+                <span class="select-label" data-i18n="settings.resolution">Разрешение</span>
                 <select class="select-dropdown" id="resolution">
                     <option value="1920x1080">1920 × 1080 (Full HD)</option>
                     <option value="2560x1440">2560 × 1440 (Quad HD)</option>
@@ -377,64 +377,62 @@
             </div>
 
             <div class="select-row">
-                <span class="select-label">Качество графики</span>
+                <span class="select-label" data-i18n="settings.graphics">Качество графики</span>
                 <select class="select-dropdown" id="graphics">
-                    <option value="ultra">Ультра</option>
-                    <option value="high" selected>Высокое</option>
-                    <option value="medium">Среднее</option>
-                    <option value="low">Низкое</option>
+                    <option value="ultra" data-i18n="settings.graphics.ultra">Ультра</option>
+                    <option value="high" selected data-i18n="settings.graphics.high">Высокое</option>
+                    <option value="medium" data-i18n="settings.graphics.medium">Среднее</option>
+                    <option value="low" data-i18n="settings.graphics.low">Низкое</option>
                 </select>
             </div>
         </div>
 
         <!-- ЯЗЫК -->
         <div class="settings-group">
-            <div class="settings-group-title">🌐 Язык</div>
+            <div class="settings-group-title" data-i18n="settings.language">🌐 Язык</div>
 
             <div class="select-row">
-                <span class="select-label">Язык интерфейса</span>
+                <span class="select-label" data-i18n="settings.uiLanguage">Язык интерфейса</span>
                 <select class="select-dropdown" id="language">
-                    <option value="ru" selected>Русский</option>
-                    <option value="en">English</option>
-                    <option value="de">Deutsch</option>
-                    <option value="fr">Français</option>
-                    <option value="it">Italiano</option>
+                    <option value="ru" selected data-i18n="settings.lang.ru">Русский</option>
+                    <option value="en" data-i18n="settings.lang.en">English</option>
                 </select>
             </div>
         </div>
 
         <!-- ИГРОВЫЕ ОПЦИИ -->
         <div class="settings-group">
-            <div class="settings-group-title">🎮 Игровые опции</div>
+            <div class="settings-group-title" data-i18n="settings.game">🎮 Игровые опции</div>
 
             <div class="checkbox-row" onclick="toggleCheckbox(this)">
                 <span class="checkbox-box" id="checkArcade"></span>
-                <span>Аркадные сражения</span>
+                <span data-i18n="settings.arcade">Аркадные сражения</span>
             </div>
 
             <div class="checkbox-row" onclick="toggleCheckbox(this)">
                 <span class="checkbox-box checked" id="checkManage"></span>
-                <span>Управлять всеми поселениями</span>
+                <span data-i18n="settings.manage">Управлять всеми поселениями</span>
             </div>
 
             <div class="checkbox-row" onclick="toggleCheckbox(this)">
                 <span class="checkbox-box" id="checkTrackAI"></span>
-                <span>Следить за компьютерными персонажами</span>
+                <span data-i18n="settings.trackAI">Следить за компьютерными персонажами</span>
             </div>
         </div>
 
         <!-- КНОПКИ -->
         <div class="btn-row">
-            <a href="index.html" class="btn-nav">
-                <span class="arrow">←</span> Назад
+            <a href="windowDownload.html" class="btn-nav">
+                <span class="arrow">←</span> <span data-i18n="settings.back">Назад</span>
             </a>
-            <button class="btn-save" onclick="saveSettings()">
+            <button class="btn-save" onclick="saveSettings()" data-i18n="settings.save">
                 💾 Сохранить настройки
             </button>
         </div>
 
     </div>
 
+    <script src="../js/i18n.js"></script>
     <script>
         function updateSlider(slider) {
             const valId = slider.id + 'Val';
@@ -450,16 +448,29 @@
         }
 
         function saveSettings() {
+            const langSelect = document.getElementById('language');
+            if (langSelect && window.GameI18n) {
+                GameI18n.setLang(langSelect.value === 'en' ? 'en' : 'ru');
+                GameI18n.apply();
+            }
+
             const btn = document.querySelector('.btn-save');
-            btn.textContent = '✓ Сохранено!';
+            btn.textContent = GameI18n.t('settings.saved');
             btn.style.borderColor = '#4caf50';
             btn.style.color = '#4caf50';
             setTimeout(() => {
-                btn.innerHTML = '💾 Сохранить настройки';
+                btn.innerHTML = GameI18n.t('settings.save');
                 btn.style.borderColor = '';
                 btn.style.color = '';
             }, 1500);
         }
+
+        window.addEventListener('load', () => {
+            if (!window.GameI18n) return;
+            const langSelect = document.getElementById('language');
+            if (langSelect) langSelect.value = GameI18n.getLang();
+            GameI18n.apply();
+        });
     </script>
 
 </body>

@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
@@ -81,6 +81,33 @@
             justify-content: center;
             background: rgba(0, 0, 0, 0.4);
             border: 1px solid rgba(201, 168, 76, 0.12);
+            position: relative;
+        }
+
+        .btn-home {
+            position: absolute;
+            top: 10px;
+            right: 12px;
+            z-index: 20;
+            font-family: 'Cinzel', serif;
+            font-size: 0.55rem;
+            font-weight: 700;
+            letter-spacing: 1.5px;
+            text-transform: uppercase;
+            padding: 6px 12px;
+            cursor: pointer;
+            background: rgba(0, 0, 0, 0.55);
+            border: 1px solid rgba(201, 168, 76, 0.45);
+            color: var(--gold-light);
+            text-decoration: none;
+            transition: all 0.25s;
+        }
+
+        .btn-home:hover {
+            border-color: var(--gold);
+            color: #fff;
+            box-shadow: 0 0 14px rgba(201, 168, 76, 0.25);
+            background: rgba(201, 168, 76, 0.12);
         }
 
         .map-placeholder {
@@ -474,6 +501,15 @@
             cursor: pointer;
             transition: all 0.3s;
             flex-shrink: 0;
+            overflow: hidden;
+            padding: 0;
+        }
+
+        .faction-icon-large img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: block;
         }
 
         .faction-icon-large:hover {
@@ -532,7 +568,8 @@
 
         <div class="game-main">
             <div class="map-area">
-                <span class="map-placeholder">Карта кампании</span>
+                <a href="windowDownload.html" class="btn-home" data-i18n="btn.home">На главную</a>
+                <span class="map-placeholder" id="mapPlaceholder" data-i18n="map.placeholder">Карта кампании</span>
             </div>
         </div>
 
@@ -555,8 +592,8 @@
             <!-- БЛОК 2: КАРТОЧКИ -->
             <div class="block-center">
                 <div class="tab-switcher">
-                    <button class="tab-btn active" onclick="switchTab('army')">Отряды</button>
-                    <button class="tab-btn" onclick="switchTab('settlement')">Поселение</button>
+                    <button class="tab-btn active" onclick="switchTab('army')" data-i18n="tabs.units">Отряды</button>
+                    <button class="tab-btn" onclick="switchTab('settlement')" data-i18n="tabs.settlement">Поселение</button>
                 </div>
 
                 <div class="block-center-inner">
@@ -584,21 +621,24 @@
 
                     <!-- Иконки ⚔️ 🏗️ сверху -->
                     <div class="icon-stack">
-                        <button class="btn-icon active" id="iconArmy" onclick="switchTab('army')" title="Армии">⚔️</button>
-                        <button class="btn-icon" id="iconBuild" onclick="switchTab('build')" title="Строительство">🏗️</button>
+                        <button class="btn-icon active" id="iconArmy" onclick="openBuildArmy('recruit')" data-i18n-title="btn.army" title="Армии">⚔️</button>
+                        <button class="btn-icon" id="iconBuild" onclick="openBuildArmy('build')" data-i18n-title="btn.build" title="Строительство">🏗️</button>
+                        <button class="btn-icon" id="iconTech" onclick="openTech()" data-i18n-title="btn.tech" title="Технологии">🧠</button>
                     </div>
 
                     <!-- Год + Казна -->
                     <div class="info-rows">
-                        <div class="info-row">Год <span>270 до н.э.</span></div>
+                        <div class="info-row"><span data-i18n="info.year">Год</span> <span data-i18n="info.yearValue">270 до н.э.</span></div>
                         <div class="info-divider"></div>
-                        <div class="info-row">Казна <span>ⓓ 5 000</span></div>
+                        <div class="info-row"><span data-i18n="info.treasury">Казна</span> <span>ⓓ 5 000</span></div>
                     </div>
 
                     <!-- Нижний ряд: иконка фракции + конец хода -->
                     <div class="bottom-row">
-                        <div class="faction-icon-large" onclick="openFactionWindow()" title="Открыть окно фракции">🏛️</div>
-                        <button class="btn-end-turn" onclick="endTurn()" title="Конец хода">⏳</button>
+                        <div class="faction-icon-large" id="factionIconBtn" onclick="openFactionWindow()" data-i18n-title="btn.faction" title="Открыть окно фракции">
+                            <img id="factionIconImg" src="../images/icon_rome.png" alt="">
+                        </div>
+                        <button class="btn-end-turn" onclick="endTurn()" data-i18n-title="btn.endTurn" title="Конец хода">⏳</button>
                     </div>
 
                 </div>
@@ -608,7 +648,126 @@
 
     </div>
 
+    <script src="../js/i18n.js"></script>
+    <script src="../js/i18n-content.js"></script>
     <script>
+        const PANEL_EDGE = 4;
+        const PANEL_WIDTH = '40%';
+        const FRAME_INSET = 24;
+        const SIDE_PANEL_HEIGHT_SCALE = 1.2;
+        let modalMode = 'right';
+
+        function getSidePanelMetrics() {
+            const bottomPanel = document.querySelector('.bottom-panel');
+            const bottomHeight = bottomPanel ? bottomPanel.getBoundingClientRect().height : 120;
+            const baseHeight = window.innerHeight - bottomHeight - PANEL_EDGE;
+            return {
+                width: window.innerWidth * 0.4,
+                height: baseHeight * SIDE_PANEL_HEIGHT_SCALE,
+            };
+        }
+
+        function getSidePanelHeight() {
+            const metrics = getSidePanelMetrics();
+            return `${Math.ceil(metrics.height)}px`;
+        }
+
+        function applyPanelBorder(el, side) {
+            if (side === 'right') {
+                el.style.border = 'none';
+                el.style.borderLeft = '2px solid #c9a84c';
+                el.style.borderTop = '2px solid #c9a84c';
+                el.style.borderBottom = '2px solid #c9a84c';
+                el.style.borderRight = 'none';
+            } else {
+                el.style.border = 'none';
+                el.style.borderRight = '2px solid #c9a84c';
+                el.style.borderTop = '2px solid #c9a84c';
+                el.style.borderBottom = '2px solid #c9a84c';
+                el.style.borderLeft = 'none';
+            }
+        }
+
+        function layoutSidePanel(el, side) {
+            el.style.position = 'fixed';
+            el.style.top = `${PANEL_EDGE}px`;
+            el.style.width = PANEL_WIDTH;
+            el.style.height = getSidePanelHeight();
+            el.style.transform = 'none';
+            el.style.pointerEvents = 'auto';
+            el.style.background = '#0a0502';
+            el.style.borderRadius = '0';
+
+            if (side === 'right') {
+                el.style.left = 'auto';
+                el.style.right = `${PANEL_EDGE}px`;
+                el.style.boxShadow = '-10px 0 30px rgba(0,0,0,0.8)';
+            } else {
+                el.style.left = `${PANEL_EDGE}px`;
+                el.style.right = 'auto';
+                el.style.boxShadow = '10px 0 30px rgba(0,0,0,0.8)';
+            }
+
+            applyPanelBorder(el, side);
+        }
+
+        function layoutFramedPanel(el) {
+            el.style.position = 'fixed';
+            el.style.top = `${FRAME_INSET}px`;
+            el.style.left = `${FRAME_INSET}px`;
+            el.style.right = `${FRAME_INSET}px`;
+            el.style.bottom = `${FRAME_INSET}px`;
+            el.style.width = 'auto';
+            el.style.height = 'auto';
+            el.style.transform = 'none';
+            el.style.pointerEvents = 'auto';
+            el.style.background = '#0a0502';
+            el.style.border = '2px solid #c9a84c';
+            el.style.borderRadius = '6px';
+            el.style.boxShadow = '0 0 40px rgba(0,0,0,0.85)';
+        }
+
+        function layoutTechPanel(el) {
+            const margin = 0.05;
+            const techW = Math.round(window.innerWidth * (1 - margin * 2));
+            const techH = Math.round(window.innerHeight * (1 - margin * 2));
+            const left = Math.round(window.innerWidth * margin);
+            const top = Math.round(window.innerHeight * margin);
+
+            el.style.position = 'fixed';
+            el.style.top = `${top}px`;
+            el.style.left = `${left}px`;
+            el.style.right = 'auto';
+            el.style.bottom = 'auto';
+            el.style.width = `${techW}px`;
+            el.style.height = `${techH}px`;
+            el.style.transform = 'none';
+            el.style.pointerEvents = 'auto';
+            el.style.background = '#0a0502';
+            el.style.border = '2px solid #c9a84c';
+            el.style.borderRadius = '6px';
+            el.style.boxShadow = '0 0 40px rgba(0,0,0,0.85)';
+        }
+
+        function layoutCenterDetailPanel(el) {
+            el.style.position = 'fixed';
+            el.style.left = '50%';
+            el.style.top = '50%';
+            el.style.width = 'min(960px, 94vw)';
+            el.style.height = 'min(90vh, 880px)';
+            el.style.transform = 'translate(-50%, -50%)';
+            el.style.pointerEvents = 'auto';
+            el.style.background = '#0a0502';
+            el.style.border = '2px solid #c9a84c';
+            el.style.borderRadius = '6px';
+            el.style.boxShadow = '0 0 40px rgba(0,0,0,0.85)';
+        }
+
+        function isSecondaryOpen() {
+            const sec = document.getElementById('secondaryContent');
+            return sec && sec.style.display === 'block' && sec.src && !sec.src.endsWith('about:blank');
+        }
+
         function switchTab(tab) {
             document.querySelectorAll('.block-center .tab-btn').forEach(b => b.classList.remove('active'));
             const idx = tab === 'army' ? 0 : 1;
@@ -617,19 +776,197 @@
             document.getElementById('iconBuild').classList.toggle('active', tab === 'settlement');
         }
 
+        function openBuildArmy(tab) {
+            document.getElementById('iconArmy')?.classList.add('active');
+            document.getElementById('iconBuild')?.classList.remove('active');
+            document.getElementById('iconTech')?.classList.remove('active');
+            openModal(`buildArmy.html?tab=${encodeURIComponent(tab)}&faction=${encodeURIComponent(getCampaignFaction())}`, 'right');
+        }
+
+        function getCampaignFaction() {
+            const params = new URLSearchParams(window.location.search);
+            return (params.get('faction') || 'rome').toLowerCase();
+        }
+
+        function openTech() {
+            closeSecondaryModal();
+            document.getElementById('iconArmy')?.classList.remove('active');
+            document.getElementById('iconBuild')?.classList.remove('active');
+            document.getElementById('iconTech')?.classList.add('active');
+            openModal('tech.html', 'tech');
+        }
+
+        function openModal(url, mode = 'right') {
+            const modal = document.getElementById('modalContent');
+            const backdrop = document.getElementById('modalBackdrop');
+            if (!modal || !backdrop) return;
+
+            modalMode = mode;
+
+            if (mode === 'tech') {
+                closeSecondaryModal();
+                layoutTechPanel(modal);
+            } else if (mode === 'framed') {
+                closeSecondaryModal();
+                layoutFramedPanel(modal);
+            } else {
+                layoutSidePanel(modal, 'right');
+            }
+
+            modal.style.display = 'block';
+            backdrop.style.display = 'block';
+            modal.src = url;
+        }
+
+        function closeModal() {
+            closeSecondaryModal();
+            const modal = document.getElementById('modalContent');
+            const backdrop = document.getElementById('modalBackdrop');
+            if (modal) {
+                modal.style.display = 'none';
+                modal.src = 'about:blank';
+                modalMode = 'right';
+            }
+            if (backdrop) backdrop.style.display = 'none';
+        }
+
+        function openSecondaryModal(url, options = {}) {
+            const sec = document.getElementById('secondaryContent');
+            if (!sec) return;
+
+            if (options.position === 'center') {
+                layoutCenterDetailPanel(sec);
+            } else {
+                layoutSidePanel(sec, 'left');
+            }
+
+            sec.style.display = 'block';
+
+            if (isSecondaryOpen()) {
+                sec.src = url;
+            } else {
+                sec.src = url;
+            }
+        }
+
+        function closeSecondaryModal() {
+            const sec = document.getElementById('secondaryContent');
+            if (sec) {
+                sec.style.display = 'none';
+                sec.src = 'about:blank';
+            }
+            notifyTechIframe();
+        }
+
+        function notifyTechIframe() {
+            const modal = document.getElementById('modalContent');
+            if (modal && modal.style.display === 'block' && modal.contentWindow) {
+                modal.contentWindow.postMessage({ type: 'tech-state-changed' }, '*');
+            }
+        }
+
+        window.addEventListener('message', (event) => {
+            if (event.data && event.data.type === 'tech-state-changed') {
+                notifyTechIframe();
+            }
+        });
+
+        function closeAllPanels() {
+            closeModal();
+        }
+
         function openFactionWindow() {
-            alert('Окно фракции — будет позже.');
+            closeSecondaryModal();
+            document.getElementById('iconArmy')?.classList.remove('active');
+            document.getElementById('iconBuild')?.classList.remove('active');
+            document.getElementById('iconTech')?.classList.remove('active');
+            openModal(`pageOfCountry.html?faction=${encodeURIComponent(getCampaignFaction())}`, 'tech');
+        }
+
+        function loadFactionIcon() {
+            const faction = getCampaignFaction();
+            const img = document.getElementById('factionIconImg');
+            if (!img) return;
+
+            const icons = {
+                rome: '../images/icon_rome.png',
+                carthage: '../images/icon_carthage.png',
+            };
+
+            if (window.GameContent) {
+                const data = GameContent.getFaction(faction);
+                if (data?.icon) {
+                    img.src = data.icon;
+                    img.alt = data.name || faction;
+                    return;
+                }
+            }
+
+            img.src = icons[faction] || icons.rome;
+            img.alt = faction;
         }
 
         function endTurn() {
             const btn = document.querySelector('.btn-end-turn');
             btn.style.opacity = '0.5';
             setTimeout(() => {
-                alert('Ход передан другим фракциям.');
+                alert(window.GameI18n ? GameI18n.t('alert.endTurn') : 'Ход передан другим фракциям.');
                 btn.style.opacity = '1';
             }, 400);
         }
+
+        window.addEventListener('resize', () => {
+            const modal = document.getElementById('modalContent');
+            const sec = document.getElementById('secondaryContent');
+            if (modal && modal.style.display === 'block') {
+                if (modalMode === 'tech') {
+                    layoutTechPanel(modal);
+                } else if (modalMode === 'framed') {
+                    layoutFramedPanel(modal);
+                } else {
+                    layoutSidePanel(modal, 'right');
+                }
+            }
+            if (sec && sec.style.display === 'block') {
+                if (sec.style.transform.includes('translate')) {
+                    layoutCenterDetailPanel(sec);
+                } else {
+                    layoutSidePanel(sec, 'left');
+                }
+            }
+        });
+
+        (function initFromQuery() {
+            if (window.GameI18n) GameI18n.apply();
+            loadFactionIcon();
+
+            const params = new URLSearchParams(window.location.search);
+            const faction = (params.get('faction') || 'rome').toLowerCase();
+            const mapPlaceholder = document.getElementById('mapPlaceholder');
+            if (!mapPlaceholder) return;
+
+            const config = {
+                rome: {
+                    titleKey: 'title.campaign.rome',
+                    labelKey: 'map.rome',
+                },
+                carthage: {
+                    titleKey: 'title.campaign.carthage',
+                    labelKey: 'map.carthage',
+                },
+            }[faction] || {
+                titleKey: 'title.campaign.rome',
+                labelKey: 'map.placeholder',
+            };
+
+            document.title = GameI18n.t(config.titleKey);
+            mapPlaceholder.textContent = GameI18n.t(config.labelKey);
+        })();
     </script>
+
+    <div id="modalBackdrop" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.65); z-index:1000; pointer-events:none;"></div>
+    <iframe id="modalContent" style="display:none; position:fixed; z-index:1001; border:none; background:#0a0502;" frameborder="0"></iframe>
+    <iframe id="secondaryContent" style="display:none; position:fixed; z-index:1002; border:none; background:#0a0502;" frameborder="0"></iframe>
 
 </body>
 </html>

@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
@@ -242,14 +242,6 @@
             font-size: 2.5rem;
         }
 
-        .faction-icon-img {
-            width: 62px;
-            height: 62px;
-            object-fit: contain;
-            display: block;
-            filter: brightness(0.95) contrast(1.05);
-        }
-
         .faction-icon-placeholder:hover {
             border-color: var(--gold);
             color: var(--gold);
@@ -474,11 +466,11 @@
         }
     </style>
 </head>
-<body>
+<body data-i18n-page-title="page.faction">
 
     <!-- ЗАГОЛОВОК -->
     <div class="header-section">
-        <div class="main-title">Имперская кампания</div>
+        <div class="main-title" data-i18n="campaign.title">Имперская кампания</div>
         <div class="gold-divider"></div>
         <div class="faction-subtitle" id="factionSubtitle">Римская республика</div>
     </div>
@@ -487,45 +479,45 @@
     <div class="top-row">
         <div class="settings-sidebar">
             <div class="setting-group">
-                <div class="setting-label">Уровень советов</div>
+                <div class="setting-label" data-i18n="campaign.adviceLevel">Уровень советов</div>
                 <div class="setting-options">
-                    <span class="setting-option" data-setting="advice" data-value="low" onclick="toggleSetting(this)">Мало</span>
-                    <span class="setting-option active" data-setting="advice" data-value="high" onclick="toggleSetting(this)">Много</span>
-                    <span class="setting-option" data-setting="advice" data-value="none" onclick="toggleSetting(this)">Нет</span>
+                    <span class="setting-option" data-setting="advice" data-value="low" onclick="toggleSetting(this)" data-i18n="campaign.advice.low">Мало</span>
+                    <span class="setting-option active" data-setting="advice" data-value="high" onclick="toggleSetting(this)" data-i18n="campaign.advice.high">Много</span>
+                    <span class="setting-option" data-setting="advice" data-value="none" onclick="toggleSetting(this)" data-i18n="campaign.advice.none">Нет</span>
                 </div>
             </div>
 
             <div class="setting-group">
-                <div class="setting-label">Сложность кампании</div>
+                <div class="setting-label" data-i18n="campaign.difficulty">Сложность кампании</div>
                 <div class="setting-options">
-                    <span class="setting-option" data-setting="campaign" data-value="easy" onclick="toggleSetting(this)">Низкая</span>
-                    <span class="setting-option active" data-setting="campaign" data-value="medium" onclick="toggleSetting(this)">Средняя</span>
-                    <span class="setting-option" data-setting="campaign" data-value="hard" onclick="toggleSetting(this)">Высокая</span>
+                    <span class="setting-option" data-setting="campaign" data-value="easy" onclick="toggleSetting(this)" data-i18n="campaign.difficulty.easy">Низкая</span>
+                    <span class="setting-option active" data-setting="campaign" data-value="medium" onclick="toggleSetting(this)" data-i18n="campaign.difficulty.medium">Средняя</span>
+                    <span class="setting-option" data-setting="campaign" data-value="hard" onclick="toggleSetting(this)" data-i18n="campaign.difficulty.hard">Высокая</span>
                 </div>
             </div>
 
             <div class="setting-group">
-                <div class="setting-label">Сложность боя</div>
+                <div class="setting-label" data-i18n="campaign.battleDifficulty">Сложность боя</div>
                 <div class="setting-options">
-                    <span class="setting-option" data-setting="battle" data-value="easy" onclick="toggleSetting(this)">Низкая</span>
-                    <span class="setting-option active" data-setting="battle" data-value="medium" onclick="toggleSetting(this)">Средняя</span>
-                    <span class="setting-option" data-setting="battle" data-value="hard" onclick="toggleSetting(this)">Высокая</span>
+                    <span class="setting-option" data-setting="battle" data-value="easy" onclick="toggleSetting(this)" data-i18n="campaign.difficulty.easy">Низкая</span>
+                    <span class="setting-option active" data-setting="battle" data-value="medium" onclick="toggleSetting(this)" data-i18n="campaign.difficulty.medium">Средняя</span>
+                    <span class="setting-option" data-setting="battle" data-value="hard" onclick="toggleSetting(this)" data-i18n="campaign.difficulty.hard">Высокая</span>
                 </div>
             </div>
 
             <div class="setting-group">
-                <div class="setting-label">Опции</div>
+                <div class="setting-label" data-i18n="campaign.options">Опции</div>
                 <div class="checkbox-row" onclick="toggleCheckbox(this)">
                     <span class="checkbox-box" id="checkArcade"></span>
-                    <span>Аркадные сражения</span>
+                    <span data-i18n="settings.arcade">Аркадные сражения</span>
                 </div>
                 <div class="checkbox-row" onclick="toggleCheckbox(this)">
                     <span class="checkbox-box checked" id="checkManage"></span>
-                    <span>Управлять поселениями</span>
+                    <span data-i18n="campaign.manageSettlements">Управлять поселениями</span>
                 </div>
                 <div class="checkbox-row" onclick="toggleCheckbox(this)">
                     <span class="checkbox-box" id="checkTrackAI"></span>
-                    <span>Следить за ИИ</span>
+                    <span data-i18n="campaign.trackAI">Следить за ИИ</span>
                 </div>
             </div>
         </div>
@@ -533,8 +525,9 @@
         <div class="map-area">
             <img
                 class="map-image"
-                src="../assets/images/mapOfRome.png"
+                src="../images/mapOfRome.png"
                 alt="Карта Средиземноморья"
+                data-i18n-alt="campaign.mapAlt"
                 id="mapImage"
                 onerror="this.style.opacity='0.3';"
             >
@@ -542,20 +535,18 @@
 
         <!-- ИКОНКИ В РЯД -->
         <div class="factions-sidebar">
-            <div class="faction-icon-placeholder selected" id="romeIcon" onclick="selectFaction('rome')" title="Римская республика">
-                <img src="../assets/images/icon_rome.png" alt="Рим" class="faction-icon-img">
-                РИМ
+            <div class="faction-icon-placeholder selected" id="romeIcon" onclick="selectFaction('rome')" data-i18n-title="campaign.faction.rome" title="Римская республика">
+                <span class="icon-emoji">🏛️</span><span data-i18n="campaign.faction.romeShort">РИМ</span>
             </div>
-            <div class="faction-icon-placeholder" id="carthageIcon" onclick="selectFaction('carthage')" title="Карфаген">
-                <img src="../assets/images/icon_carphago.png" alt="Карфаген" class="faction-icon-img">
-                КАРФАГЕН
+            <div class="faction-icon-placeholder" id="carthageIcon" onclick="selectFaction('carthage')" data-i18n-title="campaign.faction.carthage" title="Карфаген">
+                <span class="icon-emoji">🐘</span><span data-i18n="campaign.faction.carthageShort">КАРФАГЕН</span>
             </div>
         </div>
     </div>
 
     <!-- НАДПИСЬ ПОД КАРТОЙ -->
     <div class="map-subtitle">
-        <div class="choose-faction-text">Выберите фракцию</div>
+        <div class="choose-faction-text" data-i18n="campaign.chooseFaction">Выберите фракцию</div>
     </div>
 
     <!-- НИЗ: ПОРТРЕТ + ОПИСАНИЕ -->
@@ -564,15 +555,16 @@
             <div class="portrait-container">
                 <img
                     class="portrait-image"
-                    src="../assets/images/faceOfScipio.png"
+                    src="../images/faceOfScipio.png"
                     alt="Портрет полководца"
+                    data-i18n-alt="campaign.portraitAlt"
                     id="portraitImage"
                     onerror="this.style.opacity='0.5';"
                 >
             </div>
             <div class="description-area">
                 <div class="faction-name-display" id="factionNameDisplay">Римская республика</div>
-                <div class="faction-year">270 год до н.э.</div>
+                <div class="faction-year" id="factionYear">270 год до н.э.</div>
                 <div class="faction-text" id="factionText">
                     Римская республика — величайшая держава античного мира. Заложенная на семи холмах у берегов Тибра, она выросла из небольшого города-государства в империю, покорившую всё Средиземноморье. Железные легионы, мудрость Сената и непоколебимая вера в своё предназначение сделали Рим властелином известного мира. Но за внешним величием скрывается борьба за власть, интриги и предательства. Только тот, кто сумеет обуздать амбиции патрициев и завоевать доверие плебса, сможет привести Республику к золотому веку.
                 </div>
@@ -586,41 +578,29 @@
     <!-- НИЗ: КНОПКИ -->
     <div class="action-bar">
         <div class="action-left">
-            <a href="main.html" class="btn-nav">
-                <span class="arrow">←</span> Назад
+            <a href="windowDownload.html" class="btn-nav">
+                <span class="arrow">←</span> <span data-i18n="campaign.back">Назад</span>
             </a>
             <div class="checkbox-row-bottom" onclick="toggleCheckbox(this)">
                 <span class="checkbox-box" id="checkShort"></span>
-                <span>Короткая кампания</span>
+                <span data-i18n="campaign.shortCampaign">Короткая кампания</span>
             </div>
         </div>
-        <button class="btn-nav" id="btnForward" onclick="startCampaign()">
-            Вперёд <span class="arrow">→</span>
+        <button class="btn-nav" onclick="startCampaign()">
+            <span data-i18n="campaign.forward">Вперёд</span> <span class="arrow">→</span>
         </button>
     </div>
 
+    <script src="../js/i18n.js"></script>
+    <script src="../js/i18n-content.js"></script>
     <script>
         let selectedFaction = 'rome';
-        const factionData = {
-            rome: {
-                name: 'Римская республика',
-                description: 'Римская республика — величайшая держава античного мира. Заложенная на семи холмах у берегов Тибра, она выросла из небольшого города-государства в империю, покорившую всё Средиземноморье. Железные легионы, мудрость Сената и непоколебимая вера в своё предназначение сделали Рим властелином известного мира. Но за внешним величием скрывается борьба за власть, интриги и предательства. Только тот, кто сумеет обуздать амбиции патрициев и завоевать доверие плебса, сможет привести Республику к золотому веку.',
-                units: 'Тяжёлая легионерская пехота • Вспомогательные когорты союзников • Римская кавалерия • Осадные орудия',
-                portrait: '../assets/images/faceOfScipio.png',
-                map: '../assets/images/mapOfRome.png'
-            },
-            carthage: {
-                name: 'Карфаген',
-                description: 'Карфаген — город золота и слоновой кости, жемчужина Средиземноморья. Основанный финикийскими купцами, он превратился в величайшую торговую державу древнего мира. Его корабли бороздят моря от берегов Африки до Британии. Но тень Рима нависла над Карфагеном. Флот Карфагена не знает равных, а боевые слоны вселяют ужас в сердца врагов.',
-                units: 'Боевые слоны • Священный отряд • Отличная кавалерия • Мощный флот',
-                portrait: '../assets/images/faceOfganibal.png',
-                map: '../assets/images/mapOfCarphago.png'
-            }
-        };
 
         function selectFaction(faction) {
             selectedFaction = faction;
-            const data = factionData[faction];
+            const data = GameContent.getFaction(faction);
+            if (!data) return;
+
             document.getElementById('romeIcon').classList.remove('selected', 'selected-carthage');
             document.getElementById('carthageIcon').classList.remove('selected', 'selected-carthage');
             if (faction === 'rome') {
@@ -630,6 +610,7 @@
             }
             document.getElementById('factionSubtitle').textContent = data.name;
             document.getElementById('factionNameDisplay').textContent = data.name;
+            document.getElementById('factionYear').textContent = data.year;
             document.getElementById('factionText').textContent = data.description;
             document.getElementById('factionUnits').textContent = data.units;
             document.getElementById('portraitImage').src = data.portrait;
@@ -646,14 +627,19 @@
         }
 
         function startCampaign() {
-            const btn = document.getElementById('btnForward');
+            const btn = document.querySelector('.action-bar .btn-nav:last-child');
             btn.style.opacity = '0.7';
+            btn.disabled = true;
             setTimeout(() => {
                 window.location.href = `frameForMap.html?faction=${encodeURIComponent(selectedFaction)}`;
             }, 150);
         }
+
+        window.addEventListener('load', () => {
+            if (window.GameI18n) GameI18n.apply();
+            selectFaction(selectedFaction);
+        });
     </script>
 
 </body>
 </html>
-
