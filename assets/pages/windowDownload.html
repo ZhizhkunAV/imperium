@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
@@ -218,13 +218,13 @@
         }
     </style>
 </head>
-<body>
+<body data-i18n-page-title="page.loading">
 
     <!-- ЭКРАН ЗАГРУЗКИ -->
     <div id="loadingScreen">
 
         <!-- Фоновое изображение — стартовые экраны -->
-        <img id="loadingBg" class="loading-bg" src="./images/startScreen/1.png" alt="Loading screen">
+        <img id="loadingBg" class="loading-bg" src="../images/startScreen/1.png" alt="Loading screen">
 
         <!-- Затемнение -->
         <div class="loading-overlay"></div>
@@ -238,26 +238,27 @@
         </div>
 
         <!-- Подсказка -->
-        <div class="loading-hint" id="loadingHint">Загрузка легионов...</div>
+        <div class="loading-hint" id="loadingHint" data-i18n="loading.hint1">Загрузка легионов...</div>
     </div>
 
     <!-- ГЛАВНОЕ МЕНЮ -->
     <div id="mainMenu">
         <div class="menu-eagle">🦅</div>
         <div class="menu-title">IMPERIVM</div>
-        <div class="menu-subtitle">Римская Республика • 270 г. до н.э.</div>
+        <div class="menu-subtitle" data-i18n="menu.subtitle">Римская Республика • 270 г. до н.э.</div>
         <div class="menu-divider"></div>
 
         <div class="menu-buttons">
-            <a href="faction-select.html" class="btn-menu">
-                <span class="btn-icon">⚔️</span> Кампания
+            <a href="pageOfCampain.html" class="btn-menu">
+                <span class="btn-icon">⚔️</span> <span data-i18n="menu.campaign">Кампания</span>
             </a>
             <a href="settings.html" class="btn-menu">
-                <span class="btn-icon">⚙️</span> Настройки
+                <span class="btn-icon">⚙️</span> <span data-i18n="menu.settings">Настройки</span>
             </a>
         </div>
     </div>
 
+    <script src="../js/i18n.js"></script>
     <script>
         const loadingBg = document.getElementById('loadingBg');
         const loadingBar = document.getElementById('loadingBar');
@@ -266,22 +267,25 @@
         const mainMenu = document.getElementById('mainMenu');
 
         const loadingImages = [
-            './images/startScreen/1.png',
-            './images/startScreen/2.png'
+            '../images/startScreen/1.png',
+            '../images/startScreen/2.png'
         ];
 
-        const hints = [
-            'Загрузка легионов...',
-            'Построение когорт...',
-            'Точение гладиусов...',
-            'Полировка доспехов...'
-        ];
+        function getHints() {
+            return [
+                GameI18n.t('loading.hint1'),
+                GameI18n.t('loading.hint2'),
+                GameI18n.t('loading.hint3'),
+                GameI18n.t('loading.hint4'),
+            ];
+        }
 
         const TOTAL_DURATION = 4000;
         const TICK = 50;
         const steps = TOTAL_DURATION / TICK;
         const incrementPerStep = 100 / steps;
 
+        let hints = getHints();
         let hintIndex = 0;
         const hintInterval = setInterval(() => {
             hintIndex = (hintIndex + 1) % hints.length;
@@ -304,7 +308,7 @@
                 clearInterval(loadInterval);
                 clearInterval(hintInterval);
 
-                loadingHint.textContent = 'Загрузка завершена';
+                loadingHint.textContent = GameI18n.t('loading.done');
                 loadingBar.style.width = '100%';
 
                 setTimeout(() => {
@@ -313,6 +317,14 @@
                 }, 400);
             }
         }, TICK);
+
+        window.addEventListener('load', () => {
+            if (window.GameI18n) {
+                GameI18n.apply();
+                hints = getHints();
+                loadingHint.textContent = hints[0];
+            }
+        });
     </script>
 
 </body>

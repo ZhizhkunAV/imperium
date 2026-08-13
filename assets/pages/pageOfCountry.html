@@ -1,0 +1,1191 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Фракция — Римская республика</title>
+
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700;900&family=EB+Garamond:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
+
+    <style>
+        :root {
+            --gold: #c9a84c;
+            --gold-light: #e0c878;
+            --gold-dark: #8b6914;
+            --bronze: #6b5a3a;
+            --text: #d4c5a9;
+            --bg-panel: rgba(5, 3, 1, 0.92);
+            --border-panel: rgba(180, 140, 60, 0.5);
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            background: #0a0502;
+            background-image:
+                radial-gradient(ellipse at 50% 50%, rgba(40, 25, 10, 0.4) 0%, transparent 70%),
+                radial-gradient(ellipse at center, transparent 30%, rgba(0,0,0,0.6) 100%);
+            font-family: 'EB Garamond', 'Georgia', serif;
+            color: var(--text);
+            height: 100vh;
+            width: 100%;
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            display: flex;
+            align-items: stretch;
+            justify-content: stretch;
+            user-select: none;
+        }
+
+        .faction-panel {
+            width: 100%;
+            height: 100%;
+            max-width: none;
+            background: var(--bg-panel);
+            border: none;
+            padding: 12px 24px 16px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 8px;
+            box-shadow: none;
+            position: relative;
+            text-align: center;
+            overflow-y: auto;
+            box-sizing: border-box;
+        }
+
+        .close-btn {
+            position: absolute;
+            top: 10px;
+            right: 14px;
+            width: 38px;
+            height: 38px;
+            cursor: pointer;
+            background: rgba(139, 26, 26, 0.2);
+            border: 1px solid rgba(200, 80, 80, 0.4);
+            color: #c08080;
+            font-size: 1.2rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s;
+            font-family: 'Cinzel', serif;
+            z-index: 200;
+            pointer-events: auto;
+            flex-shrink: 0;
+        }
+
+        .close-btn:hover {
+            background: rgba(139, 26, 26, 0.4);
+            color: #ffaaaa;
+        }
+
+        .faction-tabs {
+            display: flex;
+            gap: 5px;
+            flex-shrink: 0;
+            flex-wrap: wrap;
+            justify-content: center;
+            margin-bottom: 4px;
+        }
+
+        .faction-tab {
+            font-family: 'Cinzel', serif;
+            font-size: 0.84rem;
+            letter-spacing: 1.8px;
+            text-transform: uppercase;
+            cursor: pointer;
+            background: transparent;
+            border: 1px solid rgba(201, 168, 76, 0.25);
+            color: #8b7355;
+            transition: all 0.2s;
+            padding: 8px 18px;
+            white-space: nowrap;
+        }
+
+        .faction-tab:hover {
+            color: var(--gold-light);
+            border-color: rgba(201, 168, 76, 0.5);
+        }
+
+        .faction-tab.active {
+            color: #fff;
+            border-color: var(--gold);
+            background: rgba(201, 168, 76, 0.15);
+            box-shadow: 0 0 8px rgba(201, 168, 76, 0.2);
+        }
+
+        .tab-content {
+            width: 100%;
+            max-width: 1000px;
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 10px;
+            overflow-y: auto;
+            padding: 4px 0;
+        }
+
+        .tab-content.hidden { display: none !important; }
+
+        .info-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 10px;
+            width: 100%;
+            max-width: 900px;
+        }
+
+        .info-card {
+            background: rgba(0,0,0,0.35);
+            border: 1px solid rgba(201,168,76,0.2);
+            padding: 14px 20px;
+            border-radius: 4px;
+            text-align: left;
+        }
+
+        .info-card .card-label {
+            font-family: 'Cinzel', serif;
+            font-size: 0.72rem;
+            letter-spacing: 1.2px;
+            text-transform: uppercase;
+            color: var(--gold);
+            margin-bottom: 4px;
+        }
+
+        .info-card .card-value {
+            font-size: 1.32rem;
+            font-weight: 700;
+            color: var(--gold-light);
+        }
+
+        .info-card .card-sub {
+            font-size: 0.84rem;
+            color: #8b7355;
+            margin-top: 3px;
+        }
+
+        .faction-commander-block {
+            width: 100%;
+            max-width: 900px;
+            flex-shrink: 0;
+            text-align: left;
+        }
+
+        .faction-section-title {
+            font-family: 'Cinzel', serif;
+            font-size: 0.72rem;
+            color: var(--gold);
+            letter-spacing: 1.5px;
+            text-transform: uppercase;
+            border-bottom: 1px solid rgba(201,168,76,0.2);
+            padding-bottom: 3px;
+            margin-bottom: 6px;
+        }
+
+        .faction-commander-section {
+            display: flex;
+            gap: 14px;
+            align-items: center;
+            min-height: 164px;
+            padding: 12px;
+            background: rgba(0,0,0,0.3);
+            border: 1px solid rgba(201,168,76,0.2);
+        }
+
+        .faction-commander-portrait {
+            width: 128px;
+            height: 152px;
+            background: rgba(0,0,0,0.5);
+            border: 2px solid rgba(201,168,76,0.4);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 3rem;
+            flex-shrink: 0;
+            overflow: hidden;
+        }
+
+        .faction-commander-portrait img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: block;
+        }
+
+        .faction-commander-info {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .faction-commander-name {
+            font-family: 'Cinzel', serif;
+            font-size: 0.95rem;
+            font-weight: 700;
+            color: var(--gold-light);
+            letter-spacing: 1px;
+        }
+
+        .faction-commander-stats {
+            font-size: 0.72rem;
+            color: #8b7355;
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
+        .faction-commander-stat {
+            display: flex;
+            align-items: center;
+            gap: 2px;
+        }
+
+        .faction-title {
+            font-family: 'Cinzel', serif;
+            font-size: 1.8rem;
+            font-weight: 900;
+            letter-spacing: 5px;
+            color: var(--gold-light);
+            text-transform: uppercase;
+            text-shadow: 0 0 20px rgba(201,168,76,0.3);
+        }
+
+        .faction-badge {
+            display: inline-block;
+            font-family: 'Cinzel', serif;
+            font-size: 0.72rem;
+            letter-spacing: 2.4px;
+            padding: 4px 20px;
+            border-radius: 3px;
+            text-transform: uppercase;
+            background: var(--gold);
+            color: #000;
+        }
+
+        .faction-description {
+            font-size: 1.02rem;
+            line-height: 1.7;
+            color: #c4b896;
+            max-width: 900px;
+            text-align: center;
+            margin: 0 auto;
+        }
+
+        .bottom-section {
+            width: 100%;
+            max-width: 1000px;
+            margin-top: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 0;
+            flex-shrink: 0;
+        }
+
+        .divider-line {
+            width: 100%;
+            height: 1px;
+            background: rgba(201,168,76,0.25);
+        }
+
+        .btn-container {
+            width: 100%;
+            display: flex;
+            justify-content: flex-end;
+            padding: 0;
+            margin: 0;
+        }
+
+        .btn-close-detail {
+            font-family: 'Cinzel', serif;
+            font-size: 0.84rem;
+            letter-spacing: 2.4px;
+            text-transform: uppercase;
+            padding: 10px 34px;
+            cursor: pointer;
+            transition: all 0.3s;
+            background: rgba(201,168,76,0.1);
+            border: 2px solid var(--gold);
+            color: var(--gold-light);
+            margin: 0;
+        }
+
+        .btn-close-detail:hover {
+            background: rgba(201,168,76,0.2);
+            box-shadow: 0 0 20px rgba(201,168,76,0.3);
+            color: #fff;
+        }
+
+        /* ===== БЛОКИ СОЮЗНИКОВ / ВРАГОВ / ВАССАЛОВ ===== */
+        .relation-block {
+            width: 100%;
+            max-width: 900px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 16px;
+            justify-content: center;
+            margin: 6px 0;
+        }
+
+        .relation-group {
+            flex: 1;
+            min-width: 190px;
+            background: rgba(0,0,0,0.25);
+            border: 1px solid rgba(201,168,76,0.12);
+            padding: 12px 18px;
+            border-radius: 4px;
+            text-align: left;
+        }
+
+        .relation-group .group-title {
+            font-family: 'Cinzel', serif;
+            font-size: 0.72rem;
+            letter-spacing: 1.8px;
+            text-transform: uppercase;
+            color: var(--gold);
+            margin-bottom: 8px;
+        }
+
+        .relation-group .group-title.allies { color: #4caf50; }
+        .relation-group .group-title.enemies { color: #cc4444; }
+        .relation-group .group-title.vassals { color: #88aacc; }
+
+        .relation-avatars {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .relation-avatar {
+            width: 52px;
+            height: 52px;
+            border-radius: 50%;
+            background: rgba(0,0,0,0.4);
+            border: 1px solid rgba(201,168,76,0.2);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.7rem;
+            transition: all 0.2s;
+        }
+
+        .relation-avatar:hover {
+            border-color: var(--gold);
+            transform: scale(1.05);
+        }
+
+        /* ===== КАРТА ПРОВИНЦИЙ ===== */
+        .map-block {
+            width: 100%;
+            max-width: 900px;
+            border: 1px solid rgba(201,168,76,0.2);
+            border-radius: 4px;
+            overflow: hidden;
+            background: rgba(0,0,0,0.3);
+            margin: 6px 0;
+        }
+
+        .map-block img {
+            width: 100%;
+            height: auto;
+            display: block;
+            filter: brightness(0.85) contrast(1.1);
+        }
+
+        .map-block .map-caption {
+            font-family: 'Cinzel', serif;
+            font-size: 0.72rem;
+            letter-spacing: 1.2px;
+            color: #8b7355;
+            padding: 8px 0;
+            text-align: center;
+            border-top: 1px solid rgba(201,168,76,0.08);
+        }
+
+        /* ===== СЕНАТ: ВЛИЯНИЕ ===== */
+        .senate-influence {
+            width: 100%;
+            max-width: 900px;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            background: rgba(0,0,0,0.2);
+            border: 1px solid rgba(201,168,76,0.12);
+            padding: 18px 22px;
+            border-radius: 4px;
+        }
+
+        .senate-influence .inf-item {
+            text-align: left;
+        }
+
+        .senate-influence .inf-item .inf-label {
+            font-family: 'Cinzel', serif;
+            font-size: 0.72rem;
+            letter-spacing: 1.2px;
+            color: #8b7355;
+            text-transform: uppercase;
+        }
+
+        .senate-influence .inf-item .inf-value {
+            font-size: 1.2rem;
+            color: var(--gold-light);
+            font-weight: 700;
+        }
+
+        .senate-influence .inf-item .inf-wreaths {
+            display: flex;
+            gap: 4px;
+            font-size: 1.32rem;
+            margin-top: 4px;
+        }
+
+        .senate-influence .inf-item .inf-wreaths .wreath {
+            opacity: 0.9;
+        }
+        .senate-influence .inf-item .inf-wreaths .wreath.empty {
+            opacity: 0.15;
+        }
+
+        .btn-senate-proposal {
+            font-family: 'Cinzel', serif;
+            font-size: 0.84rem;
+            letter-spacing: 2.4px;
+            text-transform: uppercase;
+            padding: 12px 34px;
+            cursor: pointer;
+            transition: all 0.3s;
+            background: rgba(201,168,76,0.08);
+            border: 2px solid var(--gold);
+            color: var(--gold-light);
+            margin-top: 6px;
+            width: 100%;
+            max-width: 900px;
+        }
+
+        .btn-senate-proposal:hover {
+            background: rgba(201,168,76,0.2);
+            box-shadow: 0 0 20px rgba(201,168,76,0.3);
+            color: #fff;
+        }
+
+        /* ===== ГРАФИК ===== */
+        .chart-container {
+            width: 100%;
+            max-width: 900px;
+            background: rgba(0,0,0,0.3);
+            border: 1px solid rgba(201,168,76,0.15);
+            border-radius: 4px;
+            padding: 16px 16px 10px 16px;
+            margin: 4px 0;
+        }
+
+        .chart-title {
+            font-family: 'Cinzel', serif;
+            font-size: 0.78rem;
+            letter-spacing: 2.4px;
+            color: var(--gold);
+            text-transform: uppercase;
+            margin-bottom: 10px;
+            text-align: left;
+        }
+
+        .chart-wrapper {
+            display: flex;
+            height: 200px;
+            gap: 0;
+        }
+
+        .chart-y-axis {
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            align-items: flex-end;
+            padding-right: 8px;
+            flex-shrink: 0;
+            width: 72px;
+            font-size: 0.68rem;
+            color: #8b7355;
+            font-family: 'Cinzel', serif;
+            padding-bottom: 22px;
+        }
+
+        .chart-y-axis span {
+            line-height: 1.2;
+        }
+
+        .chart-area {
+            flex: 1;
+            position: relative;
+            border-left: 1px solid rgba(201,168,76,0.2);
+            border-bottom: 1px solid rgba(201,168,76,0.2);
+            height: 200px;
+            min-height: 200px;
+        }
+
+        .chart-grid {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+        }
+
+        .chart-grid .grid-line {
+            position: absolute;
+            left: 0;
+            right: 0;
+            height: 1px;
+            background: rgba(201,168,76,0.08);
+        }
+
+        .chart-svg {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+        }
+
+        .chart-svg polyline {
+            fill: none;
+            stroke: var(--gold-light);
+            stroke-width: 2.5;
+            stroke-linejoin: round;
+            stroke-linecap: round;
+            filter: drop-shadow(0 0 8px rgba(201,168,76,0.25));
+        }
+
+        .chart-svg polygon {
+            fill: rgba(201,168,76,0.08);
+            stroke: none;
+        }
+
+        .chart-dots {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+        }
+
+        .chart-dots .dot {
+            position: absolute;
+            width: 7px;
+            height: 7px;
+            background: var(--gold-light);
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+            box-shadow: 0 0 10px rgba(201,168,76,0.5);
+        }
+
+        .chart-x-axis {
+            display: flex;
+            justify-content: space-around;
+            padding-top: 6px;
+            font-size: 0.7rem;
+            color: #8b7355;
+            font-family: 'Cinzel', serif;
+            padding-left: 72px;
+        }
+
+        .chart-x-axis span { flex: 1; text-align: center; }
+
+        .eco-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 6px 0;
+            border-bottom: 1px solid rgba(201,168,76,0.08);
+            font-size: 0.96rem;
+            width: 100%;
+            max-width: 900px;
+        }
+        .eco-row .eco-label { color: #b0a080; }
+        .eco-row .eco-value { color: var(--gold-light); font-weight: 700; }
+
+        .economy-trade {
+            width: 100%;
+            max-width: 900px;
+            font-size: 0.9rem;
+            color: #b0a080;
+            text-align: left;
+            border-top: 1px solid rgba(201,168,76,0.15);
+            padding-top: 10px;
+            margin-top: 4px;
+        }
+
+        .senate-list {
+            width: 100%;
+            max-width: 900px;
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+
+        .senate-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 18px;
+            background: rgba(0,0,0,0.3);
+            border-left: 3px solid var(--gold);
+            border-radius: 2px;
+        }
+
+        .senate-row .faction-name {
+            font-family: 'Cinzel', serif;
+            font-size: 0.96rem;
+            color: var(--gold-light);
+            letter-spacing: 0.5px;
+        }
+
+        .senate-row .influence {
+            font-size: 0.84rem;
+            color: #b0a080;
+        }
+
+        .senate-row .influence span {
+            color: var(--gold-light);
+            font-weight: 700;
+        }
+
+        .senate-subinfo {
+            width: 100%;
+            max-width: 900px;
+            font-size: 0.84rem;
+            color: #8b7355;
+            text-align: left;
+            border-top: 1px solid rgba(201,168,76,0.15);
+            padding-top: 10px;
+        }
+
+        .senate-subinfo > div {
+            display: flex;
+            justify-content: space-between;
+            padding: 3px 0;
+        }
+
+        .senate-subinfo > div span:last-child {
+            color: var(--gold-light);
+        }
+
+        .units-line {
+            font-size: 0.84rem;
+            color: var(--gold);
+            font-family: 'Cinzel', serif;
+            letter-spacing: 1.2px;
+            border-top: 1px solid rgba(201,168,76,0.2);
+            padding-top: 10px;
+            width: 100%;
+            max-width: 900px;
+        }
+
+        .units-line span {
+            color: #fff;
+        }
+
+        .treasury-details {
+            width: 100%;
+            max-width: 900px;
+            font-size: 0.84rem;
+            color: #8b7355;
+            text-align: left;
+            padding: 6px 0;
+        }
+
+        .treasury-details > div {
+            display: flex;
+            justify-content: space-between;
+            padding: 4px 0;
+            border-bottom: 1px solid rgba(201,168,76,0.1);
+        }
+
+        .treasury-details > div:last-child {
+            border-bottom: none;
+        }
+
+        .treasury-details > div span:last-child {
+            color: var(--gold-light);
+        }
+
+        .treasury-details .negative span:last-child {
+            color: #cc8888;
+        }
+
+        @media (max-width: 700px) {
+            .faction-panel { padding: 44px 10px 12px; }
+            .faction-commander-portrait { width: 96px; height: 114px; font-size: 2.2rem; }
+            .faction-commander-section { min-height: 130px; }
+            .faction-title { font-size: 1.3rem; }
+            .faction-tab { font-size: 0.6rem; padding: 5px 10px; }
+            .info-grid { grid-template-columns: 1fr 1fr; }
+            .chart-y-axis { width: 44px; font-size: 0.55rem; }
+            .chart-x-axis { font-size: 0.55rem; padding-left: 44px; }
+            .chart-wrapper { height: 160px; }
+            .chart-area { height: 160px; min-height: 160px; }
+            .senate-influence { grid-template-columns: 1fr; }
+            .relation-group { min-width: 140px; }
+            .relation-avatar { width: 42px; height: 42px; font-size: 1.3rem; }
+            .senate-row { padding: 5px 12px; }
+            .senate-row .faction-name { font-size: 0.78rem; }
+        }
+    </style>
+</head>
+<body data-i18n-page-title="page.factionDetail">
+
+<div class="faction-panel" id="factionPanel">
+
+    <button class="close-btn" onclick="closeFactionDetail()" data-i18n-title="faction.close" title="Закрыть">✕</button>
+
+    <!-- ВКЛАДКИ -->
+    <div class="faction-tabs">
+        <button class="faction-tab active" data-tab="overview" onclick="switchFactionTab('overview')">📜 Обзор</button>
+        <button class="faction-tab" data-tab="treasury" onclick="switchFactionTab('treasury')">💰 Казна</button>
+        <button class="faction-tab" data-tab="imperium" onclick="switchFactionTab('imperium')">🏛️ Империум</button>
+        <button class="faction-tab" data-tab="senate" onclick="switchFactionTab('senate')">🏺 Сенат</button>
+        <button class="faction-tab" data-tab="economy" onclick="switchFactionTab('economy')">📊 Экономика</button>
+    </div>
+
+    <!-- ====== ОБЗОР ====== -->
+    <div id="tab-overview" class="tab-content">
+        <div class="faction-commander-block">
+            <div class="faction-section-title" data-i18n="army.commander">👤 Командующий</div>
+            <div class="faction-commander-section">
+                <div class="faction-commander-portrait" id="commanderPortrait">🏛️</div>
+                <div class="faction-commander-info">
+                    <div class="faction-commander-name" id="commanderName">Сципион Африканский</div>
+                    <div class="faction-commander-stats">
+                        <span class="faction-commander-stat">🛡️ 10</span>
+                        <span class="faction-commander-stat">⚔️ 8</span>
+                        <span class="faction-commander-stat">🏛️ 7</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="faction-title" id="factionTitle">Римская республика</div>
+        <div class="faction-badge" id="factionBadge">РЕСПУБЛИКА • ЛАТИУМ</div>
+        <div class="faction-description" id="factionDesc">
+            Римская республика — величайшая держава античного мира. Заложенная на семи холмах у берегов Тибра, она выросла из небольшого города-государства в империю, покорившую всё Средиземноморье.
+        </div>
+        <div class="units-line">⚔️ <span>Особые юниты:</span> Легионеры • Велиты • Эквиты • Баллисты</div>
+
+        <!-- БЛОК СОЮЗНИКОВ / ВРАГОВ / ВАССАЛОВ -->
+        <div class="relation-block">
+            <div class="relation-group">
+                <div class="group-title allies">🤝 Союзники</div>
+                <div class="relation-avatars">
+                    <span class="relation-avatar" title="Греция">🏛️</span>
+                    <span class="relation-avatar" title="Египет">🐪</span>
+                    <span class="relation-avatar" title="Нумидия">🐴</span>
+                </div>
+            </div>
+            <div class="relation-group">
+                <div class="group-title enemies">⚔️ Враги</div>
+                <div class="relation-avatars">
+                    <span class="relation-avatar" title="Карфаген">🐘</span>
+                    <span class="relation-avatar" title="Галлы">🛡️</span>
+                    <span class="relation-avatar" title="Самниты">🏹</span>
+                    <span class="relation-avatar" title="Этруски">⚡</span>
+                </div>
+            </div>
+            <div class="relation-group">
+                <div class="group-title vassals">👑 Вассалы</div>
+                <div class="relation-avatars">
+                    <span class="relation-avatar" title="Капуя">🏙️</span>
+                    <span class="relation-avatar" title="Сицилия">🌊</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ====== КАЗНА ====== -->
+    <div id="tab-treasury" class="tab-content hidden">
+        <div class="info-grid">
+            <div class="info-card"><div class="card-label">💰 Казна</div><div class="card-value">ⓓ 12 450</div><div class="card-sub">+350 за ход</div></div>
+            <div class="info-card"><div class="card-label">📈 Доход</div><div class="card-value">+1 200</div><div class="card-sub">Налоги • Торговля</div></div>
+            <div class="info-card"><div class="card-label">📉 Расходы</div><div class="card-value">−850</div><div class="card-sub">Армия • Строительство</div></div>
+            <div class="info-card"><div class="card-label">🏦 Золотой запас</div><div class="card-value">2 300</div><div class="card-sub">Резерв</div></div>
+        </div>
+        <div class="treasury-details">
+            <div><span>Налоги с провинций</span> <span>+800</span></div>
+            <div><span>Торговля (экспорт)</span> <span>+400</span></div>
+            <div class="negative"><span>Содержание армии</span> <span>−600</span></div>
+            <div class="negative"><span>Строительство</span> <span>−250</span></div>
+        </div>
+    </div>
+
+    <!-- ====== ИМПЕРИУМ (с картой) ====== -->
+    <div id="tab-imperium" class="tab-content hidden">
+        <div class="info-grid">
+            <div class="info-card"><div class="card-label">🏛️ Империум</div><div class="card-value">42</div><div class="card-sub">+2 за ход</div></div>
+            <div class="info-card"><div class="card-label">🌍 Провинции</div><div class="card-value">8</div><div class="card-sub">3 города • 5 территорий</div></div>
+            <div class="info-card"><div class="card-label">👥 Население</div><div class="card-value">1.2 млн</div><div class="card-sub">Рим • Капуя • Брундизий</div></div>
+            <div class="info-card"><div class="card-label">⚔️ Армия</div><div class="card-value">4 легиона</div><div class="card-sub">18 000 человек</div></div>
+        </div>
+        <div class="treasury-details" style="max-width:900px;">
+            <div><span>Уровень империи</span> <span style="color:var(--gold-light);">IV — Доминион</span></div>
+            <div><span>Влияние</span> <span style="color:var(--gold-light);">78 / 100</span></div>
+            <div><span>Соседние фракции</span> <span style="color:#b0a080;">Карфаген • Этруски • Самниты</span></div>
+        </div>
+
+        <!-- КАРТА ПРОВИНЦИЙ -->
+        <div class="map-block">
+            <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 800 400'%3E%3Crect fill='%231a1008' width='800' height='400'/%3E%3Cpath d='M200,100 L280,80 L350,110 L320,170 L250,200 L180,180 L200,100Z' fill='%23c9a84c' opacity='0.3' stroke='%23c9a84c' stroke-width='1.5'/%3E%3Cpath d='M340,90 L420,70 L480,100 L460,160 L390,180 L340,150 L340,90Z' fill='%23c9a84c' opacity='0.25' stroke='%23c9a84c' stroke-width='1.5'/%3E%3Cpath d='M150,140 L220,130 L260,180 L230,230 L170,220 L150,180 L150,140Z' fill='%23c9a84c' opacity='0.2' stroke='%23c9a84c' stroke-width='1.5'/%3E%3Ccircle cx='280' cy='140' r='6' fill='%23e0c878'/%3E%3Ccircle cx='420' cy='120' r='5' fill='%23e0c878'/%3E%3Ccircle cx='200' cy='180' r='5' fill='%23e0c878'/%3E%3Ctext x='270' y='130' fill='%23e0c878' font-family='Cinzel' font-size='14' text-anchor='middle'%3EROMA%3C/text%3E%3Ctext x='410' y='110' fill='%23e0c878' font-family='Cinzel' font-size='12' text-anchor='middle'%3ECAPVA%3C/text%3E%3Ctext x='190' y='170' fill='%23e0c878' font-family='Cinzel' font-size='12' text-anchor='middle'%3EOSTIA%3C/text%3E%3Ctext x='550' y='200' fill='%238b7355' font-family='Cinzel' font-size='10' text-anchor='middle'%3E✧ MARE TYRRHENVM%3C/text%3E%3C/svg%3E"
+                 alt="Карта провинций Римской республики">
+            <div class="map-caption">🏛️ Провинции Римской республики — Рим, Капуя, Остия</div>
+        </div>
+    </div>
+
+    <!-- ====== СЕНАТ ====== -->
+    <div id="tab-senate" class="tab-content hidden">
+        <div style="width:100%; max-width:900px; text-align:left;">
+            <div style="font-family:'Cinzel',serif; font-size:0.72rem; color:var(--gold); letter-spacing:1.2px; margin-bottom:8px;">🏺 ВЛИЯНИЕ ФРАКЦИЙ В СЕНАТЕ</div>
+            <div class="senate-list">
+                <div class="senate-row"><span class="faction-name">🏛️ Рим</span><span class="influence">Влияние <span>72%</span></span></div>
+                <div class="senate-row" style="border-left-color:#cc8888;"><span class="faction-name" style="color:#cc8888;">🐘 Карфаген</span><span class="influence">Влияние <span style="color:#cc8888;">18%</span></span></div>
+                <div class="senate-row" style="border-left-color:#88aacc;"><span class="faction-name" style="color:#88aacc;">⚡ Этруски</span><span class="influence">Влияние <span style="color:#88aacc;">6%</span></span></div>
+                <div class="senate-row" style="border-left-color:#aa8866;"><span class="faction-name" style="color:#aa8866;">🏹 Самниты</span><span class="influence">Влияние <span style="color:#aa8866;">4%</span></span></div>
+            </div>
+        </div>
+
+        <!-- БЛОК УВАЖЕНИЯ -->
+        <div class="senate-influence">
+            <div class="inf-item">
+                <div class="inf-label">🏛️ Уважение в Сенате</div>
+                <div class="inf-wreaths" id="senateWreaths"></div>
+                <div class="inf-value" id="senateValue">78 / 100</div>
+            </div>
+            <div class="inf-item">
+                <div class="inf-label">👥 Уважение в народе</div>
+                <div class="inf-wreaths" id="peopleWreaths"></div>
+                <div class="inf-value" id="peopleValue">65 / 100</div>
+            </div>
+            <div class="inf-item">
+                <div class="inf-label">⚔️ Уважение в армии</div>
+                <div class="inf-wreaths" id="armyWreaths"></div>
+                <div class="inf-value" id="armyValue">82 / 100</div>
+            </div>
+            <div class="inf-item">
+                <div class="inf-label">🏺 Мест в Сенате</div>
+                <div class="inf-value" id="seatsValue">284 / 300</div>
+                <div style="font-size:0.78rem; color:#8b7355;">+2 за ход</div>
+            </div>
+        </div>
+
+        <!-- КНОПКА -->
+        <button class="btn-senate-proposal" onclick="handleSenateProposal()">📜 Внести предложение в Сенат</button>
+    </div>
+
+    <!-- ====== ЭКОНОМИКА ====== -->
+    <div id="tab-economy" class="tab-content hidden">
+        <div style="width:100%; max-width:900px; text-align:left;">
+            <div style="font-family:'Cinzel',serif; font-size:0.72rem; color:var(--gold); letter-spacing:1.2px; margin-bottom:6px;">📊 РЕСУРСЫ И ПРОИЗВОДСТВО</div>
+            <div class="eco-row"><span class="eco-label">🌾 Пшеница</span><span class="eco-value">24 ед. (+6)</span></div>
+            <div class="eco-row"><span class="eco-label">🪨 Камень</span><span class="eco-value">18 ед. (+3)</span></div>
+            <div class="eco-row"><span class="eco-label">🪙 Золото</span><span class="eco-value">12 ед. (+2)</span></div>
+            <div class="eco-row"><span class="eco-label">🪵 Древесина</span><span class="eco-value">30 ед. (+5)</span></div>
+        </div>
+
+        <div class="economy-trade">
+            <div style="display:flex; justify-content:space-between;"><span>Торговый флот</span> <span style="color:var(--gold-light);">12 кораблей</span></div>
+            <div style="display:flex; justify-content:space-between; margin-top:3px;"><span>Торговые пути</span> <span style="color:var(--gold-light);">5 активных</span></div>
+            <div style="display:flex; justify-content:space-between; margin-top:3px;"><span>Доход с торговли</span> <span style="color:var(--gold-light);">+380 за ход</span></div>
+        </div>
+
+        <!-- ГРАФИК -->
+        <div class="chart-container" id="chartContainer">
+            <div class="chart-title">📈 Динамика казны (за 30 ходов)</div>
+            <div class="chart-wrapper">
+                <div class="chart-y-axis" id="chartYAxis"></div>
+                <div class="chart-area" id="chartArea">
+                    <div class="chart-grid" id="chartGrid"></div>
+                    <svg class="chart-svg" id="chartSvg" viewBox="0 0 600 180" preserveAspectRatio="none">
+                        <polygon id="chartPolygon" points=""/>
+                        <polyline id="chartPolyline" points=""/>
+                    </svg>
+                </div>
+            </div>
+            <div class="chart-x-axis" id="chartXAxis"></div>
+        </div>
+    </div>
+
+</div>
+
+<script src="../js/i18n.js"></script>
+<script src="../js/i18n-content.js"></script>
+<script>
+    // ===== ПЕРЕКЛЮЧЕНИЕ ВКЛАДОК =====
+    function switchFactionTab(tabId) {
+        document.querySelectorAll('.faction-tab').forEach(btn => {
+            btn.classList.toggle('active', btn.dataset.tab === tabId);
+        });
+        document.querySelectorAll('.tab-content').forEach(el => {
+            el.classList.toggle('hidden', el.id !== 'tab-' + tabId);
+        });
+        if (tabId === 'economy') {
+            setTimeout(drawChart, 50);
+        }
+    }
+
+    // ===== ЗАКРЫТИЕ =====
+    function closeFactionDetail() {
+        if (window.parent && window.parent.closeModal) {
+            window.parent.closeModal();
+            return;
+        }
+        if (window.parent && window.parent.closeSecondaryModal) {
+            window.parent.closeSecondaryModal();
+            return;
+        }
+        if (window.parent && window.parent.closeChildModal) {
+            window.parent.closeChildModal();
+            return;
+        }
+        if (window.parent && window.parent.document) {
+            const detailPopup = window.parent.document.getElementById('detailPopup');
+            if (detailPopup) {
+                detailPopup.style.display = 'none';
+                return;
+            }
+        }
+        if (window.history.length > 1) {
+            window.history.back();
+        } else {
+            window.close();
+        }
+    }
+
+    // ===== ВЕНКИ =====
+    function renderWreaths(containerId, value, max = 100) {
+        const container = document.getElementById(containerId);
+        if (!container) return;
+        const count = Math.round((value / max) * 10);
+        let html = '';
+        for (let i = 0; i < 10; i++) {
+            html += `<span class="wreath ${i < count ? '' : 'empty'}">🏅</span>`;
+        }
+        container.innerHTML = html;
+    }
+
+    // ===== ГРАФИК =====
+    const TREASURY_TURNS = 30;
+    let treasuryHistory = null;
+
+    function generateTreasuryData(steps = TREASURY_TURNS) {
+        if (treasuryHistory) return treasuryHistory;
+
+        const data = [];
+        let value = 7500;
+        let seed = 42;
+        const rand = () => {
+            seed = (seed * 16807) % 2147483647;
+            return (seed - 1) / 2147483646;
+        };
+
+        for (let i = 0; i <= steps; i++) {
+            if (i > 0) {
+                const change = (rand() - 0.45) * 600;
+                value = Math.min(15500, Math.max(7500, value + change));
+                if (i % 3 === 0) {
+                    value += (rand() - 0.5) * 300;
+                }
+                value = Math.min(15500, Math.max(7500, Math.round(value)));
+            }
+            data.push(Math.round(value));
+        }
+
+        treasuryHistory = data;
+        return data;
+    }
+
+    function niceStep(rawStep) {
+        const magnitude = Math.pow(10, Math.floor(Math.log10(rawStep)));
+        const normalized = rawStep / magnitude;
+        if (normalized <= 1) return magnitude;
+        if (normalized <= 2) return 2 * magnitude;
+        if (normalized <= 5) return 5 * magnitude;
+        return 10 * magnitude;
+    }
+
+    function computeYScale(minVal, maxVal, tickCount = 5) {
+        const padding = (maxVal - minVal) * 0.08 || 500;
+        const paddedMin = Math.max(0, minVal - padding);
+        const paddedMax = maxVal + padding;
+        const step = niceStep((paddedMax - paddedMin) / (tickCount - 1));
+        const yMin = Math.floor(paddedMin / step) * step;
+        const yMax = Math.ceil(paddedMax / step) * step;
+        const ticks = [];
+        for (let v = yMax; v >= yMin; v -= step) {
+            ticks.push(v);
+        }
+        return { yMin, yMax, ticks };
+    }
+
+    function computeXLabels(turnCount) {
+        const step = turnCount <= 20 ? 5 : 5;
+        const labels = [];
+        for (let turn = step; turn <= turnCount; turn += step) {
+            labels.push(turn);
+        }
+        if (labels[labels.length - 1] !== turnCount) {
+            labels.push(turnCount);
+        }
+        return labels;
+    }
+
+    function formatTreasury(value) {
+        return value.toLocaleString('ru-RU');
+    }
+
+    function drawChart() {
+        const area = document.getElementById('chartArea');
+        if (!area) return;
+
+        const data = generateTreasuryData(TREASURY_TURNS);
+        const dataMin = Math.min(...data);
+        const dataMax = Math.max(...data);
+        const { yMin, yMax, ticks } = computeYScale(dataMin, dataMax);
+        const range = yMax - yMin || 1;
+
+        const yAxis = document.getElementById('chartYAxis');
+        yAxis.innerHTML = ticks.map(v => `<span>${formatTreasury(v)}</span>`).join('');
+
+        const xLabels = computeXLabels(TREASURY_TURNS);
+        const xAxis = document.getElementById('chartXAxis');
+        xAxis.innerHTML = xLabels.map(v => `<span>${v}</span>`).join('');
+
+        const grid = document.getElementById('chartGrid');
+        grid.innerHTML = '';
+        ticks.forEach(v => {
+            const pos = ((yMax - v) / range) * 100;
+            const line = document.createElement('div');
+            line.className = 'grid-line';
+            line.style.top = `${pos}%`;
+            grid.appendChild(line);
+        });
+
+        const polyline = document.getElementById('chartPolyline');
+        const polygon = document.getElementById('chartPolygon');
+
+        const width = 600;
+        const height = 180;
+        const padding = 4;
+
+        const points = data.map((val, idx) => {
+            const x = (idx / (data.length - 1)) * (width - padding * 2) + padding;
+            const y = height - padding - ((val - yMin) / range) * (height - padding * 2);
+            return { x, y };
+        });
+
+        polyline.setAttribute('points', points.map(p => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' '));
+
+        const firstPoint = points[0];
+        const lastPoint = points[points.length - 1];
+        const bottomY = height - padding;
+        polygon.setAttribute('points', [
+            `${firstPoint.x.toFixed(1)},${bottomY}`,
+            ...points.map(p => `${p.x.toFixed(1)},${p.y.toFixed(1)}`),
+            `${lastPoint.x.toFixed(1)},${bottomY}`,
+        ].join(' '));
+    }
+
+    // ===== КНОПКА СЕНАТА =====
+    function handleSenateProposal() {
+        const btn = document.querySelector('.btn-senate-proposal');
+        const originalText = btn.textContent;
+        btn.textContent = '📜 Предложение внесено!';
+        btn.style.borderColor = '#4caf50';
+        btn.style.color = '#4caf50';
+        btn.style.pointerEvents = 'none';
+        setTimeout(() => {
+            btn.textContent = originalText;
+            btn.style.borderColor = '';
+            btn.style.color = '';
+            btn.style.pointerEvents = 'auto';
+        }, 2000);
+    }
+
+    // ===== ДАННЫЕ ФРАКЦИИ =====
+    function loadFactionData(factionId) {
+        const data = window.GameContent ? GameContent.getFaction(factionId) : null;
+        if (!data) {
+            applyFactionData({
+                name: 'Римская республика',
+                badge: 'РЕСПУБЛИКА • ЛАТИУМ',
+                description: 'Римская республика — величайшая держава античного мира.',
+                portrait: '../images/faceOfScipio.png',
+                commander: 'Сципион Африканский',
+            });
+            return;
+        }
+        applyFactionData({
+            name: data.name || 'Неизвестная фракция',
+            badge: data.badge || 'ФРАКЦИЯ',
+            description: data.description || 'Описание отсутствует.',
+            portrait: data.portrait || null,
+            commander: data.commander || '',
+        });
+    }
+
+    function applyFactionData(data) {
+        const portraitEl = document.getElementById('commanderPortrait');
+        if (portraitEl) {
+            if (data.portrait) {
+                portraitEl.innerHTML = `<img src="${data.portrait}" alt="${data.commander || data.name || ''}">`;
+            } else {
+                portraitEl.innerHTML = '🏛️';
+            }
+        }
+
+        const nameEl = document.getElementById('commanderName');
+        if (nameEl && data.commander) {
+            nameEl.textContent = data.commander;
+        }
+
+        document.getElementById('factionTitle').textContent = data.name;
+        document.getElementById('factionBadge').textContent = data.badge;
+        document.getElementById('factionDesc').textContent = data.description;
+    }
+
+    // ===== ИНИЦИАЛИЗАЦИЯ =====
+    window.addEventListener('load', () => {
+        if (window.GameI18n) GameI18n.apply();
+
+        renderWreaths('senateWreaths', 78);
+        renderWreaths('peopleWreaths', 65);
+        renderWreaths('armyWreaths', 82);
+
+        const urlParams = new URLSearchParams(window.location.search);
+        const factionId = urlParams.get('faction') || 'rome';
+
+        if (window.GameContent && typeof GameContent.getFaction === 'function') {
+            loadFactionData(factionId);
+        } else {
+            applyFactionData({
+                name: 'Римская республика',
+                badge: 'РЕСПУБЛИКА • ЛАТИУМ',
+                description: 'Римская республика — величайшая держава античного мира.',
+                portrait: '../images/faceOfScipio.png',
+                commander: 'Сципион Африканский',
+            });
+        }
+
+        switchFactionTab('overview');
+        setTimeout(drawChart, 100);
+
+        window.addEventListener('resize', () => {
+            const econTab = document.getElementById('tab-economy');
+            if (!econTab.classList.contains('hidden')) {
+                drawChart();
+            }
+        });
+    });
+</script>
+
+</body>
+</html>

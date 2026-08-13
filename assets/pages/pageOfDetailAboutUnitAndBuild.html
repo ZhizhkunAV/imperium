@@ -1,0 +1,294 @@
+﻿<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Описание</title>
+
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700;900&family=EB+Garamond:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
+
+    <style>
+        :root {
+            --gold: #c9a84c;
+            --gold-light: #e0c878;
+            --gold-dark: #8b6914;
+            --bronze: #6b5a3a;
+            --text: #d4c5a9;
+            --bg-panel: rgba(5, 3, 1, 0.92);
+            --border-panel: rgba(180, 140, 60, 0.5);
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            background: transparent;
+            background-image: none;
+            font-family: 'EB Garamond', 'Georgia', serif;
+            color: var(--text);
+            height: 100vh;
+            width: 100%;
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            display: flex;
+            align-items: stretch;
+            justify-content: stretch;
+            user-select: none;
+        }
+
+        .detail-panel {
+            width: 100%;
+            height: 100%;
+            min-width: 0;
+            max-width: none;
+            background: var(--bg-panel);
+            border: 2px solid var(--gold);
+            border-left: none;
+            padding: 44px 20px 16px;
+            display: flex;
+            flex-direction: column;
+            align-items: stretch;
+            gap: 12px;
+            box-shadow: 10px 0 30px rgba(0,0,0,0.8);
+            position: relative;
+            margin: 0;
+            overflow-y: auto;
+            box-sizing: border-box;
+        }
+
+        .close-btn {
+            position: absolute;
+            top: 10px;
+            right: 14px;
+            width: 30px;
+            height: 30px;
+            cursor: pointer;
+            background: rgba(139, 26, 26, 0.2);
+            border: 1px solid rgba(200, 80, 80, 0.4);
+            color: #c08080;
+            font-size: 1rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s;
+            font-family: 'Cinzel', serif;
+            z-index: 100;
+            pointer-events: auto;
+        }
+
+        .close-btn:hover {
+            background: rgba(139, 26, 26, 0.4);
+            color: #ffaaaa;
+        }
+
+        .detail-header {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 6px;
+            flex-shrink: 0;
+        }
+
+        .detail-hero {
+            display: flex;
+            align-items: stretch;
+            gap: 16px;
+            flex-shrink: 0;
+        }
+
+        /* Изображение */
+        .detail-image {
+            flex: 0 0 52%;
+            max-width: 540px;
+            min-width: 200px;
+            aspect-ratio: 180 / 165;
+            background: rgba(201,168,76,0.06);
+            border: 2px solid rgba(201,168,76,0.4);
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 7rem;
+            box-shadow: 0 0 24px rgba(0,0,0,0.55);
+            overflow: hidden;
+        }
+
+        .detail-image img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+        }
+
+        /* Название */
+        .detail-title {
+            font-family: 'Cinzel', serif;
+            font-size: 1.15rem;
+            font-weight: 900;
+            letter-spacing: 2px;
+            color: var(--gold-light);
+            text-transform: uppercase;
+            text-shadow: 0 0 15px rgba(201,168,76,0.3);
+            text-align: left;
+            line-height: 1.2;
+        }
+
+        /* Метка */
+        .detail-badge {
+            display: inline-block;
+            font-family: 'Cinzel', serif;
+            font-size: 0.55rem;
+            letter-spacing: 2px;
+            padding: 4px 12px;
+            border-radius: 3px;
+            text-transform: uppercase;
+        }
+
+        .detail-badge.unit { background: #cc4444; color: #fff; }
+        .detail-badge.building { background: #44aacc; color: #fff; }
+        .detail-badge.civil { background: var(--gold); color: #000; }
+
+        /* Описание */
+        .detail-description {
+            flex: 1;
+            width: 100%;
+            max-width: 100%;
+            font-size: 0.88rem;
+            line-height: 1.65;
+            color: #c4b896;
+            text-align: justify;
+            text-align-last: left;
+            padding-top: 4px;
+        }
+
+        /* Характеристики */
+        .detail-stats {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            gap: 8px;
+            min-width: 0;
+            font-size: 0.68rem;
+            color: var(--gold);
+            font-family: 'Cinzel', serif;
+            padding: 8px 0;
+        }
+
+        .detail-stat {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+            padding: 7px 10px;
+            background: rgba(0, 0, 0, 0.25);
+            border: 1px solid rgba(201, 168, 76, 0.18);
+            border-radius: 4px;
+        }
+
+        .detail-stat span {
+            color: #fff;
+            font-size: 0.82rem;
+            font-weight: 700;
+            flex-shrink: 0;
+        }
+
+        /* Разделитель */
+        .divider-line {
+            width: 100%;
+            height: 1px;
+            background: rgba(201,168,76,0.25);
+            flex-shrink: 0;
+        }
+    </style>
+</head>
+<body data-i18n-page-title="page.detail">
+
+<div class="detail-panel" id="detailPanel">
+
+    <button class="close-btn" onclick="closeDetail()" data-i18n-title="detail.close" title="Закрыть">✕</button>
+
+    <div class="detail-header">
+        <div class="detail-title" id="detailTitle">Легионер</div>
+        <div class="detail-badge unit" id="detailBadge">ЮНИТ</div>
+    </div>
+
+    <div class="detail-hero">
+        <div class="detail-image" id="detailImage">🛡️</div>
+        <div class="detail-stats" id="detailStats">
+            <div class="detail-stat">⚔️ Атака<span>14</span></div>
+            <div class="detail-stat">🛡️ Защита<span>18</span></div>
+            <div class="detail-stat">❤️ Здоровье<span>120</span></div>
+            <div class="detail-stat">👥 Солдат<span>100</span></div>
+            <div class="detail-stat">⏳ Найм<span>1 ход</span></div>
+            <div class="detail-stat">ⓓ Цена<span>500</span></div>
+        </div>
+    </div>
+
+    <div class="divider-line"></div>
+
+    <div class="detail-description" id="detailDesc">
+        Римский легионер — основа военной мощи Республики.<br>
+        Тяжёлая пехота, вооружённая гладиусом и скутумом.<br>
+        Бронзовая лорика сегментата защищает корпус.<br>
+        Красный плащ и бронзовый шлем с гребнем — символ легиона.<br>
+        Легионеры сражались в манипулярном строю.<br>
+        Дисциплина и тренировки делали их непобедимыми.
+    </div>
+
+</div>
+
+<script src="../js/i18n.js"></script>
+<script src="../js/i18n-content.js"></script>
+<script>
+    function closeDetail() {
+        if (window.parent && window.parent.closeSecondaryModal) {
+            window.parent.closeSecondaryModal();
+            return;
+        }
+        if (window.parent && window.parent.closeModal) {
+            window.parent.closeModal();
+        }
+    }
+
+    function loadEntityData(entityId) {
+        const data = window.GameContent ? GameContent.getEntity(entityId) : null;
+        if (!data) {
+            document.getElementById('detailImage').innerHTML = '❓';
+            document.getElementById('detailTitle').textContent = GameI18n.t('detail.unknown');
+            const badge = document.getElementById('detailBadge');
+            badge.textContent = GameI18n.t('detail.unknownBadge');
+            badge.className = 'detail-badge civil';
+            document.getElementById('detailStats').innerHTML = '<div class="detail-stat">—<span>—</span></div>';
+            document.getElementById('detailDesc').innerHTML = GameI18n.t('detail.unknownDesc');
+            return;
+        }
+
+        const imageEl = document.getElementById('detailImage');
+        if (data.image) {
+            imageEl.innerHTML = `<img src="${data.image}" alt="${data.title}">`;
+        } else {
+            imageEl.innerHTML = data.icon;
+        }
+        document.getElementById('detailTitle').textContent = data.title;
+
+        const badge = document.getElementById('detailBadge');
+        badge.textContent = data.badge;
+        badge.className = 'detail-badge ' + data.badgeClass;
+
+        const stats = data.stats || [];
+        document.getElementById('detailStats').innerHTML = stats.map(s =>
+            `<div class="detail-stat">${s.label}<span>${s.value}</span></div>`
+        ).join('');
+
+        document.getElementById('detailDesc').innerHTML = data.description;
+    }
+
+    window.addEventListener('load', () => {
+        if (window.GameI18n) GameI18n.apply();
+        const urlParams = new URLSearchParams(window.location.search);
+        loadEntityData(urlParams.get('entity') || 'legionary');
+    });
+</script>
+
+</body>
+</html>
