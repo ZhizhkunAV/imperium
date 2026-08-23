@@ -114,6 +114,217 @@
     theater: { icon: '🎭', badgeClass: 'civil', ru: { title: 'Театр', badge: 'ЗДАНИЕ', stats: [{ label: '⭐ Уровень', value: 'I' }], description: 'Театр повышает культурный уровень и порядок.' }, en: { title: 'Theater', badge: 'BUILDING', stats: [{ label: '⭐ Level', value: 'I' }], description: 'The theater raises culture and public order.' } },
     baths: { icon: '🛁', badgeClass: 'civil', ru: { title: 'Термы', badge: 'ЗДАНИЕ', stats: [{ label: '⭐ Уровень', value: 'I' }], description: 'Термы улучшают здоровье и настроение горожан.' }, en: { title: 'Baths', badge: 'BUILDING', stats: [{ label: '⭐ Level', value: 'I' }], description: 'Baths improve citizens’ health and morale.' } },
     mine2: { icon: '🏔️', badgeClass: 'building', ru: { title: 'Шахта', badge: 'ЗДАНИЕ', stats: [{ label: '⭐ Уровень', value: 'I' }], description: 'Шахта добывает камень и руду в горах.' }, en: { title: 'Quarry', badge: 'BUILDING', stats: [{ label: '⭐ Level', value: 'I' }], description: 'The quarry extracts stone and ore in the mountains.' } },
+
+    province_northwest: {
+      icon: '🗺️', badgeClass: 'civil',
+      ru: {
+        title: 'Северо-Запад', badge: 'ПРОВИНЦИЯ',
+        stats: [
+          { label: '🏙️ Город', value: 'Генуя' }, { label: '👥 Население', value: '180 тыс.' },
+          { label: '💰 Доход', value: '+220' }, { label: '⚔️ Гарнизон', value: '2 когорты' },
+          { label: '🌾 Еда', value: '+4' }, { label: '🛡️ Порядок', value: '72' },
+        ],
+        description: 'Северо-западная провинция у Альп и Лигурийского моря.<br>Торговые порты и горные перевалы дают контроль над путями в Галлию.<br>Главный город — Генуя.',
+      },
+      en: {
+        title: 'North-West', badge: 'PROVINCE',
+        stats: [
+          { label: '🏙️ City', value: 'Genoa' }, { label: '👥 Population', value: '180k' },
+          { label: '💰 Income', value: '+220' }, { label: '⚔️ Garrison', value: '2 cohorts' },
+          { label: '🌾 Food', value: '+4' }, { label: '🛡️ Order', value: '72' },
+        ],
+        description: 'North-western province near the Alps and Ligurian Sea.<br>Trade ports and mountain passes control routes into Gaul.<br>Capital city — Genoa.',
+      },
+    },
+    province_northeast: {
+      icon: '🗺️', badgeClass: 'civil',
+      ru: {
+        title: 'Северо-Восток', badge: 'ПРОВИНЦИЯ',
+        stats: [
+          { label: '🏙️ Город', value: 'Венеция' }, { label: '👥 Население', value: '210 тыс.' },
+          { label: '💰 Доход', value: '+260' }, { label: '⚔️ Гарнизон', value: '3 когорты' },
+          { label: '🌾 Еда', value: '+6' }, { label: '🛡️ Порядок', value: '68' },
+        ],
+        description: 'Северо-восток Италии у Адриатики.<br>Богатые равнины По и морская торговля.<br>Главный город — Венеция.',
+      },
+      en: {
+        title: 'North-East', badge: 'PROVINCE',
+        stats: [
+          { label: '🏙️ City', value: 'Venice' }, { label: '👥 Population', value: '210k' },
+          { label: '💰 Income', value: '+260' }, { label: '⚔️ Garrison', value: '3 cohorts' },
+          { label: '🌾 Food', value: '+6' }, { label: '🛡️ Order', value: '68' },
+        ],
+        description: 'North-east Italy on the Adriatic.<br>Rich Po plains and sea trade.<br>Capital city — Venice.',
+      },
+    },
+    province_central: {
+      icon: '🗺️', badgeClass: 'civil',
+      ru: {
+        title: 'Центр', badge: 'ПРОВИНЦИЯ',
+        stats: [
+          { label: '🏙️ Город', value: 'Рим' }, { label: '👥 Население', value: '450 тыс.' },
+          { label: '💰 Доход', value: '+480' }, { label: '⚔️ Гарнизон', value: '5 когорт' },
+          { label: '🌾 Еда', value: '+5' }, { label: '🛡️ Порядок', value: '80' },
+        ],
+        description: 'Центральная провинция Лациума.<br>Сердце Республики и политический центр Средиземноморья.<br>Главный город — Рим.',
+      },
+      en: {
+        title: 'Central', badge: 'PROVINCE',
+        stats: [
+          { label: '🏙️ City', value: 'Rome' }, { label: '👥 Population', value: '450k' },
+          { label: '💰 Income', value: '+480' }, { label: '⚔️ Garrison', value: '5 cohorts' },
+          { label: '🌾 Food', value: '+5' }, { label: '🛡️ Order', value: '80' },
+        ],
+        description: 'Central Latium province.<br>Heart of the Republic and political center of the Mediterranean.<br>Capital city — Rome.',
+      },
+    },
+    province_south: {
+      icon: '🗺️', badgeClass: 'civil',
+      ru: {
+        title: 'Юг и острова', badge: 'ПРОВИНЦИЯ',
+        stats: [
+          { label: '🏙️ Город', value: 'Неаполь' }, { label: '👥 Население', value: '320 тыс.' },
+          { label: '💰 Доход', value: '+310' }, { label: '⚔️ Гарнизон', value: '4 когорты' },
+          { label: '🌾 Еда', value: '+7' }, { label: '🛡️ Порядок', value: '64' },
+        ],
+        description: 'Юг полуострова, Сицилия и Сардиния.<br>Хлебница Республики и ключ к морским путям.<br>Главный город — Неаполь.',
+      },
+      en: {
+        title: 'South & Islands', badge: 'PROVINCE',
+        stats: [
+          { label: '🏙️ City', value: 'Naples' }, { label: '👥 Population', value: '320k' },
+          { label: '💰 Income', value: '+310' }, { label: '⚔️ Garrison', value: '4 cohorts' },
+          { label: '🌾 Food', value: '+7' }, { label: '🛡️ Order', value: '64' },
+        ],
+        description: 'Southern peninsula, Sicily and Sardinia.<br>Breadbasket of the Republic and key to sea lanes.<br>Capital city — Naples.',
+      },
+    },
+    province_milan: {
+      icon: '🗺️', badgeClass: 'civil',
+      ru: {
+        title: 'Провинция Милан', badge: 'ПРОВИНЦИЯ',
+        stats: [
+          { label: '🏙️ Город', value: 'Милан' }, { label: '👥 Население', value: '190 тыс.' },
+          { label: '💰 Доход', value: '+240' }, { label: '⚔️ Гарнизон', value: '3 когорты' },
+          { label: '🌾 Еда', value: '+5' }, { label: '🛡️ Порядок', value: '70' },
+        ],
+        description: 'Ломбардская равнина вокруг Милана.<br>Торговля, ремесло и контроль северных дорог.',
+      },
+      en: {
+        title: 'Province of Milan', badge: 'PROVINCE',
+        stats: [
+          { label: '🏙️ City', value: 'Milan' }, { label: '👥 Population', value: '190k' },
+          { label: '💰 Income', value: '+240' }, { label: '⚔️ Garrison', value: '3 cohorts' },
+          { label: '🌾 Food', value: '+5' }, { label: '🛡️ Order', value: '70' },
+        ],
+        description: 'Lombard plain around Milan.<br>Trade, crafts and control of northern roads.',
+      },
+    },
+    province_venice: {
+      icon: '🗺️', badgeClass: 'civil',
+      ru: {
+        title: 'Провинция Венеция', badge: 'ПРОВИНЦИЯ',
+        stats: [
+          { label: '🏙️ Город', value: 'Венеция' }, { label: '👥 Население', value: '160 тыс.' },
+          { label: '💰 Доход', value: '+280' }, { label: '⚔️ Гарнизон', value: '2 когорты' },
+          { label: '🌾 Еда', value: '+3' }, { label: '🛡️ Порядок', value: '74' },
+        ],
+        description: 'Адриатическая провинция Венеции.<br>Морская торговля и контроль восточных путей.',
+      },
+      en: {
+        title: 'Province of Venice', badge: 'PROVINCE',
+        stats: [
+          { label: '🏙️ City', value: 'Venice' }, { label: '👥 Population', value: '160k' },
+          { label: '💰 Income', value: '+280' }, { label: '⚔️ Garrison', value: '2 cohorts' },
+          { label: '🌾 Food', value: '+3' }, { label: '🛡️ Order', value: '74' },
+        ],
+        description: 'Adriatic province of Venice.<br>Sea trade and control of eastern routes.',
+      },
+    },
+    province_genoa: {
+      icon: '🗺️', badgeClass: 'civil',
+      ru: {
+        title: 'Провинция Генуя', badge: 'ПРОВИНЦИЯ',
+        stats: [
+          { label: '🏙️ Город', value: 'Генуя' }, { label: '👥 Население', value: '140 тыс.' },
+          { label: '💰 Доход', value: '+250' }, { label: '⚔️ Гарнизон', value: '2 когорты' },
+          { label: '🌾 Еда', value: '+2' }, { label: '🛡️ Порядок', value: '71' },
+        ],
+        description: 'Лигурийское побережье вокруг Генуи.<br>Порт и флот связывают север с Тирренским морем.',
+      },
+      en: {
+        title: 'Province of Genoa', badge: 'PROVINCE',
+        stats: [
+          { label: '🏙️ City', value: 'Genoa' }, { label: '👥 Population', value: '140k' },
+          { label: '💰 Income', value: '+250' }, { label: '⚔️ Garrison', value: '2 cohorts' },
+          { label: '🌾 Food', value: '+2' }, { label: '🛡️ Order', value: '71' },
+        ],
+        description: 'Ligurian coast around Genoa.<br>Port and fleet link the north to the Tyrrhenian Sea.',
+      },
+    },
+    province_rome: {
+      icon: '🗺️', badgeClass: 'civil',
+      ru: {
+        title: 'Провинция Рим', badge: 'ПРОВИНЦИЯ',
+        stats: [
+          { label: '🏙️ Город', value: 'Рим' }, { label: '👥 Население', value: '450 тыс.' },
+          { label: '💰 Доход', value: '+500' }, { label: '⚔️ Гарнизон', value: '6 когорт' },
+          { label: '🌾 Еда', value: '+5' }, { label: '🛡️ Порядок', value: '82' },
+        ],
+        description: 'Лацио вокруг Вечного города.<br>Политический и военный центр Республики.',
+      },
+      en: {
+        title: 'Province of Rome', badge: 'PROVINCE',
+        stats: [
+          { label: '🏙️ City', value: 'Rome' }, { label: '👥 Population', value: '450k' },
+          { label: '💰 Income', value: '+500' }, { label: '⚔️ Garrison', value: '6 cohorts' },
+          { label: '🌾 Food', value: '+5' }, { label: '🛡️ Order', value: '82' },
+        ],
+        description: 'Latium around the Eternal City.<br>Political and military center of the Republic.',
+      },
+    },
+    province_naples: {
+      icon: '🗺️', badgeClass: 'civil',
+      ru: {
+        title: 'Провинция Неаполь', badge: 'ПРОВИНЦИЯ',
+        stats: [
+          { label: '🏙️ Город', value: 'Неаполь' }, { label: '👥 Население', value: '230 тыс.' },
+          { label: '💰 Доход', value: '+300' }, { label: '⚔️ Гарнизон', value: '4 когорты' },
+          { label: '🌾 Еда', value: '+8' }, { label: '🛡️ Порядок', value: '66' },
+        ],
+        description: 'Кампания и юг полуострова вокруг Неаполя.<br>Плодородные земли и выход к южным морям.',
+      },
+      en: {
+        title: 'Province of Naples', badge: 'PROVINCE',
+        stats: [
+          { label: '🏙️ City', value: 'Naples' }, { label: '👥 Population', value: '230k' },
+          { label: '💰 Income', value: '+300' }, { label: '⚔️ Garrison', value: '4 cohorts' },
+          { label: '🌾 Food', value: '+8' }, { label: '🛡️ Order', value: '66' },
+        ],
+        description: 'Campania and southern peninsula around Naples.<br>Fertile lands and access to southern seas.',
+      },
+    },
+    province_palermo: {
+      icon: '🗺️', badgeClass: 'civil',
+      ru: {
+        title: 'Провинция Палермо', badge: 'ПРОВИНЦИЯ',
+        stats: [
+          { label: '🏙️ Город', value: 'Палермо' }, { label: '👥 Население', value: '120 тыс.' },
+          { label: '💰 Доход', value: '+210' }, { label: '⚔️ Гарнизон', value: '2 когорты' },
+          { label: '🌾 Еда', value: '+9' }, { label: '🛡️ Порядок', value: '60' },
+        ],
+        description: 'Сицилия вокруг Палермо.<br>Зерно, порты и ключ к контролю Средиземноморья.',
+      },
+      en: {
+        title: 'Province of Palermo', badge: 'PROVINCE',
+        stats: [
+          { label: '🏙️ City', value: 'Palermo' }, { label: '👥 Population', value: '120k' },
+          { label: '💰 Income', value: '+210' }, { label: '⚔️ Garrison', value: '2 cohorts' },
+          { label: '🌾 Food', value: '+9' }, { label: '🛡️ Order', value: '60' },
+        ],
+        description: 'Sicily around Palermo.<br>Grain, ports and the key to Mediterranean control.',
+      },
+    },
   };
 
   const TECH = {
@@ -206,7 +417,12 @@
   };
 
   function getEntity(id) {
-    const e = ENTITIES[id];
+    const aliases = {
+      velites: 'veles', hastati: 'legionary', principes: 'legionary',
+      velit: 'veles', legioner: 'legionary'
+    };
+    const key = aliases[id] || id;
+    const e = ENTITIES[key];
     if (!e) return null;
     const loc = e[lang()] || e.ru;
     return { icon: e.icon, image: e.image, badgeClass: e.badgeClass, ...loc };

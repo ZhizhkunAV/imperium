@@ -1,0 +1,1784 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Rome Map — Вид 4 / Вид 5</title>
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700&family=EB+Garamond:wght@500;600&display=swap" rel="stylesheet">
+  <style>
+    html, body { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background: #04080c; font-family: 'EB Garamond', Georgia, serif; color: #efe4d0; }
+    #view4, #view5 { position: absolute; inset: 0; width: 100%; height: 100%; }
+    #view4 { z-index: 1; cursor: grab; display: block; }
+    #view4.dragging { cursor: grabbing; }
+    #view5 { z-index: 1; display: none; cursor: grab; }
+    #view5 canvas { display: block; width: 100% !important; height: 100% !important; }
+    #hud {
+      position: fixed; top: 12px; right: 12px; z-index: 30; padding: 10px 12px;
+      background: rgba(12, 8, 4, 0.72); border: 1px solid rgba(201, 168, 76, 0.45);
+      box-shadow: 0 8px 24px rgba(0,0,0,0.45); min-width: 180px;
+    }
+    #hud.embedded { display: none; }
+    #hud button {
+      width: 100%; font-family: 'Cinzel', serif; font-size: 11px; letter-spacing: 0.08em;
+      text-transform: uppercase; color: #f5e6c8; background: rgba(30, 22, 12, 0.9);
+      border: 1px solid rgba(201, 168, 76, 0.55); padding: 8px 10px; cursor: pointer;
+    }
+    #hud button:hover { border-color: #e0c878; color: #fff; }
+    #hud .hint { margin-top: 7px; font-size: 12px; color: #b7a078; line-height: 1.35; }
+    #camHud {
+      position: fixed; top: 12px; left: 12px; z-index: 30; min-width: 118px;
+      padding: 8px 10px; background: rgba(16, 12, 8, 0.88);
+      border: 1px solid rgba(201, 168, 76, 0.45); pointer-events: none;
+    }
+    #camHud .row { display: flex; justify-content: space-between; gap: 12px; font-size: 12px; }
+    #camHud .row + .row { margin-top: 3px; }
+    #camHud span { color: #b7a078; text-transform: uppercase; letter-spacing: 0.08em; font-size: 10px; }
+    #camHud b { font-family: 'Cinzel', serif; color: #f5e6c8; }
+    #status {
+      position: fixed; left: 12px; bottom: 12px; z-index: 30; font-size: 13px; color: #c9b48a;
+      background: rgba(8, 6, 3, 0.55); padding: 6px 10px; border: 1px solid rgba(201, 168, 76, 0.25);
+      pointer-events: none;
+    }
+    #battleModal {
+      display: none; position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%);
+      z-index: 80; width: min(92vw, 420px); padding: 22px 24px 18px;
+      background: rgba(14, 10, 6, 0.94); border: 1px solid rgba(201, 168, 76, 0.55);
+      box-shadow: 0 18px 48px rgba(0, 0, 0, 0.55); text-align: center;
+    }
+    #battleModal.show { display: block; }
+    #battleModal p {
+      margin: 0 0 16px; font-size: 18px; line-height: 1.4; color: #f5ead0;
+    }
+    #battleModal button {
+      font-family: 'Cinzel', serif; font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase;
+      color: #f5e6c8; background: rgba(30, 22, 12, 0.95); border: 1px solid rgba(201, 168, 76, 0.55);
+      padding: 8px 16px; cursor: pointer;
+    }
+    #battleModal button:hover { border-color: #e0c878; color: #fff; }
+  </style>
+</head>
+<body>
+  <canvas id="view4" tabindex="0"></canvas>
+  <div id="view5"></div>
+  <div id="hud">
+    <button type="button" id="swapBtn">Сменить вид карты</button>
+    <div class="hint" id="hudHint">Сейчас: Вид 4 (Canvas)</div>
+  </div>
+  <div id="camHud">
+    <div class="row"><span>Зум</span><b id="hudZoom">100%</b></div>
+    <div class="row"><span>Наклон</span><b id="hudTilt">80%</b></div>
+    <div class="row"><span>Поворот</span><b id="hudYaw">0°</b></div>
+  </div>
+  <div id="status">Загрузка карты Италии…</div>
+  <div id="battleModal" role="dialog" aria-modal="true">
+    <p id="battleModalText">Начинается бой, ваши войска Рима атаковали армию Карфагена</p>
+    <button type="button" id="battleModalClose">Закрыть</button>
+  </div>
+
+  <script src="three.min.js"></script>
+  <script src="/maps/rome/three.min.js"></script>
+  <script src="/js/italy-dem.js"></script>
+  <script src="/js/walk-unit-three.js"></script>
+  <script src="/maps/view14/provinces.js"></script>
+  <script src="/js/campaign-map-bridge.js"></script>
+  <script>
+(function () {
+  'use strict';
+
+  var GEO_URLS = [
+    '/maps/view1/regions.geojson',
+    '/maps/view3/italy.geojson',
+    '../view3/italy.geojson',
+    'https://cdn.jsdelivr.net/gh/holtzy/D3-graph-gallery@master/DATA/world.geojson',
+    'https://raw.githubusercontent.com/holtzy/D3-graph-gallery/master/DATA/world.geojson'
+  ];
+  var PROV_COLORS = [0xc4b47a, 0xa8b86c, 0xd2c49a, 0x9cba8c, 0xc9b896, 0xb8c48a, 0xdbc8a0, 0xb0a878, 0x8eaa72, 0xccb888, 0xa3b67e, 0xd8c8a8, 0x97ad70, 0xc2b080, 0xb5c090, 0xe0d0b0, 0x8fa86a, 0xcdb892, 0xaab484, 0xd4bc94];
+  var NAME_RU = {
+    Piemonte: 'Пьемонт', Lombardia: 'Ломбардия', Veneto: 'Венето', Liguria: 'Лигурия',
+    'Emilia-Romagna': 'Эмилия', Toscana: 'Тоскана', Umbria: 'Умбрия', Marche: 'Марке',
+    Lazio: 'Лацио', Abruzzo: 'Абруццо', Molise: 'Молизе', Campania: 'Кампания',
+    Puglia: 'Апулия', Basilicata: 'Базиликата', Calabria: 'Калабрия', Sicilia: 'Сицилия',
+    Sardegna: 'Сардиния', 'Friuli-Venezia Giulia': 'Фриули', 'Trentino-Alto Adige': 'Трентино',
+    'Valle d\'Aosta': 'Валле-д’Аоста', "Valle d'Aosta": 'Валле-д’Аоста'
+  };
+  var FALLBACK_RINGS = [
+    [[7.5,43.75],[8.15,44.35],[8.75,44.85],[9.2,45.55],[10.55,45.75],[11.05,46.52],[12.35,46.52],[13.72,45.65],[13.48,43.62],[13.95,42.38],[14.95,41.92],[16.05,41.92],[17.25,40.82],[18.37,40.38],[17.15,40.52],[16.55,39.52],[17.15,39.52],[16.48,38.86],[15.63,38.12],[15.78,39.52],[16.18,41.55],[14.78,40.72],[14.15,40.92],[13.52,41.22],[12.18,41.68],[11.12,42.38],[10.48,42.85],[10.28,43.52],[9.82,44.12],[8.48,44.28],[7.55,43.78]],
+    [[12.42,38.18],[13.28,38.28],[15.08,38.28],[15.63,38.08],[15.28,36.68],[14.28,37.02],[12.52,37.52],[12.42,38.18]],
+    [[8.13,41.25],[9.63,41.22],[9.78,39.12],[8.38,38.86],[8.13,41.25]]
+  ];
+  var TILT_MIN = 0, TILT_MAX = 75, TILT_DEFAULT = 60, TILT_STEP = 3;
+  var YAW_STEP = 6, YAW_BASE = -8;
+  var MIN_ZOOM = 1, MAX_ZOOM = 5;
+
+  var params = {};
+  try {
+    window.location.search.slice(1).split('&').forEach(function (pair) {
+      var p = pair.split('=');
+      if (p[0]) params[decodeURIComponent(p[0])] = decodeURIComponent(p[1] || '');
+    });
+  } catch (_) {}
+
+  var embedded = window.parent !== window;
+  var mode = params.view === '5' ? 5 : 4;
+  var canvas = document.getElementById('view4');
+  var ctx = canvas.getContext('2d');
+  var view5 = document.getElementById('view5');
+  var statusEl = document.getElementById('status');
+  var hud = document.getElementById('hud');
+  var hudHint = document.getElementById('hudHint');
+  if (embedded) hud.classList.add('embedded');
+
+  var italyRings = [];
+  var drawRings = [];
+  var provinceFeatures = [];
+  var landMask = null;
+  var meshMask = null;
+  var coastFadeMask = null;
+  var meshBBox = [6.6, 36.5, 18.6, 47.1];
+  var maskW = 480;
+  var maskH = 560;
+  var bbox = [6.6, 36.5, 18.6, 47.1];
+  var ready = false;
+  var W = 0, H = 0, time = 0;
+  var zoom = 1.15, panX = 0, panY = 0, tiltDeg = TILT_DEFAULT, yawDeg = 0;
+  var dragging = false, lastX = 0, lastY = 0;
+  var allowPan = true;
+
+  var three = { renderer: null, scene: null, camera: null, armies: [], raf: 0, built: false, scale: 6, cx: 12.5, cy: 42, land: null, walker: null, npc: null, units: null };
+  var cityMarks = [];
+  var cityRay = null;
+  var cityNdc = null;
+
+  function setStatus(t) { statusEl.textContent = t; }
+  var battleModal = document.getElementById('battleModal');
+  var battleClose = document.getElementById('battleModalClose');
+  function showBattleDialog() {
+    if (battleModal) battleModal.classList.add('show');
+    setStatus('Бой начался');
+  }
+  function hideBattleDialog() {
+    if (battleModal) battleModal.classList.remove('show');
+  }
+  if (battleClose) battleClose.addEventListener('click', hideBattleDialog);
+  function yScale() { return Math.max(0.22, Math.cos(tiltDeg * Math.PI / 180)); }
+  function wrapYaw(deg) {
+    deg = deg % 360;
+    if (deg < 0) deg += 360;
+    return deg;
+  }
+  function yawRad() { return (YAW_BASE + yawDeg) * Math.PI / 180; }
+  function updateHud() {
+    document.getElementById('hudZoom').textContent = Math.round(zoom * 100) + '%';
+    document.getElementById('hudTilt').textContent = Math.round((tiltDeg / TILT_MAX) * 100) + '%';
+    var yawEl = document.getElementById('hudYaw');
+    if (yawEl) yawEl.textContent = Math.round(wrapYaw(yawDeg)) + '°';
+  }
+  function nudgeTilt(d) {
+    tiltDeg = Math.max(TILT_MIN, Math.min(TILT_MAX, tiltDeg + d));
+    updateHud();
+    if (three.built) applyThreeCamera();
+  }
+  function nudgeYaw(d) {
+    yawDeg = wrapYaw(yawDeg + d);
+    updateHud();
+    if (three.built) applyThreeCamera();
+  }
+  function setZoom(next, clientX, clientY) {
+    next = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, next));
+    if (Math.abs(next - zoom) < 1e-6) return;
+    var k = next / zoom;
+    if (!three.built) {
+      var cx = clientX - W / 2;
+      var cy = clientY - H / 2;
+      panX = cx - (cx - panX) * k;
+      panY = cy - (cy - panY) * k;
+    }
+    zoom = next;
+    updateHud();
+    if (three.built) applyThreeCamera();
+  }
+
+  function showLayers() {
+    var use3d = three.built;
+    canvas.style.display = use3d ? 'none' : 'block';
+    view5.style.display = use3d ? 'block' : 'none';
+  }
+
+  function applyViewTint() {
+    if (!three.renderer) return;
+    if (mode === 4) {
+      three.renderer.setClearColor(0x243848, 1);
+      if (three.scene && three.scene.fog) three.scene.fog.color.setHex(0x5a6a70);
+    } else {
+      three.renderer.setClearColor(0x1a3848, 1);
+      if (three.scene && three.scene.fog) three.scene.fog.color.setHex(0x4a6a78);
+    }
+  }
+
+  function applyMode() {
+    var is5 = mode === 5;
+    hudHint.textContent = is5 ? 'Сейчас: Вид 5 (3D)' : 'Сейчас: Вид 4 (3D)';
+    setStatus((is5 ? 'Вид 5' : 'Вид 4') + ' · колесо — зум · Q / E — наклон · Z / C — поворот');
+    startThree();
+    if (three.built) {
+      geo2d = null;
+      refreshThreeTexture();
+      applyViewTint();
+    }
+    showLayers();
+    updateHud();
+  }
+
+  document.getElementById('swapBtn').addEventListener('click', function () {
+    mode = mode === 4 ? 5 : 4;
+    applyMode();
+  });
+
+  function fetchFirst(urls) {
+    var i = 0;
+    function next() {
+      if (i >= urls.length) return Promise.reject(new Error('GeoJSON недоступен'));
+      var url = urls[i++];
+      return fetch(url).then(function (r) {
+        if (!r.ok) throw new Error('HTTP');
+        return r.json();
+      }).catch(function () { return next(); });
+    }
+    return next();
+  }
+
+  function simplifyRing(ring, maxPts) {
+    if (ring.length <= maxPts) return ring.slice();
+    var step = Math.ceil(ring.length / maxPts);
+    var out = [];
+    for (var i = 0; i < ring.length; i += step) out.push(ring[i]);
+    var last = ring[ring.length - 1];
+    var prev = out[out.length - 1];
+    if (!prev || prev[0] !== last[0] || prev[1] !== last[1]) out.push(last);
+    return out;
+  }
+
+  function extractItaly(geojson) {
+    var list = geojson.features || [];
+    var feature = null;
+    for (var i = 0; i < list.length; i++) {
+      var p = list[i].properties || {};
+      var name = (p.name || p.NAME || p.ADMIN || '').toString();
+      if (name === 'Italy' || p.ISO_A3 === 'ITA' || p.iso_a3 === 'ITA') { feature = list[i]; break; }
+    }
+    if (!feature && geojson.type === 'Feature') feature = geojson;
+    var rings = [];
+    var minLon = Infinity, minLat = Infinity, maxLon = -Infinity, maxLat = -Infinity;
+    function absorb(ring) {
+      if (!ring || ring.length < 3) return;
+      var pts = simplifyRing(ring, 220);
+      for (var i = 0; i < pts.length; i++) {
+        var lon = pts[i][0], lat = pts[i][1];
+        if (lon < minLon) minLon = lon;
+        if (lat < minLat) minLat = lat;
+        if (lon > maxLon) maxLon = lon;
+        if (lat > maxLat) maxLat = lat;
+      }
+      if (pts.length >= 3) rings.push(pts);
+    }
+    function absorbFeature(f) {
+      if (!f || !f.geometry) return;
+      var g = f.geometry;
+      if (g.type === 'Polygon') absorb(g.coordinates[0]);
+      else if (g.type === 'MultiPolygon') {
+        for (var pi = 0; pi < g.coordinates.length; pi++) absorb(g.coordinates[pi][0]);
+      }
+    }
+    if (feature) absorbFeature(feature);
+    else for (var fi = 0; fi < list.length; fi++) absorbFeature(list[fi]);
+    if (!rings.length) throw new Error('Italy not found');
+    setRings(rings, minLon, minLat, maxLon, maxLat);
+    extractProvinces(list, feature);
+  }
+
+  function extractProvinces(list, countryFeature) {
+    provinceFeatures = [];
+    var regionLike = !countryFeature && list.length >= 4 && list.some(function (f) {
+      var p = (f && f.properties) || {};
+      return p.reg_name || p.name || p.NAME;
+    });
+    if (!regionLike) return;
+    for (var ri = 0; ri < list.length; ri++) {
+      var f = list[ri];
+      if (!f || !f.geometry) continue;
+      var prings = [];
+      function take(ring) {
+        var pts = simplifyRing(ring, 160);
+        if (pts.length >= 3) prings.push(pts);
+      }
+      var gg = f.geometry;
+      if (gg.type === 'Polygon') take(gg.coordinates[0]);
+      else if (gg.type === 'MultiPolygon') {
+        for (var pj = 0; pj < gg.coordinates.length; pj++) take(gg.coordinates[pj][0]);
+      }
+      if (!prings.length) continue;
+      var pp = f.properties || {};
+      var raw = (pp.reg_name || pp.name || pp.NAME || ('Регион ' + (ri + 1))).toString();
+      provinceFeatures.push({
+        name: NAME_RU[raw] || raw,
+        rings: prings,
+        color: PROV_COLORS[ri % PROV_COLORS.length]
+      });
+    }
+  }
+
+  function setRings(rings, minLon, minLat, maxLon, maxLat) {
+    italyRings = rings;
+    drawRings = rings.map(function (r) { return simplifyRing(r, 140); });
+    var padLon = (maxLon - minLon) * 0.06;
+    var padLat = (maxLat - minLat) * 0.06;
+    bbox = [minLon - padLon, minLat - padLat, maxLon + padLon, maxLat + padLat];
+    buildLandMask();
+    meshBBox = bbox.slice();
+    meshMask = landMask ? new Uint8Array(landMask) : null;
+  }
+
+  function useFallbackOutline() {
+    var minLon = Infinity, minLat = Infinity, maxLon = -Infinity, maxLat = -Infinity;
+    FALLBACK_RINGS.forEach(function (ring) {
+      ring.forEach(function (pt) {
+        if (pt[0] < minLon) minLon = pt[0];
+        if (pt[1] < minLat) minLat = pt[1];
+        if (pt[0] > maxLon) maxLon = pt[0];
+        if (pt[1] > maxLat) maxLat = pt[1];
+      });
+    });
+    setRings(FALLBACK_RINGS, minLon, minLat, maxLon, maxLat);
+  }
+
+  function buildLandMask() {
+    var oc = document.createElement('canvas');
+    oc.width = maskW;
+    oc.height = maskH;
+    var octx = oc.getContext('2d');
+    octx.clearRect(0, 0, maskW, maskH);
+    octx.beginPath();
+    for (var r = 0; r < italyRings.length; r++) {
+      var ring = italyRings[r];
+      octx.moveTo(lonToMaskX(ring[0][0]), latToMaskY(ring[0][1]));
+      for (var i = 1; i < ring.length; i++) octx.lineTo(lonToMaskX(ring[i][0]), latToMaskY(ring[i][1]));
+      octx.closePath();
+    }
+    octx.fillStyle = '#fff';
+    octx.fill('nonzero');
+    var data = octx.getImageData(0, 0, maskW, maskH).data;
+    landMask = new Uint8Array(maskW * maskH);
+    for (var p = 0; p < landMask.length; p++) landMask[p] = data[p * 4] > 8 ? 1 : 0;
+    buildCoastFade();
+  }
+  function buildCoastFade() {
+    if (!landMask) { coastFadeMask = null; return; }
+    var fade = new Float32Array(maskW * maskH);
+    var r = 7, x, y, i, j, xx, yy, land, tot, f;
+    function on(px, py) {
+      if (px < 0 || py < 0 || px >= maskW || py >= maskH) return 0;
+      return landMask[py * maskW + px];
+    }
+    for (y = 0; y < maskH; y++) {
+      for (x = 0; x < maskW; x++) {
+        if (!on(x, y)) { fade[y * maskW + x] = 0; continue; }
+        if (on(x - r, y) && on(x + r, y) && on(x, y - r) && on(x, y + r)
+          && on(x - r, y - r) && on(x + r, y + r) && on(x - r, y + r) && on(x + r, y - r)) {
+          fade[y * maskW + x] = 1;
+          continue;
+        }
+        land = 0;
+        tot = 0;
+        for (j = -r; j <= r; j++) {
+          for (i = -r; i <= r; i++) {
+            xx = x + i;
+            yy = y + j;
+            if (xx < 0 || yy < 0 || xx >= maskW || yy >= maskH) continue;
+            tot++;
+            if (landMask[yy * maskW + xx]) land++;
+          }
+        }
+        f = tot ? land / tot : 1;
+        if (f > 0.93) fade[y * maskW + x] = 1;
+        else if (f < 0.52) fade[y * maskW + x] = 0.07;
+        else fade[y * maskW + x] = 0.07 + (f - 0.52) / 0.41 * 0.93;
+      }
+    }
+    coastFadeMask = fade;
+  }
+  function lonToMaskX(lon) { return (lon - bbox[0]) / (bbox[2] - bbox[0]) * (maskW - 1); }
+  function latToMaskY(lat) { return (bbox[3] - lat) / (bbox[3] - bbox[1]) * (maskH - 1); }
+
+  function pointInMesh(lon, lat) {
+    var box = meshBBox;
+    var mask = meshMask || landMask;
+    if (!mask) return false;
+    var x = Math.round((lon - box[0]) / (box[2] - box[0]) * (maskW - 1));
+    var y = Math.round((box[3] - lat) / (box[3] - box[1]) * (maskH - 1));
+    if (x < 0 || y < 0 || x >= maskW || y >= maskH) return false;
+    return mask[y * maskW + x] === 1;
+  }
+  var HEIGHT_SCALE = 1.05;
+  var DEM = null;
+  var DEM_BBOX = [6.4, 36.2, 18.9, 47.4];
+  var DEM_OFFSET = 500;
+
+  function loadDemImage() {
+    return new Promise(function (resolve) {
+      var img = new Image();
+      img.onload = function () {
+        try {
+          var c = document.createElement('canvas');
+          c.width = img.width;
+          c.height = img.height;
+          var g = c.getContext('2d');
+          g.drawImage(img, 0, 0);
+          var px = g.getImageData(0, 0, img.width, img.height).data;
+          var data = new Float32Array(img.width * img.height);
+          for (var i = 0; i < data.length; i++) {
+            data[i] = px[i * 4] * 256 + px[i * 4 + 1] - DEM_OFFSET;
+          }
+          DEM = { w: img.width, h: img.height, data: data };
+          resolve(true);
+        } catch (err) { resolve(false); }
+      };
+      img.onerror = function () { resolve(false); };
+      img.src = '/maps/rome/italy-height.png';
+    });
+  }
+
+  function demMeters(lon, lat) {
+    if (!DEM) return null;
+    var u = (lon - DEM_BBOX[0]) / (DEM_BBOX[2] - DEM_BBOX[0]);
+    var v = (DEM_BBOX[3] - lat) / (DEM_BBOX[3] - DEM_BBOX[1]);
+    if (u < 0 || v < 0 || u > 1 || v > 1) return 0;
+    var x = u * (DEM.w - 1);
+    var y = v * (DEM.h - 1);
+    var x0 = Math.floor(x), y0 = Math.floor(y);
+    var x1 = Math.min(DEM.w - 1, x0 + 1);
+    var y1 = Math.min(DEM.h - 1, y0 + 1);
+    var tx = x - x0, ty = y - y0;
+    var d = DEM.data, w = DEM.w;
+    var a = d[y0 * w + x0], b = d[y0 * w + x1], c = d[y1 * w + x0], e = d[y1 * w + x1];
+    return a * (1 - tx) * (1 - ty) + b * tx * (1 - ty) + c * (1 - tx) * ty + e * tx * ty;
+  }
+  function ridgeH(lon, lat, ax, ay, bx, by, halfW, peak, sharp) {
+    sharp = sharp == null ? 1.28 : sharp;
+    var dx = bx - ax, dy = by - ay, l2 = dx * dx + dy * dy || 1;
+    var t = Math.max(0, Math.min(1, ((lon - ax) * dx + (lat - ay) * dy) / l2));
+    var px = ax + dx * t, py = ay + dy * t;
+    var d = Math.sqrt((lon - px) * (lon - px) + (lat - py) * (lat - py));
+    if (d >= halfW) return 0;
+    var fall = 1 - d / halfW;
+    var along = 0.7 + 0.3 * Math.sin(Math.PI * t);
+    var jag = 1 + 0.07 * Math.sin(t * 14 + lon * 3.2);
+    return peak * Math.pow(fall, sharp) * along * jag;
+  }
+  function bumpH(lon, lat, cx, cy, r, peak) {
+    var d = Math.sqrt((lon - cx) * (lon - cx) + (lat - cy) * (lat - cy));
+    if (d >= r) return 0;
+    var t = 1 - d / r;
+    return peak * t * t;
+  }
+  function coastInland(lon, lat) {
+    if (!coastFadeMask) return 1;
+    var box = meshBBox;
+    var x = Math.round((lon - box[0]) / (box[2] - box[0]) * (maskW - 1));
+    var y = Math.round((box[3] - lat) / (box[3] - box[1]) * (maskH - 1));
+    if (x < 0 || y < 0 || x >= maskW || y >= maskH) return 0.07;
+    return coastFadeMask[y * maskW + x];
+  }
+  function heightAtProcedural(lon, lat) {
+    var h = 0.2;
+    h = Math.max(h, ridgeH(lon, lat, 6.7, 45.5, 13.9, 46.55, 1.22, 7.8, 1.22));
+    h = Math.max(h, ridgeH(lon, lat, 7.0, 45.2, 12.6, 46.1, 0.82, 5.6, 1.3));
+    h = Math.max(h, bumpH(lon, lat, 7.15, 45.85, 0.82, 7.2));
+    h = Math.max(h, bumpH(lon, lat, 10.7, 46.45, 0.78, 8.0));
+    h = Math.max(h, bumpH(lon, lat, 12.15, 46.42, 0.7, 6.6));
+    h = Math.max(h, ridgeH(lon, lat, 9.55, 44.5, 13.35, 42.15, 0.38, 2.25, 1.32));
+    h = Math.max(h, ridgeH(lon, lat, 13.5, 42.2, 16.4, 39.35, 0.3, 2.05, 1.32));
+    h = Math.max(h, ridgeH(lon, lat, 16.05, 39.45, 16.45, 38.2, 0.24, 1.7, 1.35));
+    h = Math.max(h, bumpH(lon, lat, 13.55, 42.47, 0.42, 2.6));
+    h = Math.max(h, bumpH(lon, lat, 11.2, 43.45, 0.55, 1.35));
+    h = Math.max(h, bumpH(lon, lat, 10.3, 44.1, 0.42, 1.7));
+    h = Math.max(h, bumpH(lon, lat, 15.9, 41.82, 0.35, 1.4));
+    h = Math.max(h, bumpH(lon, lat, 16.5, 39.2, 0.38, 1.8));
+    h = Math.max(h, bumpH(lon, lat, 16.05, 38.15, 0.3, 1.55));
+    h = Math.max(h, bumpH(lon, lat, 15.0, 37.75, 0.42, 4.6));
+    h = Math.max(h, bumpH(lon, lat, 13.95, 37.6, 0.5, 1.5));
+    h = Math.max(h, bumpH(lon, lat, 9.32, 40.0, 0.55, 2.6));
+    h = Math.max(h, bumpH(lon, lat, 9.08, 40.5, 0.4, 1.7));
+    if (lat < 45.32) {
+      var pdx = (lon - 10.25) / 2.7;
+      var pdy = (lat - 45.05) / 0.4;
+      var pe = pdx * pdx + pdy * pdy;
+      if (pe < 1) h = h * (0.18 + 0.82 * pe) + 0.18 * (1 - pe);
+    }
+    if (lon > 13.15) {
+      var coast = Math.min(1, Math.max(0, (14.05 - lon) / 0.7));
+      if (lat > 42.2 && lat < 44.7) h = h * (0.35 + 0.65 * coast) + 0.18 * (1 - coast);
+    }
+    if (lat > 40.35 && lat < 41.35 && lon > 13.85 && lon < 15.15) {
+      h = Math.min(h, 0.55 + Math.max(0, lon - 14.55) * 0.8);
+    }
+    if (h > 2.8) h += Math.sin(lon * 7.4 + lat * 2.1) * 0.16 * Math.min(1, (h - 2.8) / 3);
+    else h += Math.sin(lon * 9.2) * Math.cos(lat * 8.1) * 0.03;
+    var fade = coastInland(lon, lat);
+    if (lat < 45.2) h = 0.16 + (h - 0.16) * fade;
+    else h = 0.16 + (h - 0.16) * Math.max(fade, 0.55);
+    return Math.max(0.12, h);
+  }
+  function heightAt(lon, lat) {
+    var m = demMeters(lon, lat);
+    if (m == null) return heightAtProcedural(lon, lat);
+    if (!(m > 2)) return 0.1;
+    return 0.18 + m / 4800 * 13.5;
+  }
+  function worldH(lon, lat) {
+    return heightAt(lon, lat) * HEIGHT_SCALE;
+  }
+
+  function project(lon, lat) {
+    var geoW = bbox[2] - bbox[0], geoH = bbox[3] - bbox[1];
+    var s = Math.min(W / geoW, H / geoH) * 0.86;
+    return { x: (lon - bbox[0]) * s + (W - geoW * s) / 2, y: (bbox[3] - lat) * s + (H - geoH * s) / 2 };
+  }
+  function landPath(c) {
+    var rings = drawRings.length ? drawRings : italyRings;
+    c.beginPath();
+    for (var r = 0; r < rings.length; r++) {
+      var ring = rings[r];
+      var p0 = project(ring[0][0], ring[0][1]);
+      c.moveTo(p0.x, p0.y);
+      for (var i = 1; i < ring.length; i++) {
+        var p = project(ring[i][0], ring[i][1]);
+        c.lineTo(p.x, p.y);
+      }
+      c.closePath();
+    }
+  }
+
+  function resizeCanvas() {
+    W = Math.max(1, window.innerWidth);
+    H = Math.max(1, window.innerHeight);
+    canvas.width = W;
+    canvas.height = H;
+  }
+
+  function applyCanvasCamera() {
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.translate(W / 2 + panX, H / 2 + panY);
+    ctx.scale(zoom, zoom);
+    ctx.rotate(yawRad());
+    ctx.scale(1, yScale());
+    ctx.translate(-W / 2, -H / 2);
+  }
+
+  function drawMountains() {
+    var peaks = [[7.6,45.9],[8.5,46.1],[9.5,46.15],[10.6,46.25],[11.7,46.4],[12.8,46.5],[10.0,44.1],[11.1,43.5],[12.2,42.6],[13.3,41.7],[14.4,40.9],[15.5,40.1]];
+    for (var i = 0; i < peaks.length; i++) {
+      var p = project(peaks[i][0], peaks[i][1]);
+      var s = 11 + (i % 4) * 4;
+      ctx.beginPath();
+      ctx.moveTo(p.x, p.y - s);
+      ctx.lineTo(p.x - s * 0.7, p.y + s * 0.45);
+      ctx.lineTo(p.x + s * 0.7, p.y + s * 0.45);
+      ctx.closePath();
+      ctx.fillStyle = i < 6 ? '#8a8680' : '#7a766c';
+      ctx.fill();
+    }
+  }
+  function drawForests() {
+    var seeds = [[8.8,44.3],[9.3,45.5],[11.2,43.7],[12.4,42.3],[14.1,41.0],[16.2,39.4]];
+    for (var s = 0; s < seeds.length; s++) {
+      var c = project(seeds[s][0], seeds[s][1]);
+      for (var n = 0; n < 12; n++) {
+        var a = n * 2.4;
+        ctx.beginPath();
+        ctx.arc(c.x + Math.cos(a) * 16, c.y + Math.sin(a) * 11, 6 + (n % 5), 0, Math.PI * 2);
+        ctx.fillStyle = n % 2 ? '#2f4a28' : '#243b20';
+        ctx.fill();
+      }
+    }
+  }
+  function armyPos(which, t) {
+    var a = project(9.2, 45.4), b = project(16.2, 39.3);
+    var u = which === 'red' ? (0.12 + 0.38 * (0.5 + 0.5 * Math.sin(t * 0.00035))) : (0.88 - 0.38 * (0.5 + 0.5 * Math.sin(t * 0.00035)));
+    return { x: a.x + (b.x - a.x) * u, y: a.y + (b.y - a.y) * u };
+  }
+  function drawArmy(p, color) {
+    ctx.save(); ctx.translate(p.x, p.y);
+    ctx.beginPath(); ctx.arc(0, 0, 9, 0, Math.PI * 2);
+    ctx.fillStyle = color; ctx.fill();
+    ctx.strokeStyle = '#fff8e0'; ctx.lineWidth = 2; ctx.stroke();
+    ctx.restore();
+  }
+
+  var geo2d = null;
+  function getGeo2d() {
+    if (geo2d) return geo2d;
+    if (!DEM) return null;
+    geo2d = paintItalyMap(DEM_BBOX);
+    return geo2d;
+  }
+
+  function renderCanvas() {
+    if (three.built) return;
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    var sea = ctx.createRadialGradient(W * 0.5, H * 0.45, 40, W * 0.5, H * 0.5, Math.max(W, H) * 0.8);
+    sea.addColorStop(0, '#3a6a78'); sea.addColorStop(0.55, '#1c4050'); sea.addColorStop(1, '#0c1c28');
+    ctx.fillStyle = sea; ctx.fillRect(0, 0, W, H);
+    applyCanvasCamera();
+    if (!ready) return;
+    var geo = getGeo2d();
+    if (geo) {
+      var box = DEM_BBOX;
+      var p0 = project(box[0], box[3]);
+      var p1 = project(box[2], box[1]);
+      ctx.drawImage(geo, p0.x, p0.y, p1.x - p0.x, p1.y - p0.y);
+    } else {
+      ctx.save(); ctx.translate(8, 16); landPath(ctx);
+      ctx.fillStyle = 'rgba(20,16,8,0.5)'; ctx.fill(); ctx.restore();
+      landPath(ctx); ctx.fillStyle = '#6a8248'; ctx.fill();
+      ctx.save(); landPath(ctx); ctx.clip();
+      var rome = project(12.5, 41.9);
+      var g = ctx.createRadialGradient(rome.x, rome.y, 20, rome.x, rome.y - 40, 220);
+      g.addColorStop(0, 'rgba(210,200,140,0.35)'); g.addColorStop(1, 'rgba(80,90,40,0)');
+      ctx.fillStyle = g; ctx.fillRect(rome.x - 240, rome.y - 260, 480, 520);
+      ctx.restore();
+      landPath(ctx); ctx.strokeStyle = 'rgba(40,55,28,0.8)'; ctx.lineWidth = 1.4; ctx.stroke();
+      drawForests(); drawMountains();
+    }
+    drawArmy(armyPos('red', time), '#9a3030');
+    drawArmy(armyPos('blue', time), '#2a4a9a');
+  }
+
+  function loopCanvas() {
+    time = performance.now();
+    renderCanvas();
+    requestAnimationFrame(loopCanvas);
+  }
+
+  function applyThreeCamera() {
+    if (!three.camera) return;
+    var t = tiltDeg * Math.PI / 180;
+    var dist = 148 / zoom;
+    var yaw = yawRad();
+    three.camera.position.set(
+      panX + Math.sin(yaw) * dist * Math.cos(t),
+      Math.max(18, dist * Math.sin(t)),
+      panY + Math.cos(yaw) * dist * Math.cos(t)
+    );
+    three.camera.lookAt(panX, 3.2, panY);
+  }
+
+  function panThreeByMouse(dx, dy) {
+    var dist = 148 / zoom;
+    var fov = 45 * Math.PI / 180;
+    var el = three.renderer && three.renderer.domElement;
+    var vh = el && el.clientHeight > 2 ? el.clientHeight : (window.innerHeight || 800);
+    var k = (2 * Math.tan(fov / 2) * dist) / vh;
+    var kY = k / Math.max(0.28, Math.sin(tiltDeg * Math.PI / 180));
+    var yaw = yawRad();
+    panX -= Math.cos(yaw) * dx * k + Math.sin(yaw) * dy * kY;
+    panY -= -Math.sin(yaw) * dx * k + Math.cos(yaw) * dy * kY;
+    applyThreeCamera();
+  }
+
+  function startThree() {
+    if (!ready) return;
+    if (typeof THREE === 'undefined') {
+      setStatus('Вид 5: Three.js не загрузился, показан запасной вид · Q / E — наклон');
+      three.built = false;
+      showLayers();
+      return;
+    }
+    if (!three.built) {
+      try { buildThree(); }
+      catch (err) {
+        setStatus('Вид 5 ошибка: ' + err.message);
+        three.built = false;
+        showLayers();
+        return;
+      }
+    }
+    if (three.renderer) {
+      var w = Math.max(1, window.innerWidth), h = Math.max(1, window.innerHeight);
+      three.renderer.setSize(w, h, false);
+      three.camera.aspect = w / h;
+      three.camera.updateProjectionMatrix();
+      applyThreeCamera();
+    }
+    showLayers();
+    if (!three.raf) loopThree();
+  }
+
+  function buildThree() {
+    var w = Math.max(1, window.innerWidth), h = Math.max(1, window.innerHeight);
+    var renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false, preserveDrawingBuffer: true });
+    renderer.setPixelRatio(Math.min(2, window.devicePixelRatio || 1));
+    renderer.setSize(w, h, false);
+    renderer.setClearColor(0x1a3848, 1);
+    renderer.shadowMap.enabled = true;
+    if (THREE.PCFSoftShadowMap) renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    view5.innerHTML = '';
+    view5.appendChild(renderer.domElement);
+    renderer.domElement.style.display = 'block';
+    renderer.domElement.style.width = '100%';
+    renderer.domElement.style.height = '100%';
+
+    var scene = new THREE.Scene();
+    scene.fog = new THREE.Fog(0x4a6a78, 280, 1600);
+    var camera = new THREE.PerspectiveCamera(45, w / h, 0.3, 4200);
+
+    scene.add(new THREE.HemisphereLight(0xc8c4b0, 0x3a3428, 0.38));
+    var sun = new THREE.DirectionalLight(0xf0e4c4, 0.92);
+    sun.position.set(-42, 62, 32);
+    sun.castShadow = true;
+    sun.shadow.mapSize.set(2048, 2048);
+    sun.shadow.camera.left = -95;
+    sun.shadow.camera.right = 95;
+    sun.shadow.camera.top = 95;
+    sun.shadow.camera.bottom = -95;
+    sun.shadow.camera.near = 8;
+    sun.shadow.camera.far = 280;
+    scene.add(sun);
+    scene.add(new THREE.AmbientLight(0x5a5848, 0.22));
+
+    var deepSea = new THREE.Mesh(
+      new THREE.PlaneGeometry(1900, 1900),
+      new THREE.MeshPhongMaterial({ color: 0x142838, shininess: 12 })
+    );
+    deepSea.rotation.x = -Math.PI / 2;
+    deepSea.position.y = -0.55;
+    scene.add(deepSea);
+    var sea = new THREE.Mesh(
+      new THREE.PlaneGeometry(1700, 1700),
+      new THREE.MeshPhongMaterial({
+        color: 0x1a4558,
+        shininess: 28,
+        transparent: true,
+        opacity: 0.94
+      })
+    );
+    sea.rotation.x = -Math.PI / 2;
+    sea.receiveShadow = true;
+    scene.add(sea);
+
+    var box = DEM ? DEM_BBOX.slice() : meshBBox;
+    var cx = (box[0] + box[2]) / 2;
+    var cy = (box[1] + box[3]) / 2;
+    var scale = 384 / Math.max(box[2] - box[0], box[3] - box[1]);
+    var positions = [];
+    var uvs = [];
+    var indices = [];
+    var inside = [];
+    var i, j;
+    if (window.ItalyDEM && ItalyDEM.ready() && ItalyDEM.buildHeightMesh) {
+      var meshData = ItalyDEM.buildHeightMesh({
+        box: box,
+        cols: 360,
+        rows: 420,
+        sea: 8,
+        coastY: 0.06,
+        toXZ: function (lon, lat) {
+          return { x: (lon - cx) * scale, z: -(lat - cy) * scale };
+        },
+        height: function (lon, lat, m) { return 0.18 + m / 4800 * 13.5; }
+      });
+      positions = meshData.positions;
+      uvs = meshData.uvs;
+      indices = meshData.indices;
+    } else {
+      var cols = 300, rows = 360;
+      for (j = 0; j <= rows; j++) {
+        for (i = 0; i <= cols; i++) {
+          var lon = box[0] + (box[2] - box[0]) * i / cols;
+          var lat = box[3] - (box[3] - box[1]) * j / rows;
+          var on = DEM ? (demMeters(lon, lat) > 10) : pointInMesh(lon, lat);
+          inside.push(on);
+          positions.push((lon - cx) * scale, on ? worldH(lon, lat) : 0, -(lat - cy) * scale);
+          uvs.push(i / cols, 1 - j / rows);
+        }
+      }
+      for (j = 0; j < rows; j++) {
+        for (i = 0; i < cols; i++) {
+          var a = j * (cols + 1) + i;
+          var b = a + 1;
+          var cIdx = a + cols + 1;
+          var d = cIdx + 1;
+          var n = (inside[a] ? 1 : 0) + (inside[b] ? 1 : 0) + (inside[cIdx] ? 1 : 0) + (inside[d] ? 1 : 0);
+          if (n < 2) continue;
+          indices.push(a, cIdx, b, b, cIdx, d);
+        }
+      }
+    }
+    if (inside.length) {
+    var stride = cols + 1;
+    var idx, sum, cnt, ni, nj, nidx;
+    var nextY = [];
+    for (j = 0; j <= rows; j++) {
+      for (i = 0; i <= cols; i++) {
+        idx = j * stride + i;
+        if (!inside[idx]) { nextY[idx] = 0; continue; }
+        sum = 0;
+        cnt = 0;
+        for (nj = -1; nj <= 1; nj++) {
+          for (ni = -1; ni <= 1; ni++) {
+            if (i + ni < 0 || i + ni > cols || j + nj < 0 || j + nj > rows) continue;
+            nidx = (j + nj) * stride + (i + ni);
+            if (!inside[nidx]) continue;
+            sum += positions[nidx * 3 + 1];
+            cnt++;
+          }
+        }
+        nextY[idx] = positions[idx * 3 + 1] * (DEM ? 0.88 : 0.7) + (sum / cnt) * (DEM ? 0.12 : 0.3);
+      }
+    }
+    for (idx = 0; idx < nextY.length; idx++) {
+      if (inside[idx]) positions[idx * 3 + 1] = nextY[idx];
+    }
+    }
+    var geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+    geo.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
+    geo.setIndex(indices);
+    geo.computeVertexNormals();
+    var landMat = new THREE.MeshPhongMaterial({
+      map: makeMapTexture(box),
+      shininess: 4,
+      specular: 0x11110c,
+      side: THREE.FrontSide
+    });
+    var land = new THREE.Mesh(geo, landMat);
+    land.castShadow = true;
+    land.receiveShadow = true;
+    scene.add(land);
+    three.land = land;
+    three.landMat = landMat;
+
+    if (inside.length) {
+    function quadLand(qi, qj) {
+      if (qi < 0 || qj < 0 || qi >= cols || qj >= rows) return false;
+      var qa = qj * stride + qi;
+      return inside[qa] && inside[qa + 1] && inside[qa + stride] && inside[qa + stride + 1];
+    }
+    var skirtPos = [];
+    var skirtIdx = [];
+    function skirtWall(ia, ib) {
+      var b0 = skirtPos.length / 3;
+      skirtPos.push(
+        positions[ia * 3], positions[ia * 3 + 1], positions[ia * 3 + 2],
+        positions[ib * 3], positions[ib * 3 + 1], positions[ib * 3 + 2],
+        positions[ia * 3], 0.04, positions[ia * 3 + 2],
+        positions[ib * 3], 0.04, positions[ib * 3 + 2]
+      );
+      skirtIdx.push(b0, b0 + 2, b0 + 1, b0 + 1, b0 + 2, b0 + 3);
+    }
+    for (j = 0; j <= rows; j++) {
+      for (i = 0; i < cols; i++) {
+        var ha = j * stride + i, hb = ha + 1;
+        if (inside[ha] && inside[hb] && (!quadLand(i, j - 1) || !quadLand(i, j))) skirtWall(ha, hb);
+      }
+    }
+    for (j = 0; j < rows; j++) {
+      for (i = 0; i <= cols; i++) {
+        var va = j * stride + i, vb = va + stride;
+        if (inside[va] && inside[vb] && (!quadLand(i - 1, j) || !quadLand(i, j))) skirtWall(va, vb);
+      }
+    }
+    if (skirtIdx.length) {
+      var skirtGeo = new THREE.BufferGeometry();
+      skirtGeo.setAttribute('position', new THREE.Float32BufferAttribute(skirtPos, 3));
+      skirtGeo.setIndex(skirtIdx);
+      skirtGeo.computeVertexNormals();
+      var skirtMesh = new THREE.Mesh(
+        skirtGeo,
+        new THREE.MeshPhongMaterial({ color: 0xd2c08a, shininess: 8 })
+      );
+      skirtMesh.castShadow = true;
+      scene.add(skirtMesh);
+    }
+    }
+
+    cityMarks = [];
+    cityRay = new THREE.Raycaster();
+    cityNdc = new THREE.Vector2();
+
+    function addCity(city) {
+      var g = new THREE.Group();
+      var s = city.capital ? 1.35 : 1;
+      var wall = new THREE.MeshPhongMaterial({ color: 0xe8dcc4, shininess: 8 });
+      var roof = new THREE.MeshPhongMaterial({ color: 0xb24a2a, shininess: 12 });
+      var b1 = new THREE.Mesh(new THREE.BoxGeometry(0.85 * s, 0.55 * s, 0.7 * s), wall);
+      b1.position.set(-0.35 * s, 0.28 * s, 0.1 * s);
+      b1.castShadow = true;
+      g.add(b1);
+      var b2 = new THREE.Mesh(new THREE.BoxGeometry(0.7 * s, 0.42 * s, 0.62 * s), wall);
+      b2.position.set(0.42 * s, 0.22 * s, -0.15 * s);
+      b2.castShadow = true;
+      g.add(b2);
+      var r1 = new THREE.Mesh(new THREE.ConeGeometry(0.62 * s, 0.38 * s, 4), roof);
+      r1.rotation.y = Math.PI / 4;
+      r1.position.set(-0.35 * s, 0.72 * s, 0.1 * s);
+      r1.castShadow = true;
+      g.add(r1);
+      var r2 = new THREE.Mesh(new THREE.ConeGeometry(0.5 * s, 0.3 * s, 4), roof);
+      r2.rotation.y = Math.PI / 4;
+      r2.position.set(0.42 * s, 0.58 * s, -0.15 * s);
+      r2.castShadow = true;
+      g.add(r2);
+      var bannerCol = city.faction === 'greek' ? 0x6a3d8a : (city.faction === 'carthage' ? 0x9a3a32 : 0xa03030);
+      var pole = new THREE.Mesh(
+        new THREE.BoxGeometry(0.07 * s, (city.capital ? 2.1 : 1.55) * s, 0.07 * s),
+        new THREE.MeshPhongMaterial({ color: 0xc9b070 })
+      );
+      pole.position.set(0.85 * s, (city.capital ? 1.05 : 0.78) * s, 0);
+      g.add(pole);
+      var flag = new THREE.Mesh(
+        new THREE.BoxGeometry(0.55 * s, 0.72 * s, 0.04 * s),
+        new THREE.MeshPhongMaterial({ color: bannerCol })
+      );
+      flag.position.set(1.12 * s, (city.capital ? 1.55 : 1.18) * s, 0);
+      g.add(flag);
+      var hit = new THREE.Mesh(
+        new THREE.CylinderGeometry(1.35 * s, 1.35 * s, 2.4 * s, 12),
+        new THREE.MeshBasicMaterial({ visible: false })
+      );
+      hit.position.y = 0.9 * s;
+      hit.userData.isCityHit = true;
+      g.add(hit);
+      g.scale.setScalar(2.5);
+      g.position.set((city.lon - cx) * scale, worldH(city.lon, city.lat) + 0.08, -(city.lat - cy) * scale);
+      scene.add(g);
+
+      var labelName = city.ru || city.name;
+      var lc = document.createElement('canvas');
+      lc.width = 256;
+      lc.height = 48;
+      var lg = lc.getContext('2d');
+      lg.fillStyle = city.faction === 'greek' ? '#6a3d8a' : (city.faction === 'carthage' ? '#9a3a32' : '#a03030');
+      lg.fillRect(0, 4, 256, 40);
+      lg.strokeStyle = 'rgba(255,230,160,0.7)';
+      lg.strokeRect(1, 5, 254, 38);
+      lg.fillStyle = '#fff8ec';
+      lg.font = 'bold 28px Cinzel, Georgia, serif';
+      lg.textAlign = 'center';
+      lg.textBaseline = 'middle';
+      lg.fillText(labelName, 128, 24);
+      var ltex = new THREE.Texture(lc);
+      ltex.needsUpdate = true;
+      var spr = new THREE.Sprite(new THREE.SpriteMaterial({ map: ltex, transparent: true, depthTest: false }));
+      spr.scale.set(city.capital ? 7.2 : 5.6, city.capital ? 1.35 : 1.05, 1);
+      spr.position.set(g.position.x, g.position.y + (city.capital ? 3.1 : 2.4), g.position.z);
+      scene.add(spr);
+
+      var cName = (window.CampaignMapBridge && CampaignMapBridge.campaignName)
+        ? CampaignMapBridge.campaignName(city.name)
+        : city.name;
+      cityMarks.push({
+        id: city.name,
+        city: city,
+        root: g,
+        hit: hit,
+        label: spr,
+        campaignName: cName
+      });
+    }
+    var citiesList = (window.CampaignMapBridge && CampaignMapBridge.getCities())
+      ? CampaignMapBridge.getCities()
+      : RTW_CITIES;
+    if (!citiesList || !citiesList.length) citiesList = RTW_CITIES;
+    for (i = 0; i < citiesList.length; i++) addCity(citiesList[i]);
+
+    if (window.CampaignMapBridge && CampaignMapBridge.addResourceMeshesThree) {
+      CampaignMapBridge.addResourceMeshesThree(
+        THREE, scene, CampaignMapBridge.getResources(),
+        function (lon, lat) { return { x: (lon - cx) * scale, z: -(lat - cy) * scale }; },
+        function (lon, lat) { return worldH(lon, lat); },
+        2.2
+      );
+    }
+
+    var treeMat = new THREE.MeshLambertMaterial({ color: 0x1d3820 });
+    var trunkMat = new THREE.MeshLambertMaterial({ color: 0x4a3420 });
+    var coneGeo = new THREE.ConeGeometry(0.22, 0.48, 6);
+    var trunkGeo = new THREE.CylinderGeometry(0.04, 0.055, 0.12, 5);
+    var trnd = seededRand(77);
+    var planted = 0, tries = 0;
+    while (planted < 420 && tries < 8000) {
+      tries++;
+      var tlon = DEM_BBOX[0] + trnd() * (DEM_BBOX[2] - DEM_BBOX[0]);
+      var tlat = DEM_BBOX[1] + trnd() * (DEM_BBOX[3] - DEM_BBOX[1]);
+      if (DEM ? (demMeters(tlon, tlat) <= 10) : !pointInMesh(tlon, tlat)) continue;
+      var tm = demMeters(tlon, tlat);
+      if (tm == null) {
+        if (heightAt(tlon, tlat) > 3.2) continue;
+      } else if (tm < 80 || tm > 1100) continue;
+      var tg = new THREE.Group();
+      var trunk = new THREE.Mesh(trunkGeo, trunkMat);
+      trunk.position.y = 0.1;
+      tg.add(trunk);
+      var crown = new THREE.Mesh(coneGeo, treeMat);
+      crown.position.y = 0.62;
+      crown.castShadow = true;
+      tg.add(crown);
+      tg.position.set((tlon - cx) * scale, worldH(tlon, tlat), -(tlat - cy) * scale);
+      tg.scale.setScalar((0.75 + trnd() * 0.55) * 2.4);
+      scene.add(tg);
+      planted++;
+    }
+
+    function sphere(color) {
+      var m = new THREE.Mesh(
+        new THREE.SphereGeometry(0.42, 14, 10),
+        new THREE.MeshPhongMaterial({ color: color, emissive: color, emissiveIntensity: 0.18 })
+      );
+      m.castShadow = true;
+      scene.add(m);
+      return m;
+    }
+
+    three.renderer = renderer;
+    three.scene = scene;
+    three.camera = camera;
+    three.armies = [
+      { mesh: sphere(0x9a3030), from: { lon: 9.2, lat: 45.4 }, to: { lon: 16.2, lat: 39.3 } },
+      { mesh: sphere(0x2a4a9a), from: { lon: 16.2, lat: 39.3 }, to: { lon: 9.2, lat: 45.4 } }
+    ];
+    three.scale = scale;
+    three.cx = cx;
+    three.cy = cy;
+    three.built = true;
+
+    function xzAt(lon, lat) {
+      return { x: (lon - cx) * scale, z: -(lat - cy) * scale };
+    }
+    function heightAtXZ(x, z) {
+      return worldH(x / scale + cx, cy - z / scale);
+    }
+    function worldToLonLat(x, z) {
+      return { lon: x / scale + cx, lat: cy - z / scale };
+    }
+    function pickCity(e) {
+      if (!three.camera || !cityMarks.length || !cityRay || !cityNdc) return null;
+      var el = three.renderer && three.renderer.domElement;
+      if (!el) return null;
+      var rect = el.getBoundingClientRect();
+      cityNdc.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+      cityNdc.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+      cityRay.setFromCamera(cityNdc, three.camera);
+      var hits = [];
+      cityMarks.forEach(function (m) {
+        var h = cityRay.intersectObject(m.hit, false);
+        if (h && h.length) hits.push({ mark: m, dist: h[0].distance });
+      });
+      if (!hits.length) return null;
+      hits.sort(function (a, b) { return a.dist - b.dist; });
+      return hits[0].mark;
+    }
+    function openCityPanel(mark) {
+      if (!mark || !window.CampaignMapBridge) return;
+      setStatus('Город: ' + (mark.city.ru || mark.city.name));
+      CampaignMapBridge.postCitySelect(CampaignMapBridge.selectCityPayload(mark.city));
+    }
+    function handleCityClick(e) {
+      var mark = pickCity(e);
+      if (!mark) {
+        if (window.CampaignMapBridge) CampaignMapBridge.postCityDeselect();
+        return false;
+      }
+      openCityPanel(mark);
+      return true;
+    }
+    function pickLonLatFromEvent(e) {
+      if (!three.camera || !three.land) return null;
+      var el = three.renderer && three.renderer.domElement;
+      if (!el) return null;
+      var rect = el.getBoundingClientRect();
+      var ndc = new THREE.Vector2(
+        ((e.clientX - rect.left) / rect.width) * 2 - 1,
+        -((e.clientY - rect.top) / rect.height) * 2 + 1
+      );
+      var ray = new THREE.Raycaster();
+      ray.setFromCamera(ndc, three.camera);
+      var hits = ray.intersectObject(three.land, false);
+      if (!hits || !hits.length) return null;
+      return worldToLonLat(hits[0].point.x, hits[0].point.z);
+    }
+    function hidePlayerArmy() {
+      if (!three.units || !three.units.player) return;
+      three.units.player.setSelected(false);
+      three.units.player.root.visible = false;
+    }
+    function showPlayerArmyAt(lon, lat, armyId) {
+      if (!three.units || !three.units.player) return;
+      var p = xzAt(lon, lat);
+      three.units.player.root.visible = true;
+      three.units.player.root.position.set(p.x, worldH(lon, lat) + 0.12, p.z);
+      if (three.units.player.setArmyId) three.units.player.setArmyId(armyId);
+      three.units.player.setSelected(true);
+    }
+    if (window.WalkUnitThree && WalkUnitThree.mountPair) {
+      var fieldArmyId = 'field_near_rome';
+      var armyStart = xzAt(12.35, 41.78);
+      var capuaNpc = xzAt(14.08, 41.18);
+      for (var cci = 0; cci < citiesList.length; cci++) {
+        if (citiesList[cci].name === 'Capua') {
+          capuaNpc = xzAt(citiesList[cci].lon, citiesList[cci].lat);
+          break;
+        }
+      }
+      try {
+        var CS0 = window.CampaignMapBridge && CampaignMapBridge.parentCS
+          ? CampaignMapBridge.parentCS()
+          : (window.parent && window.parent.CampaignState);
+        if (CS0 && CS0.state.fieldArmies && CS0.state.fieldArmies[0]) {
+          fieldArmyId = CS0.state.fieldArmies[0].id;
+        }
+        var fa = CS0 && CS0.getFieldArmy && CS0.getFieldArmy(fieldArmyId);
+        if (fa) armyStart = xzAt(fa.lon, fa.lat);
+      } catch (_) {}
+      var extras = (window.CampaignMapBridge && CampaignMapBridge.fieldArmyMountExtras)
+        ? CampaignMapBridge.fieldArmyMountExtras({
+          pickLonLat: pickLonLatFromEvent,
+          pickCityName: function (e) {
+            var mark = pickCity(e);
+            return mark && mark.campaignName ? mark.campaignName : null;
+          },
+          worldToLonLat: worldToLonLat,
+          getFieldArmyId: function () { return fieldArmyId; },
+          setFieldArmyId: function (id) { fieldArmyId = id; },
+          showArmy: showPlayerArmyAt,
+          hideArmy: hidePlayerArmy,
+          getPlayer: function () { return three.units && three.units.player; },
+          setStatus: setStatus
+        })
+        : {};
+      var pair = WalkUnitThree.mountPair({
+        THREE: THREE,
+        scene: scene,
+        camera: camera,
+        canvas: renderer.domElement,
+        land: land,
+        hover: 0.12,
+        scale: 2.85,
+        speed: 16,
+        combatStop: 2.2,
+        armyId: fieldArmyId,
+        playerStart: armyStart,
+        npcStart: capuaNpc,
+        getHeight: heightAtXZ,
+        setPanEnabled: function (on) { allowPan = on; },
+        onMapClick: handleCityClick,
+        beforeRmbMove: extras.beforeRmbMove,
+        resolveEnterCity: extras.resolveEnterCity,
+        onSelect: extras.onSelect,
+        onArrive: extras.onArrive,
+        onBattle: showBattleDialog,
+        onStatus: setStatus
+      });
+      three.walker = pair.player;
+      three.npc = pair.npc;
+      three.units = pair;
+    }
+    applyThreeCamera();
+    applyViewTint();
+  }
+
+  var RTW_CITIES = [
+    { name: 'Mediolanium', lon: 9.19, lat: 45.46, faction: 'rome' },
+    { name: 'Patavium', lon: 11.88, lat: 45.41, faction: 'rome' },
+    { name: 'Genua', lon: 8.93, lat: 44.41, faction: 'rome' },
+    { name: 'Arretium', lon: 11.88, lat: 43.46, faction: 'rome' },
+    { name: 'Ariminum', lon: 12.57, lat: 44.06, faction: 'rome' },
+    { name: 'Roma', lon: 12.48, lat: 41.89, faction: 'rome', capital: true },
+    { name: 'Capua', lon: 14.22, lat: 41.10, faction: 'rome' },
+    { name: 'Neapolis', lon: 14.25, lat: 40.85, faction: 'greek' },
+    { name: 'Tarentum', lon: 17.24, lat: 40.47, faction: 'greek' },
+    { name: 'Rhegium', lon: 15.65, lat: 38.11, faction: 'greek' },
+    { name: 'Syracusae', lon: 15.29, lat: 37.08, faction: 'greek' },
+    { name: 'Lilybaeum', lon: 12.43, lat: 37.80, faction: 'carthage' },
+    { name: 'Caralis', lon: 9.12, lat: 39.22, faction: 'carthage' }
+  ];
+  var RTW_ROADS = [
+    ['Mediolanium', 'Patavium'], ['Mediolanium', 'Genua'], ['Genua', 'Arretium'],
+    ['Arretium', 'Ariminum'], ['Arretium', 'Roma'], ['Ariminum', 'Roma'],
+    ['Roma', 'Capua'], ['Capua', 'Neapolis'], ['Neapolis', 'Tarentum'],
+    ['Tarentum', 'Rhegium'], ['Rhegium', 'Syracusae'], ['Syracusae', 'Lilybaeum']
+  ];
+  var RTW_RIVERS = [
+    [[7.7, 45.15], [8.6, 45.08], [9.7, 45.04], [10.8, 44.99], [11.7, 44.94], [12.5, 44.90]],
+    [[11.05, 46.35], [11.15, 45.75], [11.35, 45.38], [12.15, 45.18]],
+    [[11.55, 43.78], [11.05, 43.76], [10.55, 43.72], [10.25, 43.68]],
+    [[12.75, 42.55], [12.55, 42.15], [12.48, 41.89], [12.35, 41.68]]
+  ];
+  var RTW_BANNERS = { rome: '#6a3d8a', greek: '#b08a38', carthage: '#9a3a32' };
+  var terrainTiles = { grass: null, forest: null, hills: null, mountain: null };
+
+  function loadTerrainTiles() {
+    var keys = ['grass', 'forest', 'hills', 'mountain'];
+    var left = keys.length;
+    function doneOne() {
+      if (--left > 0) return;
+      if (three.built && three.landMat) refreshThreeTexture();
+    }
+    keys.forEach(function (key) {
+      var img = new Image();
+      img.onload = function () { terrainTiles[key] = img; doneOne(); };
+      img.onerror = doneOne;
+      img.src = '/images/terrain/' + key + '.png';
+    });
+  }
+  loadTerrainTiles();
+
+  function seededRand(seed) {
+    var s = seed % 2147483647;
+    if (s <= 0) s += 2147483646;
+    return function () {
+      s = (s * 16807) % 2147483647;
+      return (s - 1) / 2147483646;
+    };
+  }
+
+  function makeMapTexture(box) {
+    var tex = new THREE.Texture(paintItalyMap(box));
+    tex.needsUpdate = true;
+    tex.flipY = true;
+    tex.minFilter = THREE.LinearFilter;
+    tex.magFilter = THREE.LinearFilter;
+    return tex;
+  }
+
+  function refreshThreeTexture() {
+    if (!three.landMat) return;
+    var box = DEM ? DEM_BBOX.slice() : meshBBox;
+    if (!box) return;
+    geo2d = null;
+    three.landMat.map = makeMapTexture(box);
+    three.landMat.needsUpdate = true;
+  }
+
+  function paintItalyMap(box) {
+    var tw = 1536, th = 1792;
+    var c = document.createElement('canvas');
+    c.width = tw;
+    c.height = th;
+    var g = c.getContext('2d');
+    g.fillStyle = '#163848';
+    g.fillRect(0, 0, tw, th);
+    var earth = mode === 4;
+
+    function toXY(lon, lat) {
+      return {
+        x: (lon - box[0]) / (box[2] - box[0]) * tw,
+        y: (box[3] - lat) / (box[3] - box[1]) * th
+      };
+    }
+    function landPath() {
+      g.beginPath();
+      var rings = italyRings.length ? italyRings : FALLBACK_RINGS;
+      for (var r = 0; r < rings.length; r++) {
+        var ring = rings[r];
+        if (!ring || ring.length < 3) continue;
+        var p0 = toXY(ring[0][0], ring[0][1]);
+        g.moveTo(p0.x, p0.y);
+        for (var k = 1; k < ring.length; k++) {
+          var p = toXY(ring[k][0], ring[k][1]);
+          g.lineTo(p.x, p.y);
+        }
+        g.closePath();
+      }
+    }
+    function cityByName(name) {
+      for (var i = 0; i < RTW_CITIES.length; i++) {
+        if (RTW_CITIES[i].name === name) return RTW_CITIES[i];
+      }
+      return null;
+    }
+
+    var grassPat = null;
+    if (!earth && terrainTiles.grass) grassPat = g.createPattern(terrainTiles.grass, 'repeat');
+    if (!grassPat) {
+      var pc = document.createElement('canvas');
+      pc.width = 256;
+      pc.height = 256;
+      var pg = pc.getContext('2d');
+      pg.fillStyle = earth ? '#7a7054' : '#6a7050';
+      pg.fillRect(0, 0, 256, 256);
+      var rndg = seededRand(42);
+      var gi;
+      for (gi = 0; gi < 3200; gi++) {
+        pg.fillStyle = rndg() > 0.5
+          ? (earth ? 'rgba(92, 82, 52, 0.36)' : 'rgba(78, 86, 52, 0.38)')
+          : (earth ? 'rgba(168, 150, 102, 0.18)' : 'rgba(168, 156, 102, 0.16)');
+        pg.fillRect(rndg() * 256, rndg() * 256, 1 + rndg() * 2.4, 1 + rndg() * 2.4);
+      }
+      grassPat = g.createPattern(pc, 'repeat');
+    }
+
+    landPath();
+    g.fillStyle = earth ? '#7a7358' : '#5e6444';
+    g.fill('nonzero');
+    g.save();
+    landPath();
+    g.clip();
+    g.globalAlpha = 0.55;
+    g.fillStyle = grassPat;
+    g.fillRect(0, 0, tw, th);
+    g.globalAlpha = 1;
+
+    var img = g.getImageData(0, 0, tw, th);
+    var pxls = img.data;
+    var seaR = 0x16, seaG = 0x38, seaB = 0x48;
+    for (var py = 0; py < th; py++) {
+      var latp = box[3] - py / (th - 1) * (box[3] - box[1]);
+      for (var px = 0; px < tw; px++) {
+        var i4 = (py * tw + px) * 4;
+        var lonp = box[0] + px / (tw - 1) * (box[2] - box[0]);
+        var meters = demMeters(lonp, latp);
+        if (DEM) {
+          if (!(meters > 8)) {
+            var st = Math.max(0, Math.min(1, (10 - meters) / 45));
+            pxls[i4] = 56 + (20 - 56) * st;
+            pxls[i4 + 1] = 112 + (46 - 112) * st;
+            pxls[i4 + 2] = 118 + (58 - 118) * st;
+            pxls[i4 + 3] = 255;
+            continue;
+          }
+          var colR, colG, colB;
+          if (earth) {
+            if (meters > 2600) { colR = 196; colG = 190; colB = 180; }
+            else if (meters > 1700) { colR = 138; colG = 124; colB = 108; }
+            else if (meters > 1050) { colR = 122; colG = 108; colB = 88; }
+            else if (meters > 520) { colR = 112; colG = 98; colB = 74; }
+            else if (meters > 140) { colR = 124; colG = 112; colB = 82; }
+            else if (meters > 35) { colR = 138; colG = 122; colB = 86; }
+            else { colR = 152; colG = 134; colB = 96; }
+          } else if (meters > 2600) { colR = 186; colG = 184; colB = 176; }
+          else if (meters > 1700) { colR = 132; colG = 118; colB = 102; }
+          else if (meters > 1050) { colR = 118; colG = 100; colB = 78; }
+          else if (meters > 520) { colR = 96; colG = 92; colB = 64; }
+          else if (meters > 140) { colR = 92; colG = 102; colB = 68; }
+          else if (meters > 35) { colR = 108; colG = 108; colB = 70; }
+          else { colR = 138; colG = 128; colB = 88; }
+          var mx = demMeters(lonp + (box[2] - box[0]) / tw, latp) || meters;
+          var myh = demMeters(lonp, latp - (box[3] - box[1]) / th) || meters;
+          var nx = meters - mx, ny = meters - myh;
+          var nlen = Math.sqrt(nx * nx + ny * ny + 110 * 110) || 1;
+          var shade = Math.max(0.58, Math.min(1.12, (nx * 0.42 + 110) / nlen * 1.32));
+          pxls[i4] = Math.max(0, Math.min(255, colR * shade));
+          pxls[i4 + 1] = Math.max(0, Math.min(255, colG * shade));
+          pxls[i4 + 2] = Math.max(0, Math.min(255, colB * shade));
+          pxls[i4 + 3] = 255;
+          continue;
+        }
+        if (Math.abs(pxls[i4] - seaR) < 8 && Math.abs(pxls[i4 + 1] - seaG) < 12 && pxls[i4 + 2] > seaB - 18) continue;
+        var hv = meters == null ? heightAt(lonp, latp) : meters;
+        var rr = pxls[i4], gg = pxls[i4 + 1], bb = pxls[i4 + 2], k = 0;
+        if (meters != null) {
+          if (hv > 2600) { rr = 242; gg = 244; bb = 238; k = Math.min(0.95, (hv - 2600) / 900); }
+          else if (hv > 1400) { rr = 92; gg = 88; bb = 80; k = Math.min(0.88, (hv - 1400) / 1200); }
+          else if (hv > 700) { rr = 108; gg = 114; bb = 70; k = Math.min(0.5, (hv - 700) / 700); }
+          else if (hv < 90 && latp > 44.6 && latp < 45.5 && lonp > 7.8 && lonp < 12.8) {
+            rr = 168; gg = 158; bb = 92; k = 0.22;
+          }
+        } else {
+          var alp = latp > 45.18;
+          if (alp && hv > 4.6) {
+            rr = 242; gg = 244; bb = 238; k = Math.min(0.96, (hv - 4.6) / 1.4);
+          } else if (alp && hv > 2.6) {
+            rr = 92; gg = 88; bb = 80; k = Math.min(0.9, (hv - 2.6) / 2.0);
+          } else if (alp && hv > 1.4) {
+            rr = 110; gg = 118; bb = 72; k = Math.min(0.5, (hv - 1.4) / 1.4);
+          } else if (hv > 5.4) {
+            rr = 228; gg = 230; bb = 224; k = Math.min(0.92, (hv - 5.4) / 1.8);
+          } else if (hv > 3.6) {
+            rr = 142; gg = 132; bb = 112; k = Math.min(0.82, (hv - 3.6) / 2.0);
+          } else if (hv > 2.1) {
+            rr = 92; gg = 108; bb = 58; k = Math.min(0.48, (hv - 2.1) / 1.8);
+          } else if (latp > 44.72 && latp < 45.42 && lonp > 8.0 && lonp < 12.6) {
+            rr = 168; gg = 158; bb = 92; k = 0.28;
+          }
+        }
+        if (k > 0) {
+          pxls[i4] = rr * k + pxls[i4] * (1 - k);
+          pxls[i4 + 1] = gg * k + pxls[i4 + 1] * (1 - k);
+          pxls[i4 + 2] = bb * k + pxls[i4 + 2] * (1 - k);
+        }
+      }
+    }
+    var nb = [1, 0, -1, 0, 0, 1, 0, -1];
+    for (py = 1; py < th - 1; py++) {
+      for (px = 1; px < tw - 1; px++) {
+        var ei = (py * tw + px) * 4;
+        if (Math.abs(pxls[ei] - seaR) < 8 && Math.abs(pxls[ei + 1] - seaG) < 12 && pxls[ei + 2] > seaB - 18) continue;
+        var coast = false;
+        for (var nbk = 0; nbk < 8; nbk += 2) {
+          var n4 = ((py + nb[nbk + 1]) * tw + (px + nb[nbk])) * 4;
+          if (Math.abs(pxls[n4] - seaR) < 8 && Math.abs(pxls[n4 + 1] - seaG) < 12 && pxls[n4 + 2] > seaB - 18) {
+            coast = true;
+            break;
+          }
+        }
+        if (!coast) continue;
+        pxls[ei] = pxls[ei] * 0.48 + 168 * 0.52;
+        pxls[ei + 1] = pxls[ei + 1] * 0.48 + 152 * 0.52;
+        pxls[ei + 2] = pxls[ei + 2] * 0.48 + 112 * 0.52;
+      }
+    }
+    g.putImageData(img, 0, 0);
+    g.restore();
+
+    var rnd = seededRand(120);
+    var i, j, p, hv, sz;
+
+    for (i = 0; i < 70; i++) {
+      p = toXY(box[0] + rnd() * (box[2] - box[0]), box[1] + rnd() * (box[3] - box[1]));
+      if (p.x < 8 || p.y < 8 || p.x > tw - 8 || p.y > th - 8) continue;
+      var lonH = box[0] + p.x / tw * (box[2] - box[0]);
+      var latH = box[3] - p.y / th * (box[3] - box[1]);
+      if (DEM ? !(demMeters(lonH, latH) > 10) : !pointInMesh(lonH, latH)) continue;
+      hv = heightAt(lonH, latH);
+      if (hv < 1.1 || hv > 3.4) continue;
+      g.save();
+      g.translate(p.x, p.y);
+      g.rotate(rnd() * Math.PI);
+      g.beginPath();
+      g.ellipse(0, 0, 14 + rnd() * 18, 8 + rnd() * 10, 0, 0, Math.PI * 2);
+      g.fillStyle = earth ? 'rgba(92, 82, 52, 0.2)' : 'rgba(90, 110, 55, 0.22)';
+      g.fill();
+      g.restore();
+    }
+
+    var farmBands = [
+      [8.2, 44.85, 12.6, 45.35],
+      [12.1, 41.55, 13.1, 42.15],
+      [14.0, 40.7, 15.1, 41.3]
+    ];
+    for (i = 0; i < farmBands.length; i++) {
+      var fb = farmBands[i];
+      for (j = 0; j < 18; j++) {
+        var fx = fb[0] + rnd() * (fb[2] - fb[0]);
+        var fy = fb[1] + rnd() * (fb[3] - fb[1]);
+        if (!pointInMesh(fx, fy) || heightAt(fx, fy) > 1.6) continue;
+        p = toXY(fx, fy);
+        g.save();
+        g.translate(p.x, p.y);
+        g.rotate((rnd() - 0.5) * 0.8);
+        g.strokeStyle = 'rgba(160, 140, 70, 0.38)';
+        g.lineWidth = 1;
+        var fw = 18 + rnd() * 22, fh = 10 + rnd() * 12;
+        for (var row = 0; row < 4; row++) {
+          g.beginPath();
+          g.moveTo(-fw / 2, -fh / 2 + (fh / 4) * row);
+          g.lineTo(fw / 2, -fh / 2 + (fh / 4) * row);
+          g.stroke();
+        }
+        g.restore();
+      }
+    }
+
+    var forestSeeds = [
+      [8.7, 44.28], [8.95, 44.12], [9.35, 45.55], [9.55, 45.35],
+      [10.1, 44.2], [10.4, 43.95], [11.25, 43.62], [11.55, 43.35],
+      [12.45, 42.25], [12.7, 42.0], [13.9, 41.05], [14.2, 40.75],
+      [15.9, 39.35], [16.15, 40.55], [16.4, 39.7], [15.4, 40.2],
+      [9.25, 40.15], [9.45, 39.55], [9.1, 40.55], [14.15, 37.55],
+      [13.4, 37.85], [14.6, 37.4], [8.5, 44.55], [12.15, 43.1]
+    ];
+    for (i = 0; i < forestSeeds.length; i++) {
+      p = toXY(forestSeeds[i][0], forestSeeds[i][1]);
+      var trees = 22 + ((rnd() * 16) | 0);
+      for (j = 0; j < trees; j++) {
+        var tx = p.x + (rnd() - 0.5) * 70;
+        var ty = p.y + (rnd() - 0.5) * 54;
+        var tr = 3.6 + rnd() * 5.2;
+        g.fillStyle = '#3a2a1c';
+        g.fillRect(tx - 0.7, ty - 2, 1.4, 4);
+        g.beginPath();
+        g.ellipse(tx, ty - 4, tr * 0.85, tr * 1.15, 0, 0, Math.PI * 2);
+        g.fillStyle = j % 2 ? '#2a4328' : '#1f3520';
+        g.fill();
+      }
+    }
+
+    if (!DEM) {
+    var ridgePeaks = [
+      [7.6, 45.9], [8.5, 46.1], [9.5, 46.15], [10.6, 46.25], [11.7, 46.4], [12.8, 46.5],
+      [10.0, 44.1], [11.1, 43.5], [12.2, 42.6], [13.3, 41.7], [14.4, 40.9], [15.5, 40.1],
+      [16.1, 39.2], [16.2, 38.3], [15.0, 37.75], [9.32, 40.0]
+    ];
+    for (i = 0; i < ridgePeaks.length; i++) {
+      if (ridgePeaks[i][1] > 45.2) continue;
+      if (!pointInMesh(ridgePeaks[i][0], ridgePeaks[i][1])) continue;
+      p = toXY(ridgePeaks[i][0], ridgePeaks[i][1]);
+      hv = heightAt(ridgePeaks[i][0], ridgePeaks[i][1]);
+      sz = 10 + Math.min(26, hv * 3.2);
+      g.save();
+      g.translate(p.x, p.y);
+      g.beginPath();
+      g.moveTo(0, -sz);
+      g.lineTo(-sz * 0.5, sz * 0.28);
+      g.lineTo(sz * 0.48, sz * 0.22);
+      g.closePath();
+      var rg = g.createLinearGradient(0, -sz, 0, sz * 0.25);
+      rg.addColorStop(0, hv > 5 ? '#eceae4' : '#c4c0b6');
+      rg.addColorStop(0.4, '#7a746c');
+      rg.addColorStop(1, '#4a463e');
+      g.fillStyle = rg;
+      g.fill();
+      if (hv > 4.8) {
+        g.beginPath();
+        g.moveTo(0, -sz);
+        g.lineTo(-sz * 0.16, -sz * 0.52);
+        g.lineTo(sz * 0.14, -sz * 0.48);
+        g.closePath();
+        g.fillStyle = 'rgba(248, 247, 242, 0.9)';
+        g.fill();
+      }
+      g.restore();
+    }
+
+    for (i = 0; i < 90; i++) {
+      var mlon = box[0] + rnd() * (box[2] - box[0]);
+      var mlat = box[1] + rnd() * (box[3] - box[1]);
+      if (!pointInMesh(mlon, mlat)) continue;
+      hv = heightAt(mlon, mlat);
+      if (hv < 3.15) continue;
+      p = toXY(mlon, mlat);
+      sz = 7 + Math.min(22, (hv - 3.1) * 6) + rnd() * 6;
+      g.save();
+      g.translate(p.x, p.y);
+      g.rotate((rnd() - 0.5) * 0.45);
+      g.beginPath();
+      g.moveTo(0, -sz);
+      g.lineTo(-sz * 0.48, sz * 0.28);
+      g.lineTo(sz * 0.46, sz * 0.22);
+      g.closePath();
+      var mg = g.createLinearGradient(0, -sz, 0, sz * 0.25);
+      mg.addColorStop(0, hv > 5.2 ? '#eceae4' : '#c8c4bc');
+      mg.addColorStop(0.35, '#8a847c');
+      mg.addColorStop(1, '#4e4a42');
+      g.fillStyle = mg;
+      g.fill();
+      if (hv > 5.0) {
+        g.beginPath();
+        g.moveTo(0, -sz);
+        g.lineTo(-sz * 0.16, -sz * 0.55);
+        g.lineTo(sz * 0.14, -sz * 0.5);
+        g.closePath();
+        g.fillStyle = 'rgba(248, 247, 242, 0.9)';
+        g.fill();
+      }
+      g.restore();
+    }
+    }
+
+    g.restore();
+
+    g.save();
+    landPath();
+    g.clip();
+    g.lineCap = 'round';
+    g.lineJoin = 'round';
+    for (i = 0; i < RTW_RIVERS.length; i++) {
+      var river = RTW_RIVERS[i];
+      g.beginPath();
+      p = toXY(river[0][0], river[0][1]);
+      g.moveTo(p.x, p.y);
+      for (j = 1; j < river.length; j++) {
+        p = toXY(river[j][0], river[j][1]);
+        g.lineTo(p.x, p.y);
+      }
+      g.strokeStyle = 'rgba(70, 140, 175, 0.55)';
+      g.lineWidth = 3.6;
+      g.stroke();
+      g.strokeStyle = 'rgba(170, 220, 235, 0.42)';
+      g.lineWidth = 1.5;
+      g.stroke();
+    }
+
+    function strokeRoad(a, b, seed) {
+      var pa = toXY(a.lon, a.lat), pb = toXY(b.lon, b.lat);
+      var dx = pb.x - pa.x, dy = pb.y - pa.y;
+      var dist = Math.hypot(dx, dy) || 1;
+      var nx = -dy / dist, ny = dx / dist;
+      var n = Math.max(4, Math.round(dist / 48));
+      g.beginPath();
+      g.moveTo(pa.x, pa.y);
+      for (j = 1; j < n; j++) {
+        var t = j / n;
+        var bend = Math.sin(t * Math.PI * 2.4 + seed) * Math.min(18, dist * 0.08);
+        g.lineTo(pa.x + dx * t + nx * bend, pa.y + dy * t + ny * bend);
+      }
+      g.lineTo(pb.x, pb.y);
+    }
+    for (i = 0; i < RTW_ROADS.length; i++) {
+      var ca = cityByName(RTW_ROADS[i][0]);
+      var cb = cityByName(RTW_ROADS[i][1]);
+      if (!ca || !cb) continue;
+      strokeRoad(ca, cb, i * 1.37);
+      g.strokeStyle = 'rgba(70, 58, 40, 0.42)';
+      g.lineWidth = 2.4;
+      g.stroke();
+      g.strokeStyle = 'rgba(168, 148, 108, 0.28)';
+      g.lineWidth = 1;
+      g.stroke();
+    }
+    g.restore();
+
+    return c;
+  }
+
+  function placeArmy(a, u) {
+    var lon = a.from.lon + (a.to.lon - a.from.lon) * u;
+    var lat = a.from.lat + (a.to.lat - a.from.lat) * u;
+    a.mesh.position.set((lon - three.cx) * three.scale, worldH(lon, lat) + 1.15, -(lat - three.cy) * three.scale);
+  }
+
+  function loopThree() {
+    if (!three.built) { three.raf = 0; return; }
+    var now = performance.now();
+    var dt = Math.min(0.05, (now - (loopThree.last || now)) / 1000);
+    loopThree.last = now;
+    var t = (now * 0.00018) % 2;
+    var u = t < 1 ? t : 2 - t;
+    if (three.armies[0]) { placeArmy(three.armies[0], u); placeArmy(three.armies[1], u); }
+    if (three.units && three.units.tick) three.units.tick(dt);
+    else {
+      if (three.walker) three.walker.tick(dt);
+      if (three.npc) three.npc.tick(dt);
+    }
+    three.renderer.render(three.scene, three.camera);
+    three.raf = requestAnimationFrame(loopThree);
+  }
+
+  canvas.addEventListener('mousedown', function (e) {
+    if (e.button !== 0) return;
+    dragging = true; lastX = e.clientX; lastY = e.clientY;
+    canvas.classList.add('dragging');
+  });
+  view5.addEventListener('mousedown', function (e) {
+    if (!three.built || e.button !== 0) return;
+    if (!allowPan) return;
+    dragging = true; lastX = e.clientX; lastY = e.clientY;
+  });
+  window.addEventListener('mousemove', function (e) {
+    if (!dragging) return;
+    if (three.built && !allowPan) return;
+    var dx = e.clientX - lastX, dy = e.clientY - lastY;
+    lastX = e.clientX; lastY = e.clientY;
+    if (!three.built) { panX += dx; panY += dy; }
+    else panThreeByMouse(dx, dy);
+  });
+  window.addEventListener('mouseup', function () {
+    dragging = false;
+    canvas.classList.remove('dragging');
+  });
+  function onWheel(e) {
+    e.preventDefault();
+    var f = e.deltaY < 0 ? 1.1 : 1 / 1.1;
+    setZoom(zoom * f, e.clientX, e.clientY);
+  }
+  canvas.addEventListener('wheel', onWheel, { passive: false });
+  view5.addEventListener('wheel', onWheel, { passive: false });
+  window.addEventListener('keydown', function (e) {
+    if (e.code === 'KeyQ') { e.preventDefault(); nudgeTilt(-TILT_STEP); }
+    else if (e.code === 'KeyE') { e.preventDefault(); nudgeTilt(TILT_STEP); }
+    else if (e.code === 'KeyZ') { e.preventDefault(); nudgeYaw(-YAW_STEP); }
+    else if (e.code === 'KeyC') { e.preventDefault(); nudgeYaw(YAW_STEP); }
+  });
+  window.addEventListener('message', function (e) {
+    if (!e.data) return;
+    if (e.data.type === 'camera-tilt') {
+      if (typeof e.data.delta === 'number') nudgeTilt(e.data.delta);
+      else if (typeof e.data.deg === 'number') { tiltDeg = e.data.deg; nudgeTilt(0); }
+    }
+    if (e.data.type === 'camera-rotate') {
+      if (typeof e.data.delta === 'number') nudgeYaw(e.data.delta);
+      else if (typeof e.data.deg === 'number') { yawDeg = wrapYaw(e.data.deg); nudgeYaw(0); }
+    }
+    if (e.data.type === 'camera-state-request') {
+      try {
+        window.parent.postMessage({
+          type: 'camera-state',
+          center: { lon: 12.5, lat: 42.0 },
+          viewQuad: [
+            { lon: bbox[0], lat: bbox[3] }, { lon: bbox[2], lat: bbox[3] },
+            { lon: bbox[2], lat: bbox[1] }, { lon: bbox[0], lat: bbox[1] }
+          ]
+        }, '*');
+      } catch (_) {}
+    }
+  });
+  window.addEventListener('resize', function () {
+    resizeCanvas();
+    if (three.renderer) {
+      var w = Math.max(1, window.innerWidth), h = Math.max(1, window.innerHeight);
+      three.renderer.setSize(w, h, false);
+      three.camera.aspect = w / h;
+      three.camera.updateProjectionMatrix();
+      applyThreeCamera();
+    }
+  });
+
+  function resetThree() {
+    if (three.raf) cancelAnimationFrame(three.raf);
+    three.raf = 0;
+    if (three.units && three.units.dispose) three.units.dispose();
+    else {
+      if (three.walker && three.walker.dispose) three.walker.dispose();
+      if (three.npc && three.npc.dispose) three.npc.dispose();
+    }
+    three.units = null;
+    three.walker = null;
+    three.npc = null;
+    cityMarks = [];
+    cityRay = null;
+    cityNdc = null;
+    if (three.renderer) {
+      try { three.renderer.dispose(); } catch (_) {}
+      three.renderer = null;
+    }
+    three.land = null;
+    three.scene = null;
+    three.camera = null;
+    three.landMat = null;
+    three.armies = [];
+    three.built = false;
+    allowPan = true;
+    hideBattleDialog();
+    view5.innerHTML = '';
+  }
+
+  function markReady(note) {
+    ready = true;
+    if (!three.built) startThree();
+    else showLayers();
+    setStatus(note || ((mode === 5 ? 'Вид 5' : 'Вид 4') + ' · колесо — зум · Q / E — наклон'));
+  }
+
+  resizeCanvas();
+  updateHud();
+  useFallbackOutline();
+  loopCanvas();
+
+  Promise.all([
+    loadDemImage(),
+    window.ItalyDEM ? ItalyDEM.load() : Promise.resolve(false),
+    fetchFirst(GEO_URLS).then(function (geo) {
+      extractItaly(geo);
+      return true;
+    }).catch(function () { return false; })
+  ]).then(function (parts) {
+    if (parts[0] && DEM) bbox = DEM_BBOX.slice();
+    applyMode();
+    var note = (mode === 5 ? 'Вид 5' : 'Вид 4');
+    if (parts[0]) note += ' · рельеф SRTM';
+    markReady(note + ' · колесо — зум · Q / E — наклон');
+  });
+})();
+  </script>
+</body>
+</html>

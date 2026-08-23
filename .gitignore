@@ -12,3 +12,9 @@ dist/
 # Files mentioning AI / neural-network generation (kept locally, not in git)
 README.md
 main.js
+
+# Large local tooling / Godot SDK (not shipped with the site)
+tools/godot/
+**/export_templates/
+godot/italy-view15/.godot/
+godot/italy-view17/.godot/

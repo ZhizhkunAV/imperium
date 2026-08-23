@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Игровой движок — Тактическая карта Италии</title>
+    <style>
+        body, html {
+            margin: 0;
+            padding: 0;
+            height: 100%;
+            background: #000;
+            font-family: Arial, sans-serif;
+            overflow: hidden;
+        }
+        
+        #gameContainer {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+            background: #1a1a1a;
+            overflow: auto;
+        }
+
+        #gameCanvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            background: #222;
+            cursor: crosshair;
+        }
+
+        .info-panel {
+            position: fixed;
+            bottom: 20px;
+            left: 20px;
+            background: rgba(0, 0, 0, 0.95);
+            color: #fff;
+            padding: 15px;
+            border: 2px solid #c9a84c;
+            border-radius: 4px;
+            font-size: 12px;
+            z-index: 1000;
+            min-width: 250px;
+            font-family: 'Courier New', monospace;
+        }
+        
+        .info-panel div {
+            margin: 5px 0;
+        }
+        
+        .info-panel .label {
+            color: #c9a84c;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <div id="gameContainer">
+        <canvas id="gameCanvas"></canvas>
+    </div>
+    
+    <div class="info-panel">
+        <div><span class="label">Координаты юнита:</span> <span id="unitCoords">X: 0, Y: 0</span></div>
+        <div><span class="label">Последний клик:</span> <span id="lastClick">-</span></div>
+        <div><span class="label">Тип местности:</span> <span id="terrainType">-</span></div>
+        <div style="margin-top: 10px; border-top: 1px solid #c9a84c; padding-top: 10px;">
+            <div>Управление: стрелочки ↑ ↓ ← →</div>
+            <div>Клик по тайлу: вывод информации</div>
+        </div>
+    </div>
+    <script>
+        const TILE_SIZE = 32;
+        const IMAGE_PATH = './assets/images/italy_tactical_map.png';
+        
+        let canvas, ctx;
+        let imageData = null;
+        let gameMap = {};
+        let unitGridX = 5, unitGridY = 5;
+        let gridWidth = 0, gridHeight = 0;
+        let zoomLevel = 1;
+        let offsetX = 0, offsetY = 0;
+
+        const terrainTypes = {
+            water: { name: 'Вода', passable: false },
+            mountain: { name: 'Гора', passable: false },
+            forest: { name: 'Лес', passable: true, slow: true },
+            plain: { name: 'Равнина', passable: true }
+        };
+
+        function initGame() {
+            console.log('Инициализация игры...');
+            canvas = document.getElementById('gameCanvas');
+            ctx = canvas.getContext('2d');
+            
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+
+            const img = new Image();
+            img.onload = function() {
+                console.log('✓ Картинка загружена! Размер:', img.width, 'x', img.height);
+                
+                gridWidth = Math.floor(img.width / TILE_SIZE);
+                gridHeight = Math.floor(img.height / TILE_SIZE);
+                
+                console.log('Размер сетки:', gridWidth, 'x', gridHeight, 'тайлов');
+
+                // Анализируем картинку
+                analyzeImage(img);
+                
+                // Рисуем
+                draw();
+                
+                setupEventHandlers();
+            };
+            
+            img.onerror = function() {
+                console.error('✗ Ошибка загрузки картинки:', IMAGE_PATH);
+                ctx.fillStyle = '#f00';
+                ctx.font = '20px Arial';
+                ctx.fillText('Ошибка загрузки картинки: ' + IMAGE_PATH, 50, 50);
+            };
+            
+            img.crossOrigin = 'anonymous';
+            img.src = IMAGE_PATH;
+            console.log('Загрузка изображения с пути:', IMAGE_PATH);
+        }
+
+        function analyzeImage(img) {
+            const tempCanvas = document.createElement('canvas');
+            tempCanvas.width = img.width;
+            tempCanvas.height = img.height;
+            const tempCtx = tempCanvas.getContext('2d');
+            tempCtx.drawImage(img, 0, 0);
+            
+            const imgData = tempCtx.getImageData(0, 0, img.width, img.height);
+            const data = imgData.data;
+
+            for (let gx = 0; gx < gridWidth; gx++) {
+                if (!gameMap[gx]) gameMap[gx] = {};
+                for (let gy = 0; gy < gridHeight; gy++) {
+                    const px = (gx * TILE_SIZE) + (TILE_SIZE / 2);
+                    const py = (gy * TILE_SIZE) + (TILE_SIZE / 2);
+
+                    const pixelIndex = (Math.floor(py) * img.width + Math.floor(px)) * 4;
+                    const r = data[pixelIndex] || 0;
+                    const g = data[pixelIndex + 1] || 0;
+                    const b = data[pixelIndex + 2] || 0;
+
+                    const terrain = identifyTerrain(r, g, b);
+                    gameMap[gx][gy] = { type: terrain };
+                }
+            }
+            
+            console.log('✓ Анализ картинки завершён');
+        }
+
+        function identifyTerrain(r, g, b) {
+            // Вода: низкий R и G, высокий B
+            if (b > 100 && r < 100 && g < 100) {
+                return 'water';
+            }
+            // Гора: коричневый оттенок
+            if (r > 100 && g < 100 && b < 100 && Math.abs(r - g) > 30) {
+                return 'mountain';
+            }
+            // Лес: тёмно-зелёный
+            if (g > 50 && g > r && g > b && r < 100) {
+                return 'forest';
+            }
+            // По умолчанию равнина
+            return 'plain';
+        }
+
+        function draw() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+            
+            // Загружаем картинку заново для отрисовки
+            const img = new Image();
+            img.onload = function() {
+                const scaledSize = TILE_SIZE * zoomLevel;
+                
+                ctx.fillStyle = '#1a1a1a';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                
+                // Рисуем картинку
+                ctx.drawImage(img, offsetX, offsetY, img.width * zoomLevel, img.height * zoomLevel);
+                
+                // Рисуем сетку
+                ctx.strokeStyle = 'rgba(200, 200, 200, 0.3)';
+                ctx.lineWidth = 1;
+                
+                for (let gx = 0; gx < gridWidth; gx++) {
+                    for (let gy = 0; gy < gridHeight; gy++) {
+                        const x = offsetX + (gx * scaledSize);
+                        const y = offsetY + (gy * scaledSize);
+                        
+                        if (x + scaledSize > 0 && x < canvas.width && 
+                            y + scaledSize > 0 && y < canvas.height) {
+                            ctx.strokeRect(x, y, scaledSize, scaledSize);
+                        }
+                    }
+                }
+                
+                // Рисуем юнита (зелёный круг)
+                const unitX = offsetX + (unitGridX * scaledSize) + (scaledSize / 2);
+                const unitY = offsetY + (unitGridY * scaledSize) + (scaledSize / 2);
+                const unitRadius = Math.max(8, scaledSize / 3);
+                
+                ctx.fillStyle = '#00ff00';
+                ctx.beginPath();
+                ctx.arc(unitX, unitY, unitRadius, 0, Math.PI * 2);
+                ctx.fill();
+                
+                ctx.strokeStyle = '#000';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+            };
+            img.src = IMAGE_PATH;
+            
+            requestAnimationFrame(draw);
+        }
+
+        function canUnitMoveTo(gx, gy) {
+            if (gx < 0 || gy < 0 || gx >= gridWidth || gy >= gridHeight) return false;
+            const tile = gameMap[gx] && gameMap[gx][gy];
+            if (!tile) return false;
+            return terrainTypes[tile.type]?.passable !== false;
+        }
+
+        function updateUnitDisplay() {
+            document.getElementById('unitCoords').textContent = `X: ${unitGridX}, Y: ${unitGridY}`;
+            
+            const tile = gameMap[unitGridX] && gameMap[unitGridX][unitGridY];
+            if (tile) {
+                const terrainName = terrainTypes[tile.type]?.name || 'Неизвестно';
+                document.getElementById('terrainType').textContent = terrainName;
+            }
+        }
+
+        function setupEventHandlers() {
+            document.addEventListener('keydown', (e) => {
+                let newX = unitGridX;
+                let newY = unitGridY;
+
+                switch(e.key) {
+                    case 'ArrowUp': newY--; break;
+                    case 'ArrowDown': newY++; break;
+                    case 'ArrowLeft': newX--; break;
+                    case 'ArrowRight': newX++; break;
+                    default: return;
+                }
+
+                if (canUnitMoveTo(newX, newY)) {
+                    unitGridX = newX;
+                    unitGridY = newY;
+                    updateUnitDisplay();
+                    console.log(`Юнит переместился на [${unitGridX}, ${unitGridY}]`);
+                }
+                e.preventDefault();
+            });
+
+            canvas.addEventListener('click', (e) => {
+                const scaledSize = TILE_SIZE * zoomLevel;
+                const gridX = Math.floor((e.clientX - offsetX) / scaledSize);
+                const gridY = Math.floor((e.clientY - offsetY) / scaledSize);
+
+                if (gridX >= 0 && gridY >= 0 && gridX < gridWidth && gridY < gridHeight) {
+                    const tile = gameMap[gridX] && gameMap[gridX][gridY];
+                    const terrainName = tile ? (terrainTypes[tile.type]?.name || 'Неизвестно') : 'Ошибка';
+                    
+                    const message = `Вы кликнули на [${gridX}, ${gridY}], тип местности: ${tile?.type || 'unknown'}`;
+                    console.log(message);
+                    
+                    document.getElementById('lastClick').textContent = `[${gridX}, ${gridY}] (${terrainName})`;
+                }
+            });
+
+            canvas.addEventListener('wheel', (e) => {
+                e.preventDefault();
+                zoomLevel += (e.deltaY > 0 ? -0.1 : 0.1);
+                zoomLevel = Math.max(0.5, Math.min(3, zoomLevel));
+            });
+        }
+
+        window.addEventListener('load', initGame);
+        window.addEventListener('resize', () => {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,30 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": { "id": "road_milan_genoa", "name": "Милан — Генуя" },
+      "geometry": { "type": "LineString", "coordinates": [[9.19, 45.46], [8.94, 44.41]] }
+    },
+    {
+      "type": "Feature",
+      "properties": { "id": "road_milan_venice", "name": "Милан — Венеция" },
+      "geometry": { "type": "LineString", "coordinates": [[9.19, 45.46], [10.6, 45.5], [12.32, 45.44]] }
+    },
+    {
+      "type": "Feature",
+      "properties": { "id": "road_genoa_rome", "name": "Генуя — Рим" },
+      "geometry": { "type": "LineString", "coordinates": [[8.94, 44.41], [10.6, 43.2], [12.5, 41.9]] }
+    },
+    {
+      "type": "Feature",
+      "properties": { "id": "road_venice_rome", "name": "Венеция — Рим" },
+      "geometry": { "type": "LineString", "coordinates": [[12.32, 45.44], [12.7, 43.6], [12.5, 41.9]] }
+    },
+    {
+      "type": "Feature",
+      "properties": { "id": "road_rome_naples", "name": "Рим — Неаполь" },
+      "geometry": { "type": "LineString", "coordinates": [[12.5, 41.9], [13.5, 41.3], [14.25, 40.85]] }
+    }
+  ]
+}

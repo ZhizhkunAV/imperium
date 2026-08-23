@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Отряд</title>
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700;900&family=EB+Garamond:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --gold: #c9a84c;
+            --gold-light: #e0c878;
+            --text: #d4c5a9;
+            --bg-panel: rgba(5, 3, 1, 0.92);
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        html, body {
+            width: 100%; height: 100%; overflow: hidden;
+            background: transparent;
+            font-family: 'EB Garamond', Georgia, serif;
+            color: var(--text);
+            user-select: none;
+        }
+        .army-detail {
+            width: 100%; height: 100%;
+            display: flex; flex-direction: row; align-items: stretch; gap: 14px;
+            padding: 10px 14px 10px 12px;
+            background: var(--bg-panel);
+            border: 1px solid rgba(201, 168, 76, 0.35);
+            position: relative;
+        }
+        .close-btn {
+            position: absolute; top: 6px; right: 8px;
+            width: 26px; height: 26px; cursor: pointer;
+            background: rgba(139, 26, 26, 0.2);
+            border: 1px solid rgba(200, 80, 80, 0.4);
+            color: #c08080; font-size: 0.9rem;
+            font-family: 'Cinzel', serif;
+            display: flex; align-items: center; justify-content: center;
+            z-index: 2;
+        }
+        .close-btn:hover { background: rgba(139, 26, 26, 0.4); color: #ffaaaa; }
+        .army-image {
+            flex: 0 0 120px; height: 100%; max-height: 140px; align-self: center;
+            background: rgba(201,168,76,0.06);
+            border: 1px solid rgba(201,168,76,0.4);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 3rem; overflow: hidden;
+        }
+        .army-image img { width: 100%; height: 100%; object-fit: contain; }
+        .army-main {
+            flex: 1; min-width: 0;
+            display: flex; flex-direction: column; gap: 6px;
+            padding-right: 28px;
+        }
+        .army-title {
+            font-family: 'Cinzel', serif; font-size: 0.95rem; font-weight: 900;
+            letter-spacing: 1.5px; color: var(--gold-light); text-transform: uppercase;
+        }
+        .army-badge {
+            display: inline-block; width: fit-content;
+            font-family: 'Cinzel', serif; font-size: 0.5rem; letter-spacing: 1.5px;
+            padding: 2px 8px; text-transform: uppercase; background: #cc4444; color: #fff;
+        }
+        .army-stats {
+            display: flex; flex-wrap: wrap; gap: 6px 10px;
+            font-family: 'Cinzel', serif; font-size: 0.55rem; color: var(--gold);
+        }
+        .army-stat {
+            display: flex; gap: 6px; align-items: center;
+            padding: 3px 8px; background: rgba(0,0,0,0.25);
+            border: 1px solid rgba(201,168,76,0.18);
+        }
+        .army-stat span { color: #fff; font-weight: 700; }
+        .army-desc {
+            flex: 1; font-size: 0.72rem; line-height: 1.4; color: #c4b896;
+            overflow: hidden; display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical;
+        }
+    </style>
+</head>
+<body>
+<div class="army-detail">
+    <button class="close-btn" onclick="closeArmyDetail()" title="Закрыть">✕</button>
+    <div class="army-image" id="detailImage">🛡️</div>
+    <div class="army-main">
+        <div class="army-title" id="detailTitle">Легионер</div>
+        <div class="army-badge" id="detailBadge">ЮНИТ</div>
+        <div class="army-stats" id="detailStats"></div>
+        <div class="army-desc" id="detailDesc"></div>
+    </div>
+</div>
+<script src="../js/i18n.js"></script>
+<script src="../js/i18n-content.js"></script>
+<script>
+    function closeArmyDetail() {
+        if (window.parent && window.parent.closeBottomArmyDetail) {
+            window.parent.closeBottomArmyDetail();
+            return;
+        }
+        if (window.parent && window.parent.closeSecondaryModal) {
+            window.parent.closeSecondaryModal();
+        }
+    }
+
+    function loadEntityData(entityId) {
+        var data = window.GameContent ? GameContent.getEntity(entityId) : null;
+        if (!data) {
+            document.getElementById('detailImage').innerHTML = '❓';
+            document.getElementById('detailTitle').textContent = 'Неизвестно';
+            document.getElementById('detailBadge').textContent = '—';
+            document.getElementById('detailStats').innerHTML = '';
+            document.getElementById('detailDesc').textContent = 'Нет данных об отряде.';
+            return;
+        }
+        var imageEl = document.getElementById('detailImage');
+        if (data.image) imageEl.innerHTML = '<img src="' + data.image + '" alt="">';
+        else imageEl.innerHTML = data.icon || '⚔️';
+        document.getElementById('detailTitle').textContent = data.title;
+        document.getElementById('detailBadge').textContent = data.badge || 'ЮНИТ';
+        document.getElementById('detailStats').innerHTML = (data.stats || []).map(function (s) {
+            return '<div class="army-stat">' + s.label + '<span>' + s.value + '</span></div>';
+        }).join('');
+        document.getElementById('detailDesc').innerHTML = data.description || '';
+    }
+
+    window.addEventListener('load', function () {
+        if (window.GameI18n) GameI18n.apply();
+        var id = new URLSearchParams(window.location.search).get('entity') || 'legionary';
+        loadEntityData(id);
+    });
+</script>
+</body>
+</html>

@@ -36,7 +36,7 @@
             justify-content: center;
         }
 
-        /* === ГЛАВНЫЙ КОНТЕЙНЕР === */
+        /* === ГЛАВНЫЙ КОНТЕЙНЕР / РАМКА === */
         .game-frame {
             width: 100vw;
             height: 100vh;
@@ -77,32 +77,250 @@
         .map-area {
             flex: 1;
             display: flex;
-            align-items: center;
+            align-items: stretch;
             justify-content: center;
             background: rgba(0, 0, 0, 0.4);
             border: 1px solid rgba(201, 168, 76, 0.12);
             position: relative;
+            overflow: hidden;
         }
 
-        .btn-home {
+        .map-viewport {
+            position: absolute;
+            inset: 0;
+            overflow: hidden;
+            cursor: grab;
+            background: #152a3c;
+            perspective: 1100px;
+            perspective-origin: 50% 88%;
+        }
+
+        .map-viewport.is-dragging {
+            cursor: grabbing;
+        }
+
+        .map-extra-frame {
+            position: absolute;
+            inset: 0;
+            z-index: 4;
+            width: 100%;
+            height: 100%;
+            border: 0;
+            display: none;
+            background: #050302;
+        }
+
+        .map-extra-frame.visible {
+            display: block !important;
+        }
+
+        .map-extra-frame:not(.visible) {
+            display: none !important;
+            pointer-events: none;
+        }
+
+        .map-area.extra-mode .map-viewport,
+        .map-area.extra-mode .map-placeholder {
+            visibility: hidden;
+            pointer-events: none;
+        }
+        .map-area.extra-mode .map-side-panel {
+            visibility: visible;
+            pointer-events: none;
+            z-index: 40;
+        }
+        .map-area.extra-mode .map-side-panel.open {
+            pointer-events: auto;
+        }
+
+        /* Нижняя рамка с мини-картой всегда видна (как в RTW). */
+
+        .map-stage {
+            position: absolute;
+            left: 50%;
+            top: 50%;
+            transform-origin: center 92%;
+            transform-style: preserve-3d;
+            will-change: transform;
+            background: #152a3c;
+        }
+
+        .map-underlay {
+            position: absolute;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: fill;
+            pointer-events: none;
+            display: none;
+            image-rendering: auto;
+        }
+
+        .map-stage.is-pixel-view .map-underlay {
+            display: block;
+        }
+
+        .map-terrain {
+            position: absolute;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            display: none;
+            mix-blend-mode: overlay;
+            opacity: 0.42;
+        }
+
+        .map-stage:not(.is-pixel-view) .map-underlay,
+        .map-stage:not(.is-pixel-view) .map-terrain {
+            display: none !important;
+            opacity: 0;
+            mix-blend-mode: normal;
+        }
+
+        .map-stage.is-pixel-view .map-terrain {
+            display: none !important;
+            opacity: 0;
+        }
+
+        .map-stage.is-view4 .map-terrain {
+            display: none !important;
+        }
+
+        .map-relief {
+            position: absolute;
+            inset: 0;
+            pointer-events: none;
+            display: none;
+            z-index: 2;
+        }
+        .map-relief.is-on {
+            display: block;
+        }
+        .map-relief canvas,
+        .map-relief .map-relief-view {
+            position: absolute !important;
+            inset: 0 !important;
+            width: 100% !important;
+            height: 100% !important;
+            image-rendering: auto;
+        }
+
+        .map-stage > #mapCanvas {
+            display: block;
+            position: relative;
+            z-index: 3;
+            width: 100%;
+            height: 100%;
+            image-rendering: auto;
+            background: #2a6e90;
+        }
+        .map-stage.is-pixel-view > #mapCanvas {
+            background: transparent !important;
+        }
+        .map-stage.is-pixel-view .map-underlay {
+            display: block;
+            z-index: 0;
+        }
+        .map-stage.is-pixel-view .map-terrain {
+            display: none !important;
+            opacity: 0;
+        }
+        .map-stage > #mapTerrain {
+            position: absolute;
+            z-index: 1;
+        }
+
+        .map-placeholder {
+            position: absolute;
+            inset: 0;
+            z-index: 5;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: 'Cinzel', serif;
+            font-size: 1.1rem;
+            letter-spacing: 3px;
+            color: rgba(201, 168, 76, 0.35);
+            text-transform: uppercase;
+            pointer-events: none;
+            background: rgba(5, 3, 1, 0.55);
+        }
+
+        .map-placeholder.hidden {
+            display: none;
+        }
+
+        .camera-scale {
+            position: absolute;
+            top: 10px;
+            left: 12px;
+            z-index: 36;
+            min-width: 118px;
+            padding: 8px 10px 9px;
+            background: linear-gradient(180deg, rgba(40, 32, 22, 0.92), rgba(16, 12, 8, 0.88));
+            border: 1px solid rgba(201, 168, 76, 0.45);
+            box-shadow: 0 8px 22px rgba(0, 0, 0, 0.45);
+            color: #efe4d0;
+            pointer-events: none;
+            font-family: 'EB Garamond', Georgia, serif;
+        }
+        .camera-scale-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: baseline;
+            gap: 10px;
+            line-height: 1.35;
+        }
+        .camera-scale-row + .camera-scale-row { margin-top: 3px; }
+        .camera-scale-row span {
+            font-size: 10px;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            color: #b7a078;
+        }
+        .camera-scale-row b {
+            font-family: 'Cinzel', serif;
+            font-size: 13px;
+            font-weight: 700;
+            color: #f5e6c8;
+            min-width: 42px;
+            text-align: right;
+        }
+        .map-area.extra-mode .camera-scale { display: none; }
+
+        .map-toolbar {
             position: absolute;
             top: 10px;
             right: 12px;
-            z-index: 20;
+            z-index: 40;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            align-items: stretch;
+            max-height: calc(100% - 20px);
+            overflow-y: auto;
+        }
+
+        .map-variant-btn,
+        .btn-home {
             font-family: 'Cinzel', serif;
-            font-size: 0.55rem;
+            font-size: 0.5rem;
             font-weight: 700;
-            letter-spacing: 1.5px;
+            letter-spacing: 1px;
             text-transform: uppercase;
-            padding: 6px 12px;
+            padding: 6px 10px;
             cursor: pointer;
-            background: rgba(0, 0, 0, 0.55);
+            background: rgba(0, 0, 0, 0.7);
             border: 1px solid rgba(201, 168, 76, 0.45);
             color: var(--gold-light);
             text-decoration: none;
+            text-align: center;
             transition: all 0.25s;
+            min-width: 148px;
         }
 
+        .map-variant-btn:hover,
         .btn-home:hover {
             border-color: var(--gold);
             color: #fff;
@@ -110,12 +328,77 @@
             background: rgba(201, 168, 76, 0.12);
         }
 
-        .map-placeholder {
+        .map-variant-btn.active {
+            color: #fff;
+            background: rgba(201, 168, 76, 0.2);
+            box-shadow: inset 0 0 0 1px rgba(201, 168, 76, 0.35);
+            border-color: var(--gold);
+        }
+
+        /* === БОКОВАЯ ПАНЕЛЬ РЕГИОНА === */
+        .map-side-panel {
+            position: absolute;
+            top: 0;
+            left: 0;
+            bottom: 0;
+            width: min(320px, 42%);
+            z-index: 25;
+            background: rgba(8, 5, 2, 0.95);
+            border-right: 2px solid var(--gold);
+            transform: translateX(-105%);
+            transition: transform 0.35s ease;
+            padding: 18px 16px 16px;
+            box-shadow: 10px 0 30px rgba(0, 0, 0, 0.55);
+            pointer-events: none;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .map-side-panel.open {
+            transform: translateX(0);
+            pointer-events: auto;
+        }
+
+        .map-side-panel-close {
+            align-self: flex-end;
+            width: 32px;
+            height: 32px;
+            border: 1px solid rgba(201, 168, 76, 0.45);
+            background: rgba(0, 0, 0, 0.45);
+            color: var(--gold-light);
+            cursor: pointer;
+            font-size: 14px;
+        }
+
+        .map-side-panel-close:hover {
+            border-color: var(--gold);
+            color: #fff;
+        }
+
+        .map-side-title {
             font-family: 'Cinzel', serif;
-            font-size: 1.4rem;
-            letter-spacing: 4px;
-            color: rgba(201, 168, 76, 0.2);
+            font-size: 0.7rem;
+            letter-spacing: 2px;
             text-transform: uppercase;
+            color: rgba(201, 168, 76, 0.65);
+        }
+
+        .map-side-name {
+            font-family: 'Cinzel', serif;
+            font-size: 1.35rem;
+            font-weight: 700;
+            letter-spacing: 1px;
+            color: var(--gold-light);
+            line-height: 1.25;
+            text-shadow: 0 0 18px rgba(201, 168, 76, 0.25);
+        }
+
+        .map-side-note {
+            font-size: 0.95rem;
+            color: var(--text);
+            line-height: 1.45;
+            opacity: 0.9;
         }
 
         /* === НИЖНЯЯ ПАНЕЛЬ === */
@@ -133,14 +416,13 @@
             position: relative;
         }
 
-        /* === БЛОК 1: МИНИ-КАРТА === */
         .block-left {
             flex-shrink: 0;
             width: 384px;
             display: flex;
             align-items: stretch;
             justify-content: center;
-            padding: 0px 6px 0px;
+            padding: 0 6px;
             position: relative;
         }
 
@@ -184,7 +466,6 @@
             text-align: center;
         }
 
-        /* === АНТИЧНАЯ КОЛОННА === */
         .antique-column {
             width: 22px;
             flex-shrink: 0;
@@ -277,7 +558,6 @@
             opacity: 0.6;
         }
 
-        /* === БЛОК 2: ВКЛАДКИ + КАРТОЧКИ === */
         .block-center {
             flex: 1;
             display: flex;
@@ -286,6 +566,11 @@
             gap: 0;
             min-width: 0;
             position: relative;
+        }
+
+        #bottomArmyDetail {
+            margin-top: 14px;
+            border-radius: 2px;
         }
 
         .block-center::before {
@@ -376,14 +661,13 @@
             font-size: 0.55rem;
         }
 
-        /* === БЛОК 3: ГОД / КАЗНА / ИКОНКИ / ХОД === */
         .block-right {
             flex-shrink: 0;
             width: 384px;
             display: flex;
             align-items: stretch;
             justify-content: center;
-            padding: 0px 6px 0px;
+            padding: 0 6px;
             position: relative;
         }
 
@@ -411,7 +695,6 @@
             box-shadow: 0 0 20px rgba(0, 0, 0, 0.7), 0 0 10px rgba(201, 168, 76, 0.1);
         }
 
-        /* Верхняя строка: иконки армии/строительства */
         .icon-stack {
             display: flex;
             flex-direction: row;
@@ -446,7 +729,6 @@
             box-shadow: 0 0 15px rgba(201, 168, 76, 0.3);
         }
 
-        /* Средняя строка: год и казна */
         .info-rows {
             flex: 1;
             display: flex;
@@ -478,7 +760,6 @@
             background: rgba(201, 168, 76, 0.15);
         }
 
-        /* Нижняя строка: иконка фракции слева, кнопка хода справа */
         .bottom-row {
             display: flex;
             justify-content: space-between;
@@ -495,7 +776,6 @@
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 2.2rem;
             box-shadow: 0 0 18px rgba(201, 168, 76, 0.15);
             color: var(--gold-light);
             cursor: pointer;
@@ -542,431 +822,2454 @@
             box-shadow: 0 0 15px rgba(200, 80, 80, 0.25);
         }
 
+        .campaign-top-bar {
+            flex-shrink: 0;
+            z-index: 45;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 6px 14px;
+            background: linear-gradient(180deg, rgba(12, 8, 4, 0.92), rgba(12, 8, 4, 0.55));
+            border-bottom: 1px solid rgba(201, 168, 76, 0.25);
+        }
+        .campaign-top-bar span { pointer-events: auto; }
+        .campaign-top-title {
+            font-family: 'Cinzel', serif;
+            font-size: 0.72rem;
+            letter-spacing: 2px;
+            color: var(--gold-light);
+        }
+        .campaign-top-stats {
+            display: flex;
+            gap: 18px;
+            font-family: 'Cinzel', serif;
+            font-size: 0.58rem;
+            color: var(--gold);
+        }
+        .campaign-top-stats b { color: #fff; margin-left: 4px; }
+
+        #dayNightOverlay {
+            display: none;
+        }
+
+        .minimap-wrap {
+            width: 100%;
+            height: 100%;
+            padding: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        #minimapCanvas {
+            width: 100%;
+            height: 100%;
+            border: 1px solid rgba(201, 168, 76, 0.35);
+            background: #0c1a24;
+            cursor: pointer;
+        }
+
+        #settlementGrid {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 3px;
+            flex: 1;
+            padding: 4px;
+            min-height: 0;
+        }
+        .settlement-slot {
+            flex-direction: column;
+            font-size: 0.45rem;
+            color: var(--gold);
+            cursor: pointer;
+            padding: 2px;
+            gap: 1px;
+        }
+        .settlement-slot.built {
+            border-style: solid;
+            border-color: rgba(201, 168, 76, 0.45);
+            background: rgba(201, 168, 76, 0.08);
+        }
+        .settlement-slot.garrison-selected {
+            border-style: solid;
+            border-color: rgba(58, 140, 255, 0.85);
+            background: rgba(58, 140, 255, 0.18);
+            box-shadow: 0 0 8px rgba(58, 140, 255, 0.35);
+        }
+        .settlement-slot .slot-icon { font-size: 1rem; line-height: 1; }
+        .settlement-slot .slot-name { font-size: 0.4rem; text-align: center; line-height: 1.1; }
+        .settlement-hint {
+            grid-column: 1 / -1;
+            text-align: center;
+            color: rgba(201, 168, 76, 0.45);
+            font-size: 0.55rem;
+            padding: 12px;
+        }
+
+        #soundToggle {
+            pointer-events: auto;
+            background: rgba(0,0,0,0.6);
+            border: 1px solid rgba(201,168,76,0.4);
+            color: var(--gold);
+            cursor: pointer;
+            padding: 2px 8px;
+            font-size: 0.9rem;
+        }
+
         @media (max-width: 1000px) {
-            .game-main {
-                flex: 0 0 55%;
-            }
-
-            .bottom-panel {
-                flex-wrap: wrap;
-            }
-
-            .block-left,
-            .block-right {
-                width: 200px;
-            }
-
-            .antique-column {
-                width: 16px;
-            }
+            .game-main { flex: 0 0 55%; }
+            .bottom-panel { flex-wrap: wrap; }
+            .block-left, .block-right { width: 200px; }
+            .antique-column { width: 16px; }
         }
     </style>
 </head>
 <body>
-
     <div class="game-frame">
-
+        <div class="campaign-top-bar">
+            <span class="campaign-top-title">Римская республика · глобальная кампания</span>
+            <div class="campaign-top-stats">
+                <span>Год<b id="hudYear">270 до н.э.</b></span>
+                <span>Казна<b id="hudTreasury">ⓓ 5 000</b></span>
+                <span>Счастье<b id="hudHappiness">72%</b></span>
+                <span>Легионы<b id="hudLegions">3</b></span>
+            </div>
+            <button type="button" id="soundToggle" title="Звук моря">🔇</button>
+        </div>
         <div class="game-main">
-            <div class="map-area">
-                <a href="windowDownload.html" class="btn-home" data-i18n="btn.home">На главную</a>
-                <span class="map-placeholder" id="mapPlaceholder" data-i18n="map.placeholder">Карта кампании</span>
+            <div class="map-area" id="mapArea">
+                <div class="map-viewport" id="mapViewport">
+                    <div id="dayNightOverlay"></div>
+                    <div class="map-stage" id="mapStage">
+                        <img id="mapUnderlay" class="map-underlay" alt="" draggable="false">
+                        <div id="mapRelief" class="map-relief"></div>
+                        <canvas id="mapTerrain" class="map-terrain"></canvas>
+                        <canvas id="mapCanvas"></canvas>
+                    </div>
+                </div>
+
+                <iframe
+                    id="mapExtraFrame"
+                    class="map-extra-frame"
+                    title="Дополнительная карта"
+                    src="about:blank"
+                ></iframe>
+
+                <div class="camera-scale" id="cameraScale">
+                    <div class="camera-scale-row"><span>Зум</span><b id="hudZoomPct">100%</b></div>
+                    <div class="camera-scale-row"><span>Наклон</span><b id="hudTiltPct">0%</b></div>
+                    <div class="camera-scale-row"><span>Поворот</span><b id="hudYawPct">0°</b></div>
+                </div>
+
+                <div class="map-placeholder" id="mapPlaceholder">Загрузка карты…</div>
+
+                <aside class="map-side-panel" id="mapSidePanel" aria-live="polite">
+                    <button type="button" class="map-side-panel-close" id="sidePanelClose" title="Закрыть">✕</button>
+                    <div class="map-side-title">Выбранный регион</div>
+                    <div class="map-side-name" id="sidePanelName">—</div>
+                    <div class="map-side-note" id="sidePanelNote">Границы провинций — голубое свечение, как в Rome: Total War.</div>
+                </aside>
+
+                <div class="map-toolbar">
+                    <button type="button" class="map-variant-btn active" id="view1Btn" data-view="1">Вид 1 (3D)</button>
+                    <button type="button" class="map-variant-btn" id="view2Btn" data-view="2">Вид 2 (3D)</button>
+                    <button type="button" class="map-variant-btn" id="view3Btn" data-view="3">Вид 3 (Total War)</button>
+                    <button type="button" class="map-variant-btn" id="view4Btn" data-view="4">Вид 4 (3D)</button>
+                    <button type="button" class="map-variant-btn" id="view5Btn" data-view="5">Вид 5 (3D)</button>
+                    <button type="button" class="map-variant-btn" id="view10Btn" data-view="10">Вид 10 (Three.js 3D)</button>
+                    <button type="button" class="map-variant-btn" id="view11Btn" data-view="11">Вид 11 (Babylon.js 3D)</button>
+                    <button type="button" class="map-variant-btn" id="view12Btn" data-view="12">Вид 12 (Phaser 3D)</button>
+    <button type="button" class="map-variant-btn" id="view13Btn" data-view="13">Вид 13 (3D)</button>
+                    <button type="button" class="map-variant-btn" id="view14Btn" data-view="14">Вид 14 (Rome Remastered)</button>
+                    <button type="button" class="map-variant-btn" id="view15Btn" data-view="15">Вид 15 (3D)</button>
+                    <button type="button" class="map-variant-btn" id="view16Btn" data-view="16">Вид 16 (Medieval II)</button>
+                    <button type="button" class="map-variant-btn" id="view17Btn" data-view="17">Вид 17 (Godot 4)</button>
+                    <a href="windowDownload.html" class="btn-home">На главную</a>
+                </div>
             </div>
         </div>
 
         <div class="bottom-panel">
-
-            <!-- БЛОК 1: МИНИ-КАРТА -->
             <div class="block-left">
                 <div class="minimap-frame">
-                    <div class="minimap">Мини-карта</div>
+                    <div class="minimap-wrap">
+                        <canvas id="minimapCanvas" width="280" height="220"></canvas>
+                    </div>
                 </div>
             </div>
 
-            <!-- КОЛОННА -->
             <div class="antique-column">
                 <div class="column-capital"></div>
                 <div class="column-shaft"></div>
                 <div class="column-base"></div>
             </div>
 
-            <!-- БЛОК 2: КАРТОЧКИ -->
             <div class="block-center">
-                <div class="tab-switcher">
-                    <button class="tab-btn active" onclick="switchTab('army')" data-i18n="tabs.units">Отряды</button>
-                    <button class="tab-btn" onclick="switchTab('settlement')" data-i18n="tabs.settlement">Поселение</button>
+                <div class="tab-switcher" id="bottomTabSwitcher">
+                    <button class="tab-btn active" onclick="switchTab('army')">Отряды</button>
+                    <button class="tab-btn" onclick="switchTab('settlement')">Поселение</button>
                 </div>
-
-                <div class="block-center-inner">
-                    <div class="card-area card-area-top">
-                        <div class="card-slot">1</div><div class="card-slot">2</div><div class="card-slot">3</div><div class="card-slot">4</div><div class="card-slot">5</div>
-                        <div class="card-slot">6</div><div class="card-slot">7</div><div class="card-slot">8</div><div class="card-slot">9</div><div class="card-slot">10</div>
-                    </div>
-                    <div class="card-area card-area-bottom">
-                        <div class="card-slot">11</div><div class="card-slot">12</div><div class="card-slot">13</div><div class="card-slot">14</div><div class="card-slot">15</div>
-                        <div class="card-slot">16</div><div class="card-slot">17</div><div class="card-slot">18</div><div class="card-slot">19</div><div class="card-slot">20</div>
-                    </div>
+                <div class="block-center-inner" id="bottomCityPanels">
+                    <div id="settlementGrid" class="card-area card-area-top" style="display:none;"></div>
+                    <div class="card-area card-area-top" id="armyGrid"></div>
+                    <div class="card-area card-area-bottom" id="armyGrid2"></div>
                 </div>
+                <iframe id="bottomArmyDetail" title="Отряд" style="display:none; flex:1; width:100%; min-height:0; border:none; background:transparent;" frameborder="0"></iframe>
             </div>
 
-            <!-- КОЛОННА -->
             <div class="antique-column">
                 <div class="column-capital"></div>
                 <div class="column-shaft"></div>
                 <div class="column-base"></div>
             </div>
 
-            <!-- БЛОК 3: ПРАВЫЙ -->
             <div class="block-right">
                 <div class="right-info-frame">
-
-                    <!-- Иконки ⚔️ 🏗️ сверху -->
                     <div class="icon-stack">
-                        <button class="btn-icon active" id="iconArmy" onclick="openBuildArmy('recruit')" data-i18n-title="btn.army" title="Армии">⚔️</button>
-                        <button class="btn-icon" id="iconBuild" onclick="openBuildArmy('build')" data-i18n-title="btn.build" title="Строительство">🏗️</button>
-                        <button class="btn-icon" id="iconTech" onclick="openTech()" data-i18n-title="btn.tech" title="Технологии">🧠</button>
+                        <button class="btn-icon active" id="iconArmy" type="button" onclick="openBuildArmy('recruit')" title="Армии">⚔️</button>
+                        <button class="btn-icon" id="iconBuild" type="button" onclick="openBuildArmy('build')" title="Строительство">🏗️</button>
+                        <button class="btn-icon" id="iconTech" type="button" onclick="openTech()" title="Технологии">🧠</button>
                     </div>
-
-                    <!-- Год + Казна -->
                     <div class="info-rows">
-                        <div class="info-row"><span data-i18n="info.year">Год</span> <span data-i18n="info.yearValue">270 до н.э.</span></div>
+                        <div class="info-row"><span>Год</span> <span id="hudYearSide">270 до н.э.</span></div>
                         <div class="info-divider"></div>
-                        <div class="info-row"><span data-i18n="info.treasury">Казна</span> <span>ⓓ 5 000</span></div>
+                        <div class="info-row"><span>Казна</span> <span id="hudTreasurySide">ⓓ 5 000</span></div>
                     </div>
-
-                    <!-- Нижний ряд: иконка фракции + конец хода -->
                     <div class="bottom-row">
-                        <div class="faction-icon-large" id="factionIconBtn" onclick="openFactionWindow()" data-i18n-title="btn.faction" title="Открыть окно фракции">
-                            <img id="factionIconImg" src="../images/icon_rome.png" alt="">
+                        <div class="faction-icon-large" id="factionIconBtn" role="button" tabindex="0" onclick="openFactionWindow()" title="Открыть окно фракции">
+                            <img id="factionIconImg" src="../images/icon_rome.png" alt="Фракция" onerror="this.style.display='none'">
                         </div>
-                        <button class="btn-end-turn" onclick="endTurn()" data-i18n-title="btn.endTurn" title="Конец хода">⏳</button>
+                        <button class="btn-end-turn" type="button" title="Конец хода">⏳</button>
                     </div>
-
                 </div>
             </div>
-
         </div>
-
     </div>
 
-    <script src="../js/i18n.js"></script>
-    <script src="../js/i18n-content.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@turf/turf@6.5.0/turf.min.js"></script>
+    <script src="/maps/view1/view.js"></script>
+    <script src="/maps/view2/view.js"></script>
+    <script src="/maps/view2/provinces.js"></script>
+    <script src="/maps/view4/provinces.js"></script>
+    <script src="/maps/view14/provinces.js"></script>
+    <script src="/js/map-engine.js"></script>
+    <script src="/js/italy-dem.js"></script>
+    <script src="/js/view4-relief.js"></script>
+    <script src="/js/campaign-state.js"></script>
+    <script src="/js/campaign-map-bridge.js"></script>
+    <script src="/js/campaign-ui.js"></script>
     <script>
-        const PANEL_EDGE = 4;
-        const PANEL_WIDTH = '40%';
-        const FRAME_INSET = 24;
-        const SIDE_PANEL_HEIGHT_SCALE = 1.2;
-        let modalMode = 'right';
+(function () {
+  'use strict';
 
-        function getSidePanelMetrics() {
-            const bottomPanel = document.querySelector('.bottom-panel');
-            const bottomHeight = bottomPanel ? bottomPanel.getBoundingClientRect().height : 120;
-            const baseHeight = window.innerHeight - bottomHeight - PANEL_EDGE;
-            return {
-                width: window.innerWidth * 0.4,
-                height: baseHeight * SIDE_PANEL_HEIGHT_SCALE,
-            };
+  const GEOJSON_URLS = (window.MapView1 && window.MapView1.geojsonUrls) || [
+    '/maps/view1/regions.geojson',
+    '/maps/view1/provinces.geojson'
+  ];
+
+  const MINIMAP_GEO_URLS = [
+    '/maps/minimap/italy.geojson',
+    '/maps/view1/regions.geojson'
+  ];
+
+  const PIXEL_VIEW_ASSETS = (window.MapView2 && window.MapView2.assets) || {
+    2: {
+      underlay: ['/maps/view2/underlay.jpg', '/maps/view2/underlay_1x.png'],
+      labels: ['/maps/view2/labels.png', '/maps/view2/labels_1x.png'],
+      regionsKey: 'View2PixelRegions'
+    }
+  };
+
+  /**
+   * Контрольные точки под исходную подложку 1362×1155 (потом ×3).
+   * lon/lat → пиксель; дальше масштабируются под фактический размер картинки.
+   */
+  const VIEW1_GCPS = [
+    { lon: 9.19, lat: 45.46, x: 505, y: 205 },
+    { lon: 12.33, lat: 45.44, x: 815, y: 190 },
+    { lon: 13.80, lat: 45.65, x: 990, y: 150 },
+    { lon: 8.95, lat: 44.41, x: 420, y: 275 },
+    { lon: 12.50, lat: 41.90, x: 735, y: 500 },
+    { lon: 14.27, lat: 40.85, x: 895, y: 635 },
+    { lon: 16.87, lat: 41.12, x: 1170, y: 635 },
+    { lon: 15.65, lat: 38.11, x: 1075, y: 905 },
+    { lon: 13.36, lat: 38.12, x: 840, y: 1015 },
+    { lon: 15.10, lat: 36.85, x: 970, y: 1088 },
+    { lon: 9.12, lat: 39.22, x: 170, y: 695 },
+    { lon: 8.30, lat: 40.90, x: 125, y: 530 },
+    { lon: 12.10, lat: 43.15, x: 680, y: 365 }
+  ];
+  const VIEW1_REF = { w: 1362, h: 1155 };
+
+  let view1Affine = null;
+
+  /** Только scale+translate по осям (без shear) — стабильнее на рисованных картах. */
+  function solveAxisAffine(gcps) {
+    const n = gcps.length;
+    if (n < 2) return null;
+
+    function fit1D(us, vs) {
+      let sumU = 0, sumV = 0, sumUU = 0, sumUV = 0;
+      for (let i = 0; i < n; i++) {
+        sumU += us[i];
+        sumV += vs[i];
+        sumUU += us[i] * us[i];
+        sumUV += us[i] * vs[i];
+      }
+      const denom = n * sumUU - sumU * sumU || 1e-12;
+      const a = (n * sumUV - sumU * sumV) / denom;
+      const c = (sumV - a * sumU) / n;
+      return [a, c];
+    }
+
+    const lons = gcps.map((g) => g.lon);
+    const lats = gcps.map((g) => g.lat);
+    const xs = gcps.map((g) => g.x);
+    const ys = gcps.map((g) => g.y);
+    const [a, c] = fit1D(lons, xs);
+    const [e, f] = fit1D(lats, ys);
+    // x = a*lon + c; y = e*lat + f  (b=0, d=0)
+    return { a: a, b: 0, c: c, d: 0, e: e, f: f };
+  }
+
+  /** Ручная доводка после фита (пиксели подложки 1362×1155). */
+  const VIEW1_NUDGE = { x: -58, y: -22 };
+
+  function rebuildView1Affine() {
+    if (!state.mapImage) {
+      view1Affine = null;
+      return;
+    }
+    const iw = state.mapImage.naturalWidth || state.mapImage.width || VIEW1_REF.w;
+    const ih = state.mapImage.naturalHeight || state.mapImage.height || VIEW1_REF.h;
+    const sx = iw / VIEW1_REF.w;
+    const sy = ih / VIEW1_REF.h;
+    const gcps = VIEW1_GCPS.map((g) => ({
+      lon: g.lon,
+      lat: g.lat,
+      x: g.x * sx,
+      y: g.y * sy
+    }));
+    const aff = solveAxisAffine(gcps);
+    if (!aff) {
+      view1Affine = null;
+      return;
+    }
+    aff.c += VIEW1_NUDGE.x * sx;
+    aff.f += VIEW1_NUDGE.y * sy;
+    view1Affine = aff;
+  }
+
+  function projectView1(lon, lat) {
+    if (!view1Affine) rebuildView1Affine();
+    if (!view1Affine) return [0, 0];
+    const aff = view1Affine;
+    return [
+      aff.a * lon + aff.b * lat + aff.c,
+      aff.d * lon + aff.e * lat + aff.f
+    ];
+  }
+
+  function unprojectView1(x, y) {
+    if (!view1Affine) rebuildView1Affine();
+    if (!view1Affine) return [0, 0];
+    const aff = view1Affine;
+    const lon = (x - aff.c) / (aff.a || 1e-12);
+    const lat = (y - aff.f) / (aff.e || 1e-12);
+    return [lon, lat];
+  }
+
+  const viewport = document.getElementById('mapViewport');
+  const stage = document.getElementById('mapStage');
+  const canvas = document.getElementById('mapCanvas');
+  const ctx = canvas.getContext('2d');
+  const placeholder = document.getElementById('mapPlaceholder');
+  const sidePanel = document.getElementById('mapSidePanel');
+  const sidePanelName = document.getElementById('sidePanelName');
+  const sidePanelNote = document.getElementById('sidePanelNote');
+  const view1Btn = document.getElementById('view1Btn');
+  const view2Btn = document.getElementById('view2Btn');
+
+  function isPixelView(v) {
+    // Вид 2 теперь iframe-3D (EXTRA_MAPS); пиксельный canvas-режим отключён
+    return false;
+  }
+
+  function pixelAssets(v) {
+    return PIXEL_VIEW_ASSETS[Number(v)] || PIXEL_VIEW_ASSETS[2];
+  }
+
+  function pixelRefFor(v) {
+    const key = pixelAssets(v).regionsKey;
+    return window[key] || { width: 4086, height: 3465, regions: [], labelsUrl: pixelAssets(v).labels[0] };
+  }
+
+  let PIXEL_REF = pixelRefFor(2);
+  const VIEW2_MAX_EDGE = 4096;
+  const mapUnderlay = document.getElementById('mapUnderlay');
+  const terrainCanvas = document.getElementById('mapTerrain');
+  const terrainCtx = terrainCanvas ? terrainCanvas.getContext('2d') : null;
+  const TERRAIN_URLS = {
+    grass: ['/images/terrain/grass.png', '../images/terrain/grass.png'],
+    forest: ['/images/terrain/forest.png', '../images/terrain/forest.png'],
+    mountain: ['/images/terrain/mountain.png', '../images/terrain/mountain.png'],
+    hills: ['/images/terrain/hills.png', '../images/terrain/hills.png']
+  };
+  const PROVINCE_TERRAIN = {
+    cisalpina: 'forest',
+    venetia: 'grass',
+    liguria: 'mountain',
+    etruria: 'hills',
+    umbria: 'grass',
+    latium: 'grass',
+    campania: 'hills',
+    apulia: 'hills',
+    calabria: 'mountain',
+    sicilia: 'hills',
+    sardinia: 'hills'
+  };
+  const terrainTiles = {};
+  let terrainReady = false;
+  let terrainLayerKey = '';
+  let pixelRegions = (PIXEL_REF.regions || []).slice();
+  let pixelSelectedIndex = -1;
+  let labelImage = null;
+  let labelCanvas = null;
+  let labelCtx = null;
+  let labelData = null;
+  const borderCache = {}; // provinceIndex -> ImageData outline overlay
+  let view1Paint = null;
+  let view1PaintKey = '';
+  let selectedCityName = '';
+
+  const BORDER_CYAN = (window.MapEngine && window.MapEngine.BORDER_CYAN) || {
+    glow: 'rgba(50, 160, 220, 0.28)',
+    mid: 'rgba(80, 195, 255, 0.7)',
+    core: 'rgba(170, 235, 255, 0.95)',
+    pick: 'rgba(200, 245, 255, 1)'
+  };
+
+  /** Города кампании — из CampaignState */
+  const VIEW2_CITIES = (window.CampaignState && window.CampaignState.CITIES) || [];
+
+  const view3Btn = document.getElementById('view3Btn');
+  const cameraBtn = null;
+  const mapArea = document.getElementById('mapArea');
+  const mapExtraFrame = document.getElementById('mapExtraFrame');
+
+  const EXTRA_MAPS = {
+    1: '/maps/view1/map.html',
+    2: '/maps/view2/map.html',
+    3: '/maps/view3/map.html',
+    4: '/maps/rome/map.html?view=4',
+    5: '/maps/rome/map.html?view=5',
+    10: '/maps/view10/map.html?engine=three',
+    11: '/maps/view10/map.html?engine=babylon',
+    12: '/maps/view10/map.html?engine=phaser',
+    13: '/maps/view13/map.html',
+    14: '/maps/view14/map.html',
+    15: '/maps/view15/map.html',
+    16: '/maps/view16/map.html',
+    17: '/maps/view17/map.html'
+  };
+  const ENGINE_VIEWS = { 10: 'three', 11: 'babylon', 12: 'phaser' };
+  const VALID_VIEWS = [1, 2, 3, 4, 5, 10, 11, 12, 13, 14, 15, 16, 17];
+
+  const pixelCache = {};
+  let minimapGeo = null;
+  let extraCamera = null;
+
+  /** Углы камеры — из MapEngine */
+  const CAMERA_MODES = (window.MapEngine && window.MapEngine.CAMERA_MODES) || [
+    { id: 'rtw', label: 'Угол: Total War', a: 1, b: 0.05, c: -0.16, d: 0.88, lift: 0, fitY: 0.48, rotateX: 60, rotateZ: -8 }
+  ];
+
+  const state = {
+    view: 1,
+    scale: 1,
+    tx: 0,
+    ty: 0,
+    cameraMode: 0,
+    canvasW: 1200,
+    canvasH: 1400,
+    geojson: null,
+    features: [],
+    bbox: [6.5, 36.4, 18.6, 47.2], // [minLon, minLat, maxLon, maxLat]
+    mapImage: null,
+    selectedIndex: -1,
+    dragging: false,
+    moved: false,
+    lastX: 0,
+    lastY: 0,
+    minScale: 0.5,
+    maxScale: 4,
+    tiltExtra: 0,
+    yawExtra: 0
+  };
+
+  function syncPixelUnderlay() {
+    if (!mapUnderlay || !stage) return;
+    if (isPixelView(state.view) && state.mapImage && state.mapImage.src) {
+      if (mapUnderlay.src !== state.mapImage.src) mapUnderlay.src = state.mapImage.src;
+      stage.classList.add('is-pixel-view');
+      stage.classList.toggle('is-view4', state.view === 4);
+    } else {
+      stage.classList.remove('is-pixel-view');
+      stage.classList.remove('is-view4');
+    }
+    if (window.View4Relief) View4Relief.setActive(state.view === 4);
+  }
+
+  function setPlaceholder(text, show) {
+    if (!placeholder) return;
+    if (show === false) {
+      placeholder.classList.add('hidden');
+      return;
+    }
+    placeholder.textContent = text || '';
+    placeholder.classList.toggle('hidden', !text);
+  }
+
+  function loadImage(src) {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      img.onload = () => resolve(img);
+      img.onerror = () => reject(new Error('image fail: ' + src));
+      img.src = src;
+    });
+  }
+
+  async function loadFirstImage(urls) {
+    for (let i = 0; i < urls.length; i++) {
+      try {
+        return await loadImage(urls[i]);
+      } catch (_) { /* next */ }
+    }
+    return null;
+  }
+
+  async function fetchFirstJson(urls) {
+    let lastErr = null;
+    for (let i = 0; i < urls.length; i++) {
+      try {
+        const res = await fetch(urls[i]);
+        if (!res.ok) throw new Error('HTTP ' + res.status + ' for ' + urls[i]);
+        return await res.json();
+      } catch (err) {
+        lastErr = err;
+      }
+    }
+    throw lastErr || new Error('GeoJSON недоступен');
+  }
+
+  function simplifyRing(ring, maxPts) {
+    if (!ring || ring.length <= maxPts) return ring;
+    const step = Math.max(1, Math.ceil(ring.length / maxPts));
+    const out = [];
+    for (let i = 0; i < ring.length; i += step) out.push(ring[i]);
+    const first = out[0];
+    const last = out[out.length - 1];
+    if (first && last && (first[0] !== last[0] || first[1] !== last[1])) out.push([first[0], first[1]]);
+    return out;
+  }
+
+  function simplifyGeom(geom, maxPts) {
+    if (!geom) return geom;
+    if (geom.type === 'Polygon') {
+      return {
+        type: 'Polygon',
+        coordinates: geom.coordinates.map(function (ring, idx) {
+          return simplifyRing(ring, idx === 0 ? maxPts : Math.min(32, maxPts));
+        })
+      };
+    }
+    if (geom.type === 'MultiPolygon') {
+      return {
+        type: 'MultiPolygon',
+        coordinates: geom.coordinates.map(function (poly) {
+          return poly.map(function (ring, idx) {
+            return simplifyRing(ring, idx === 0 ? maxPts : Math.min(32, maxPts));
+          });
+        })
+      };
+    }
+    return geom;
+  }
+
+  function simplifyCollection(geo, maxPts) {
+    if (!geo || !geo.features) return geo;
+    return {
+      type: 'FeatureCollection',
+      features: geo.features.map(function (f) {
+        return {
+          type: 'Feature',
+          properties: f.properties,
+          geometry: simplifyGeom(f.geometry, maxPts)
+        };
+      })
+    };
+  }
+
+  function rebuildView4Relief() {
+    if (!window.View4Relief) return;
+    if (state.view !== 4 || !state.mapImage || !labelData) {
+      View4Relief.setActive(false);
+      return;
+    }
+    try {
+      rebuildView1Affine();
+      const cam = cameraMode();
+      const rx = Math.max(0, Math.min(75, (cam.rotateX || 0) + (state.tiltExtra || 0)));
+      View4Relief.rebuild({
+        stage: stage,
+        mapImage: state.mapImage,
+        labelData: labelData,
+        pixelRegions: pixelRegions,
+        canvasW: state.canvasW,
+        canvasH: state.canvasH,
+        tilt: rx,
+        terrainTiles: terrainTiles,
+        terrainReady: terrainReady,
+        provinceTerrain: PROVINCE_TERRAIN,
+        projectLonLat: function (lon, lat, w, h) {
+          const p = projectView1(lon, lat);
+          const iw = state.mapImage.naturalWidth || PIXEL_REF.width || 1;
+          const ih = state.mapImage.naturalHeight || PIXEL_REF.height || 1;
+          return [p[0] / iw * w, p[1] / ih * h];
+        },
+        unprojectLonLat: function (nx, ny) {
+          const iw = state.mapImage.naturalWidth || PIXEL_REF.width || 1;
+          const ih = state.mapImage.naturalHeight || PIXEL_REF.height || 1;
+          return unprojectView1(nx * iw, ny * ih);
+        }
+      });
+    } catch (err) {
+      console.warn('view4 relief', err);
+      View4Relief.setActive(false);
+    }
+  }
+
+  async function loadLabelMaskFor(view) {
+    const ref = pixelRefFor(view);
+    const assets = pixelAssets(view);
+    const urls = [];
+    if (ref.labelsUrl) urls.push(ref.labelsUrl);
+    (assets.labels || []).forEach(function (u) {
+      if (urls.indexOf(u) < 0) urls.push(u);
+    });
+    const img = await loadFirstImage(urls);
+    if (!img) return false;
+    labelImage = img;
+    labelCanvas = document.createElement('canvas');
+    const srcW = labelImage.naturalWidth || ref.width || 4086;
+    const srcH = labelImage.naturalHeight || ref.height || 3465;
+    const k = Math.min(1, VIEW2_MAX_EDGE / Math.max(srcW, srcH));
+    labelCanvas.width = Math.max(1, Math.round(srcW * k));
+    labelCanvas.height = Math.max(1, Math.round(srcH * k));
+    labelCtx = labelCanvas.getContext('2d', { willReadFrequently: true });
+    labelCtx.imageSmoothingEnabled = false;
+    labelCtx.drawImage(labelImage, 0, 0, labelCanvas.width, labelCanvas.height);
+    labelData = labelCtx.getImageData(0, 0, labelCanvas.width, labelCanvas.height);
+    return true;
+  }
+
+  function stashPixelView(view) {
+    if (!isPixelView(view)) return;
+    pixelCache[view] = {
+      mapImage: state.mapImage,
+      labelImage: labelImage,
+      labelCanvas: labelCanvas,
+      labelData: labelData,
+      pixelRegions: (pixelRegions || []).slice(),
+      PIXEL_REF: PIXEL_REF,
+      borderSheet: borderCache.__sheet || null
+    };
+  }
+
+  function applyPixelPack(view) {
+    PIXEL_REF = pixelRefFor(view);
+    pixelRegions = (PIXEL_REF.regions || []).slice();
+    const pack = pixelCache[view];
+    if (!pack) {
+      state.mapImage = null;
+      labelImage = null;
+      labelCanvas = null;
+      labelData = null;
+      terrainLayerKey = '';
+      borderCache.__sheet = null;
+      borderCache.__queued = false;
+      return false;
+    }
+    state.mapImage = pack.mapImage;
+    labelImage = pack.labelImage;
+    labelCanvas = pack.labelCanvas;
+    labelData = pack.labelData;
+    pixelRegions = pack.pixelRegions && pack.pixelRegions.length ? pack.pixelRegions : pixelRegions;
+    PIXEL_REF = pack.PIXEL_REF || PIXEL_REF;
+    terrainLayerKey = '';
+    borderCache.__sheet = pack.borderSheet;
+    borderCache.__queued = false;
+    view1Affine = null;
+    return Boolean(pack.mapImage);
+  }
+
+  async function ensurePixelView(view) {
+    if (pixelCache[view] && pixelCache[view].mapImage && pixelCache[view].labelData) {
+      applyPixelPack(view);
+      return true;
+    }
+    PIXEL_REF = pixelRefFor(view);
+    pixelRegions = (PIXEL_REF.regions || []).slice();
+    const img = await loadFirstImage(pixelAssets(view).underlay);
+    if (!img) return false;
+    state.mapImage = img;
+    const ok = await loadLabelMaskFor(view);
+    if (!ok) console.warn('маска провинций вида ' + view + ' не загрузилась');
+    borderCache.__sheet = null;
+    borderCache.__queued = false;
+    terrainLayerKey = '';
+    view1Affine = null;
+    stashPixelView(view);
+    return true;
+  }
+
+  function loadTerrainTiles() {
+    const names = Object.keys(TERRAIN_URLS);
+    return Promise.all(names.map(function (name) {
+      return loadFirstImage(TERRAIN_URLS[name]).then(function (img) {
+        if (img) terrainTiles[name] = img;
+      });
+    })).then(function () {
+      terrainReady = Boolean(terrainTiles.grass || terrainTiles.forest || terrainTiles.hills || terrainTiles.mountain);
+      terrainLayerKey = '';
+      rebuildTerrainLayer();
+      if (state.view === 4) rebuildView4Relief();
+    }).catch(function (err) {
+      console.warn('terrain tiles', err);
+    });
+  }
+
+  function rebuildTerrainLayer() {
+    if (!terrainReady || !labelData || !terrainCanvas || !terrainCtx) return;
+    if (!isPixelView(state.view) || state.canvasW < 8 || state.canvasH < 8) return;
+    const key = state.canvasW + 'x' + state.canvasH;
+    if (terrainLayerKey === key) return;
+    const lw = labelData.width;
+    const lh = labelData.height;
+    const src = labelData.data;
+    const cmap = {};
+    for (let i = 0; i < pixelRegions.length; i++) {
+      const r = pixelRegions[i];
+      const code = (r.index != null ? r.index : i) + 1;
+      cmap[code] = PROVINCE_TERRAIN[r.id] || 'grass';
+    }
+    const types = ['grass', 'forest', 'mountain', 'hills'];
+    const masks = {};
+    for (let t = 0; t < types.length; t++) {
+      const mc = document.createElement('canvas');
+      mc.width = lw;
+      mc.height = lh;
+      const mctx = mc.getContext('2d');
+      const img = mctx.createImageData(lw, lh);
+      masks[types[t]] = { canvas: mc, ctx: mctx, img: img };
+    }
+    for (let p = 0; p < src.length; p += 4) {
+      const code = src[p];
+      if (!code) continue;
+      const type = cmap[code] || 'grass';
+      const m = masks[type];
+      if (!m) continue;
+      m.img.data[p] = 255;
+      m.img.data[p + 1] = 255;
+      m.img.data[p + 2] = 255;
+      m.img.data[p + 3] = 255;
+    }
+    types.forEach(function (type) {
+      masks[type].ctx.putImageData(masks[type].img, 0, 0);
+    });
+
+    const w = state.canvasW;
+    const h = state.canvasH;
+    terrainCanvas.width = w;
+    terrainCanvas.height = h;
+    terrainCtx.clearRect(0, 0, w, h);
+    types.forEach(function (type) {
+      const tile = terrainTiles[type];
+      if (!tile) return;
+      const tmp = document.createElement('canvas');
+      tmp.width = w;
+      tmp.height = h;
+      const tg = tmp.getContext('2d');
+      const pat = tg.createPattern(tile, 'repeat');
+      if (!pat) return;
+      tg.fillStyle = pat;
+      tg.fillRect(0, 0, w, h);
+      tg.globalCompositeOperation = 'destination-in';
+      tg.drawImage(masks[type].canvas, 0, 0, w, h);
+      terrainCtx.drawImage(tmp, 0, 0);
+    });
+    terrainLayerKey = key;
+  }
+
+  let view2Cover = { dx: 0, dy: 0, dw: 0, dh: 0, scale: 1 };
+
+  function updateView2Cover() {
+    if (!state.mapImage) return;
+    const iw = state.mapImage.naturalWidth || PIXEL_REF.width || 4086;
+    const ih = state.mapImage.naturalHeight || PIXEL_REF.height || 3465;
+    const scale = Math.min(state.canvasW / iw, state.canvasH / ih);
+    const dw = iw * scale;
+    const dh = ih * scale;
+    view2Cover = {
+      dx: (state.canvasW - dw) / 2,
+      dy: (state.canvasH - dh) / 2,
+      dw: dw,
+      dh: dh,
+      scale: scale,
+      iw: iw,
+      ih: ih
+    };
+  }
+
+  function labelAtCanvas(cx, cy) {
+    if (!labelData) return 0;
+    const lw = labelData.width;
+    const lh = labelData.height;
+    const c = view2Cover;
+    const lx = ((cx - c.dx) / c.dw) * lw;
+    const ly = ((cy - c.dy) / c.dh) * lh;
+    const x = Math.max(0, Math.min(lw - 1, Math.floor(lx)));
+    const y = Math.max(0, Math.min(lh - 1, Math.floor(ly)));
+    if (lx < 0 || ly < 0 || lx >= lw || ly >= lh) return 0;
+    return labelData.data[(y * lw + x) * 4];
+  }
+
+  function findPixelRegionAt(cx, cy) {
+    const code = labelAtCanvas(cx, cy);
+    if (!code) return null;
+    const index = pixelRegions.findIndex((r) => (r.index != null ? r.index + 1 : 0) === code);
+    if (index < 0) {
+      // fallback: code-1 as seed order index
+      const byIndex = pixelRegions.findIndex((r) => r.index === code - 1);
+      if (byIndex < 0) return null;
+      return { region: pixelRegions[byIndex], index: byIndex, code: code };
+    }
+    return { region: pixelRegions[index], index: index, code: code };
+  }
+
+  function ensureBorderSheet() {
+    if (!labelData || borderCache.__sheet) return borderCache.__sheet;
+    const lw = labelData.width;
+    const lh = labelData.height;
+    const src = labelData.data;
+    const sheet = document.createElement('canvas');
+    sheet.width = lw;
+    sheet.height = lh;
+    const sctx = sheet.getContext('2d');
+    const out = sctx.createImageData(lw, lh);
+    const dst = out.data;
+    for (let y = 1; y < lh - 1; y++) {
+      for (let x = 1; x < lw - 1; x++) {
+        const i = (y * lw + x) * 4;
+        const code = src[i];
+        if (!code) continue;
+        const left = src[i - 4];
+        const right = src[i + 4];
+        const up = src[i - lw * 4];
+        const down = src[i + lw * 4];
+        const landEdge =
+          (left && left !== code) ||
+          (right && right !== code) ||
+          (up && up !== code) ||
+          (down && down !== code);
+        if (!landEdge) continue;
+        dst[i] = 90;
+        dst[i + 1] = 210;
+        dst[i + 2] = 255;
+        dst[i + 3] = 220;
+        dst[i + 4] = 90; dst[i + 5] = 210; dst[i + 6] = 255; dst[i + 7] = 90;
+        const j = i - 4;
+        if (j >= 0) { dst[j] = 90; dst[j + 1] = 210; dst[j + 2] = 255; dst[j + 3] = 90; }
+      }
+    }
+    sctx.putImageData(out, 0, 0);
+    borderCache.__sheet = sheet;
+    return sheet;
+  }
+
+  function ensureSelectSheet(code) {
+    if (!labelData || !code) return null;
+    const key = 'selSheet_' + code;
+    if (borderCache[key]) return borderCache[key];
+    const lw = labelData.width;
+    const lh = labelData.height;
+    const src = labelData.data;
+    const sheet = document.createElement('canvas');
+    sheet.width = lw;
+    sheet.height = lh;
+    const sctx = sheet.getContext('2d');
+    const out = sctx.createImageData(lw, lh);
+    const dst = out.data;
+    for (let y = 1; y < lh - 1; y++) {
+      for (let x = 1; x < lw - 1; x++) {
+        const i = (y * lw + x) * 4;
+        if (src[i] !== code) continue;
+        if (
+          src[i - 4] !== code ||
+          src[i + 4] !== code ||
+          src[i - lw * 4] !== code ||
+          src[i + lw * 4] !== code
+        ) {
+          dst[i] = 190;
+          dst[i + 1] = 245;
+          dst[i + 2] = 255;
+          dst[i + 3] = 255;
+        }
+      }
+    }
+    sctx.putImageData(out, 0, 0);
+    // second pass thicken
+    sctx.globalCompositeOperation = 'source-over';
+    sctx.filter = 'blur(0.6px)';
+    sctx.drawImage(sheet, 0, 0);
+    sctx.filter = 'none';
+    borderCache[key] = sheet;
+    return sheet;
+  }
+
+  /** Вид 2: подложка на весь экран (cover) + провинции по маске. */
+  function drawView2() {
+    if (!state.mapImage) {
+      drawView2GeoFallback();
+      return;
+    }
+    try {
+      updateView2Cover();
+      const c = view2Cover;
+      if (window.MapView2 && MapView2.paintBase) {
+        MapView2.paintBase(ctx, state.mapImage, c, state.canvasW, state.canvasH);
+      } else {
+        ctx.clearRect(0, 0, state.canvasW, state.canvasH);
+        ctx.drawImage(state.mapImage, c.dx, c.dy, c.dw, c.dh);
+      }
+      if (labelData) {
+        if (window.CampaignUI && state.view !== 4) {
+          CampaignUI.drawFactionFillView2(ctx, labelData, pixelRegions, c);
+        }
+        if (borderCache.__sheet) {
+          ctx.drawImage(borderCache.__sheet, c.dx, c.dy, c.dw, c.dh);
+        } else if (!borderCache.__queued) {
+          borderCache.__queued = true;
+          requestAnimationFrame(function () {
+            try { ensureBorderSheet(); } catch (e) { console.warn('borders', e); }
+            if (isPixelView(state.view)) render();
+          });
         }
 
-        function getSidePanelHeight() {
-            const metrics = getSidePanelMetrics();
-            return `${Math.ceil(metrics.height)}px`;
+        if (pixelSelectedIndex >= 0 && pixelRegions[pixelSelectedIndex]) {
+          const code = (pixelRegions[pixelSelectedIndex].index != null
+            ? pixelRegions[pixelSelectedIndex].index
+            : pixelSelectedIndex) + 1;
+          const sel = ensureSelectSheet(code);
+          if (sel) ctx.drawImage(sel, c.dx, c.dy, c.dw, c.dh);
         }
+      }
+      drawCampaignOnMap();
+    } catch (err) {
+      console.warn('drawView2', err);
+    }
+  }
 
-        function applyPanelBorder(el, side) {
-            if (side === 'right') {
-                el.style.border = 'none';
-                el.style.borderLeft = '2px solid #c9a84c';
-                el.style.borderTop = '2px solid #c9a84c';
-                el.style.borderBottom = '2px solid #c9a84c';
-                el.style.borderRight = 'none';
-            } else {
-                el.style.border = 'none';
-                el.style.borderRight = '2px solid #c9a84c';
-                el.style.borderTop = '2px solid #c9a84c';
-                el.style.borderBottom = '2px solid #c9a84c';
-                el.style.borderLeft = 'none';
-            }
-        }
+  function geoCityPos(city) {
+    const p = project(city.lon, city.lat);
+    return { x: p[0], y: p[1] };
+  }
 
-        function layoutSidePanel(el, side) {
-            el.style.position = 'fixed';
-            el.style.top = `${PANEL_EDGE}px`;
-            el.style.width = PANEL_WIDTH;
-            el.style.height = getSidePanelHeight();
-            el.style.transform = 'none';
-            el.style.pointerEvents = 'auto';
-            el.style.background = '#0a0502';
-            el.style.borderRadius = '0';
+  function drawCampaignOnMap() {
+    if (!window.CampaignUI || !window.CampaignState) return;
+    const cityPosFn = isPixelView(state.view)
+      ? (city) => { const p = cityCanvasPos(city); return { x: p[0], y: p[1] }; }
+      : (city) => geoCityPos(city);
 
-            if (side === 'right') {
-                el.style.left = 'auto';
-                el.style.right = `${PANEL_EDGE}px`;
-                el.style.boxShadow = '-10px 0 30px rgba(0,0,0,0.8)';
-            } else {
-                el.style.left = `${PANEL_EDGE}px`;
-                el.style.right = 'auto';
-                el.style.boxShadow = '10px 0 30px rgba(0,0,0,0.8)';
-            }
+    CampaignUI.drawCampaignLayer(ctx, {
+      scale: state.scale,
+      minScale: state.minScale,
+      mapW: state.canvasW,
+      mapH: state.canvasH,
+      cityPos: cityPosFn,
+      lonLatPos: function (lon, lat) {
+        const p = lonLatToCanvas(lon, lat);
+        return { x: p[0], y: p[1] };
+      },
+      provinceFog: false,
+      labelData: isPixelView(state.view) ? labelData : null,
+      pixelRegions: pixelRegions,
+      cover: isPixelView(state.view) ? view2Cover : null
+    });
+  }
 
-            applyPanelBorder(el, side);
-        }
+  function saneBbox(b) {
+    const fallback = [6.5, 36.4, 18.6, 47.2];
+    if (!b || b.length < 4) return fallback.slice();
+    const minLon = Number(b[0]), minLat = Number(b[1]), maxLon = Number(b[2]), maxLat = Number(b[3]);
+    if (![minLon, minLat, maxLon, maxLat].every(Number.isFinite)) return fallback.slice();
+    if (maxLon - minLon < 0.2 || maxLat - minLat < 0.2) return fallback.slice();
+    if (minLon < -30 || maxLon > 50 || minLat < 20 || maxLat > 65) return fallback.slice();
+    return [minLon, minLat, maxLon, maxLat];
+  }
 
-        function layoutFramedPanel(el) {
-            el.style.position = 'fixed';
-            el.style.top = `${FRAME_INSET}px`;
-            el.style.left = `${FRAME_INSET}px`;
-            el.style.right = `${FRAME_INSET}px`;
-            el.style.bottom = `${FRAME_INSET}px`;
-            el.style.width = 'auto';
-            el.style.height = 'auto';
-            el.style.transform = 'none';
-            el.style.pointerEvents = 'auto';
-            el.style.background = '#0a0502';
-            el.style.border = '2px solid #c9a84c';
-            el.style.borderRadius = '6px';
-            el.style.boxShadow = '0 0 40px rgba(0,0,0,0.85)';
-        }
+  function project(lon, lat) {
+    const box = saneBbox(state.bbox);
+    const [minLon, minLat, maxLon, maxLat] = box;
+    const w = maxLon - minLon;
+    const h = maxLat - minLat;
+    const pad = 0.02;
+    const x0 = state.canvasW * pad;
+    const y0 = state.canvasH * pad;
+    const x1 = state.canvasW * (1 - pad);
+    const y1 = state.canvasH * (1 - pad);
+    const x = x0 + ((lon - minLon) / w) * (x1 - x0);
+    const y = y0 + ((maxLat - lat) / h) * (y1 - y0);
+    return [x, y];
+  }
 
-        function layoutTechPanel(el) {
-            const margin = 0.05;
-            const techW = Math.round(window.innerWidth * (1 - margin * 2));
-            const techH = Math.round(window.innerHeight * (1 - margin * 2));
-            const left = Math.round(window.innerWidth * margin);
-            const top = Math.round(window.innerHeight * margin);
+  function unproject(cx, cy) {
+    const box = saneBbox(state.bbox);
+    const [minLon, minLat, maxLon, maxLat] = box;
+    const w = maxLon - minLon;
+    const h = maxLat - minLat;
+    const pad = 0.02;
+    const x0 = state.canvasW * pad;
+    const y0 = state.canvasH * pad;
+    const x1 = state.canvasW * (1 - pad);
+    const y1 = state.canvasH * (1 - pad);
+    const lon = minLon + ((cx - x0) / ((x1 - x0) || 1)) * w;
+    const lat = maxLat - ((cy - y0) / ((y1 - y0) || 1)) * h;
+    return [lon, lat];
+  }
 
-            el.style.position = 'fixed';
-            el.style.top = `${top}px`;
-            el.style.left = `${left}px`;
-            el.style.right = 'auto';
-            el.style.bottom = 'auto';
-            el.style.width = `${techW}px`;
-            el.style.height = `${techH}px`;
-            el.style.transform = 'none';
-            el.style.pointerEvents = 'auto';
-            el.style.background = '#0a0502';
-            el.style.border = '2px solid #c9a84c';
-            el.style.borderRadius = '6px';
-            el.style.boxShadow = '0 0 40px rgba(0,0,0,0.85)';
-        }
+  function canvasToLonLat(cx, cy) {
+    if (isPixelView(state.view) && state.mapImage) {
+      updateView2Cover();
+      const c = view2Cover;
+      const ix = ((cx - c.dx) / (c.dw || 1)) * (c.iw || 1);
+      const iy = ((cy - c.dy) / (c.dh || 1)) * (c.ih || 1);
+      rebuildView1Affine();
+      if (view1Affine) return unprojectView1(ix, iy);
+    }
+    return unproject(cx, cy);
+  }
 
-        function layoutCenterDetailPanel(el) {
-            el.style.position = 'fixed';
-            el.style.left = '50%';
-            el.style.top = '50%';
-            el.style.width = 'min(960px, 94vw)';
-            el.style.height = 'min(90vh, 880px)';
-            el.style.transform = 'translate(-50%, -50%)';
-            el.style.pointerEvents = 'auto';
-            el.style.background = '#0a0502';
-            el.style.border = '2px solid #c9a84c';
-            el.style.borderRadius = '6px';
-            el.style.boxShadow = '0 0 40px rgba(0,0,0,0.85)';
-        }
+  function lonLatToCanvas(lon, lat) {
+    if (isPixelView(state.view) && state.mapImage) {
+      updateView2Cover();
+      rebuildView1Affine();
+      if (view1Affine) {
+        const p = projectView1(lon, lat);
+        const c = view2Cover;
+        return [
+          c.dx + (p[0] / (c.iw || 1)) * c.dw,
+          c.dy + (p[1] / (c.ih || 1)) * c.dh
+        ];
+      }
+    }
+    return project(lon, lat);
+  }
 
-        function isSecondaryOpen() {
-            const sec = document.getElementById('secondaryContent');
-            return sec && sec.style.display === 'block' && sec.src && !sec.src.endsWith('about:blank');
-        }
+  function ringsFromFeature(f) {
+    if (!f || !f.geometry) return [];
+    const g = f.geometry;
+    if (g.type === 'Polygon') return g.coordinates[0] ? [g.coordinates[0]] : [];
+    if (g.type === 'MultiPolygon') {
+      const out = [];
+      for (let i = 0; i < g.coordinates.length; i++) {
+        if (g.coordinates[i] && g.coordinates[i][0]) out.push(g.coordinates[i][0]);
+      }
+      return out;
+    }
+    return [];
+  }
 
-        function switchTab(tab) {
-            document.querySelectorAll('.block-center .tab-btn').forEach(b => b.classList.remove('active'));
-            const idx = tab === 'army' ? 0 : 1;
-            document.querySelectorAll('.block-center .tab-btn')[idx].classList.add('active');
-            document.getElementById('iconArmy').classList.toggle('active', tab === 'army');
-            document.getElementById('iconBuild').classList.toggle('active', tab === 'settlement');
-        }
+  function findGeoFeatureAt(geo, lon, lat) {
+    if (!geo || !geo.features || typeof turf === 'undefined') return null;
+    const pt = turf.point([lon, lat]);
+    for (let i = 0; i < geo.features.length; i++) {
+      try {
+        if (turf.booleanPointInPolygon(pt, geo.features[i])) return geo.features[i];
+      } catch (_) { /* skip */ }
+    }
+    return null;
+  }
 
-        function openBuildArmy(tab) {
-            document.getElementById('iconArmy')?.classList.add('active');
-            document.getElementById('iconBuild')?.classList.remove('active');
-            document.getElementById('iconTech')?.classList.remove('active');
-            openModal(`buildArmy.html?tab=${encodeURIComponent(tab)}&faction=${encodeURIComponent(getCampaignFaction())}`, 'right');
-        }
+  function drawRingPath(ring) {
+    if (!ring || ring.length < 2) return;
+    const p0 = project(ring[0][0], ring[0][1]);
+    ctx.moveTo(p0[0], p0[1]);
+    for (let i = 1; i < ring.length; i++) {
+      const p = project(ring[i][0], ring[i][1]);
+      ctx.lineTo(p[0], p[1]);
+    }
+    ctx.closePath();
+  }
 
-        function getCampaignFaction() {
-            const params = new URLSearchParams(window.location.search);
-            return (params.get('faction') || 'rome').toLowerCase();
-        }
+  function forEachPolygonRing(geometry, fn) {
+    if (!geometry) return;
+    if (geometry.type === 'Polygon') {
+      geometry.coordinates.forEach(fn);
+    } else if (geometry.type === 'MultiPolygon') {
+      geometry.coordinates.forEach((poly) => poly.forEach(fn));
+    }
+  }
 
-        function openTech() {
-            closeSecondaryModal();
-            document.getElementById('iconArmy')?.classList.remove('active');
-            document.getElementById('iconBuild')?.classList.remove('active');
-            document.getElementById('iconTech')?.classList.add('active');
-            openModal('tech.html', 'tech');
-        }
+  /** Только обводка региона. Заливка выделения запрещена. */
+  function strokeFeature(feature, style, lineWidth) {
+    const geom = feature.geometry;
+    ctx.beginPath();
+    forEachPolygonRing(geom, (ring) => drawRingPath(ring));
+    ctx.strokeStyle = style;
+    ctx.lineWidth = lineWidth;
+    ctx.lineJoin = 'round';
+    ctx.lineCap = 'round';
+    ctx.stroke();
+  }
 
-        function openModal(url, mode = 'right') {
-            const modal = document.getElementById('modalContent');
-            const backdrop = document.getElementById('modalBackdrop');
-            if (!modal || !backdrop) return;
+  function fillFeature(feature, fillStyle) {
+    const geom = feature.geometry;
+    ctx.beginPath();
+    forEachPolygonRing(geom, (ring) => drawRingPath(ring));
+    ctx.fillStyle = fillStyle;
+    ctx.fill();
+  }
 
-            modalMode = mode;
+  function drawAllBorders(selected) {
+    for (let i = 0; i < state.features.length; i++) {
+      if (i === selected) continue;
+      strokeFeature(state.features[i], BORDER_CYAN.glow, 5.5);
+      strokeFeature(state.features[i], BORDER_CYAN.mid, 2.6);
+      strokeFeature(state.features[i], BORDER_CYAN.core, 1.35);
+    }
+    if (selected >= 0 && state.features[selected]) {
+      strokeFeature(state.features[selected], BORDER_CYAN.glow, 8);
+      strokeFeature(state.features[selected], BORDER_CYAN.mid, 4);
+      strokeFeature(state.features[selected], BORDER_CYAN.pick, 2.1);
+    }
+  }
 
-            if (mode === 'tech') {
-                closeSecondaryModal();
-                layoutTechPanel(modal);
-            } else if (mode === 'framed') {
-                closeSecondaryModal();
-                layoutFramedPanel(modal);
-            } else {
-                layoutSidePanel(modal, 'right');
-            }
+  function landFillForLat(lat) {
+    if (lat > 44.8) return '#c5d48a';
+    if (lat > 43.2) return '#d2dc90';
+    if (lat > 41.5) return '#e0d89a';
+    if (lat > 39.5) return '#ead89a';
+    return '#eddc9e';
+  }
 
-            modal.style.display = 'block';
-            backdrop.style.display = 'block';
-            modal.src = url;
-        }
+  function featureCentroid(feature) {
+    try {
+      if (typeof turf !== 'undefined') {
+        const c = turf.centroid(feature);
+        return c.geometry.coordinates;
+      }
+    } catch (_) { /* fall through */ }
+    return [12.5, 42];
+  }
 
-        function closeModal() {
-            closeSecondaryModal();
-            const modal = document.getElementById('modalContent');
-            const backdrop = document.getElementById('modalBackdrop');
-            if (modal) {
-                modal.style.display = 'none';
-                modal.src = 'about:blank';
-                modalMode = 'right';
-            }
-            if (backdrop) backdrop.style.display = 'none';
-        }
+  function paintView1Underlay() {
+    const key = 'relief3:' + state.canvasW + 'x' + state.canvasH + ':' + state.features.length + ':' + ((window.ItalyDEM && ItalyDEM.ready()) ? 'd' : 'n');
+    if (view1Paint && view1PaintKey === key) return view1Paint;
 
-        function openSecondaryModal(url, options = {}) {
-            const sec = document.getElementById('secondaryContent');
-            if (!sec) return;
+    const off = document.createElement('canvas');
+    off.width = state.canvasW;
+    off.height = state.canvasH;
+    const g = off.getContext('2d');
+    const W = state.canvasW;
+    const H = state.canvasH;
 
-            if (options.position === 'center') {
-                layoutCenterDetailPanel(sec);
-            } else {
-                layoutSidePanel(sec, 'left');
-            }
+    const sea = g.createRadialGradient(W * 0.52, H * 0.42, 40, W * 0.5, H * 0.52, Math.max(W, H) * 0.78);
+    sea.addColorStop(0, '#8ed4e4');
+    sea.addColorStop(0.18, '#5eb4cc');
+    sea.addColorStop(0.45, '#3a8eb0');
+    sea.addColorStop(0.75, '#2a6e90');
+    sea.addColorStop(1, '#1e5570');
+    g.fillStyle = sea;
+    g.fillRect(0, 0, W, H);
 
-            sec.style.display = 'block';
-
-            if (isSecondaryOpen()) {
-                sec.src = url;
-            } else {
-                sec.src = url;
-            }
-        }
-
-        function closeSecondaryModal() {
-            const sec = document.getElementById('secondaryContent');
-            if (sec) {
-                sec.style.display = 'none';
-                sec.src = 'about:blank';
-            }
-            notifyTechIframe();
-        }
-
-        function notifyTechIframe() {
-            const modal = document.getElementById('modalContent');
-            if (modal && modal.style.display === 'block' && modal.contentWindow) {
-                modal.contentWindow.postMessage({ type: 'tech-state-changed' }, '*');
-            }
-        }
-
-        window.addEventListener('message', (event) => {
-            if (event.data && event.data.type === 'tech-state-changed') {
-                notifyTechIframe();
-            }
+    const hasDem = window.ItalyDEM && ItalyDEM.ready();
+    if (hasDem) {
+      const geo = ItalyDEM.paintGeo(Math.min(900, W), Math.min(1040, H), state.bbox, { sea: '#2a7a96' });
+      g.drawImage(geo, 0, 0, W, H);
+    } else {
+      for (let i = 0; i < state.features.length; i++) {
+        const f = state.features[i];
+        const ll = featureCentroid(f);
+        g.beginPath();
+        forEachPolygonRing(f.geometry, (ring) => {
+          if (!ring || ring.length < 2) return;
+          const p0 = project(ring[0][0], ring[0][1]);
+          g.moveTo(p0[0], p0[1]);
+          const step = Math.max(1, Math.ceil(ring.length / 160));
+          for (let k = step; k < ring.length; k += step) {
+            const p = project(ring[k][0], ring[k][1]);
+            g.lineTo(p[0], p[1]);
+          }
+          g.closePath();
         });
+        const lg = g.createLinearGradient(0, 0, W * 0.35, H);
+        lg.addColorStop(0, landFillForLat(ll[1] + 0.5));
+        lg.addColorStop(1, landFillForLat(ll[1] - 0.7));
+        g.fillStyle = lg;
+        g.fill();
+      }
+    }
 
-        function closeAllPanels() {
-            closeModal();
+    g.beginPath();
+    for (let i = 0; i < state.features.length; i++) {
+      forEachPolygonRing(state.features[i].geometry, (ring, ringIdx) => {
+        if (ringIdx > 0 || !ring || ring.length < 2) return;
+        const p0 = project(ring[0][0], ring[0][1]);
+        g.moveTo(p0[0], p0[1]);
+        const step = Math.max(1, Math.ceil(ring.length / 180));
+        for (let k = step; k < ring.length; k += step) {
+          const p = project(ring[k][0], ring[k][1]);
+          g.lineTo(p[0], p[1]);
         }
+        g.closePath();
+      });
+    }
+    g.strokeStyle = 'rgba(210, 245, 245, 0.45)';
+    g.lineWidth = 2.2;
+    g.stroke();
+    g.strokeStyle = 'rgba(40, 90, 70, 0.35)';
+    g.lineWidth = 1;
+    g.stroke();
 
-        function openFactionWindow() {
-            closeSecondaryModal();
-            document.getElementById('iconArmy')?.classList.remove('active');
-            document.getElementById('iconBuild')?.classList.remove('active');
-            document.getElementById('iconTech')?.classList.remove('active');
-            openModal(`pageOfCountry.html?faction=${encodeURIComponent(getCampaignFaction())}`, 'tech');
-        }
+    view1Paint = off;
+    view1PaintKey = key;
+    return off;
+  }
 
-        function loadFactionIcon() {
-            const faction = getCampaignFaction();
-            const img = document.getElementById('factionIconImg');
-            if (!img) return;
+  function cityCanvasPos(city) {
+    const c = view2Cover;
+    const iw = c.iw || PIXEL_REF.width || 4086;
+    const ih = c.ih || PIXEL_REF.height || 3465;
+    return [
+      c.dx + (city.x / iw) * c.dw,
+      c.dy + (city.y / ih) * c.dh
+    ];
+  }
 
-            const icons = {
-                rome: '../images/icon_rome.png',
-                carthage: '../images/icon_carthage.png',
-            };
+  function cityIconScale() {
+    return 26 / Math.max(0.2, state.scale || 1);
+  }
 
-            if (window.GameContent) {
-                const data = GameContent.getFaction(faction);
-                if (data?.icon) {
-                    img.src = data.icon;
-                    img.alt = data.name || faction;
-                    return;
-                }
+  function drawRtwCity(x, y, city, selected) {
+    const u = cityIconScale();
+    const s = (city.capital ? 1.2 : 1) * (u / 26);
+    ctx.save();
+    ctx.translate(x, y);
+
+    ctx.fillStyle = 'rgba(0,0,0,0.35)';
+    ctx.beginPath();
+    ctx.ellipse(2 * s, 5 * s, 12 * s, 4.5 * s, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.fillStyle = '#e8dcc4';
+    ctx.fillRect(-9 * s, -6 * s, 8 * s, 8 * s);
+    ctx.fillStyle = '#d4c4a4';
+    ctx.fillRect(0, -4 * s, 9 * s, 7 * s);
+    ctx.fillStyle = '#c4b090';
+    ctx.fillRect(-4 * s, -2 * s, 6 * s, 5 * s);
+
+    ctx.fillStyle = '#8b3a28';
+    ctx.beginPath();
+    ctx.moveTo(-10 * s, -6 * s);
+    ctx.lineTo(-5 * s, -12 * s);
+    ctx.lineTo(0, -6 * s);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.moveTo(-1 * s, -4 * s);
+    ctx.lineTo(4.5 * s, -10 * s);
+    ctx.lineTo(10 * s, -4 * s);
+    ctx.fill();
+
+    const bh = (city.capital ? 22 : 16) * s;
+    ctx.fillStyle = 'rgba(0,0,0,0.4)';
+    ctx.fillRect(11 * s + 1, -bh + 1, 4 * s, bh);
+    ctx.fillStyle = selected ? '#c9a84c' : '#6a3d8a';
+    ctx.fillRect(11 * s, -bh, 4 * s, bh);
+    ctx.strokeStyle = 'rgba(255, 230, 160, 0.75)';
+    ctx.lineWidth = Math.max(0.6, 0.8 * s);
+    ctx.strokeRect(11 * s, -bh, 4 * s, bh);
+
+    const label = (city.ru || city.name).toUpperCase();
+    ctx.font = (city.capital ? 'bold ' : '') + Math.max(9, 10 * s) + "px 'Cinzel', Georgia, serif";
+    ctx.textAlign = 'center';
+    const tw = Math.max(ctx.measureText(label).width + 10 * s, 36 * s);
+    const ly = 14 * s;
+    ctx.fillStyle = selected ? 'rgba(90, 55, 20, 0.92)' : 'rgba(28, 18, 12, 0.88)';
+    ctx.fillRect(-tw / 2, ly - 11 * s, tw, 14 * s);
+    ctx.strokeStyle = selected ? '#e0c878' : 'rgba(201, 168, 76, 0.65)';
+    ctx.strokeRect(-tw / 2, ly - 11 * s, tw, 14 * s);
+    ctx.fillStyle = '#f4ead2';
+    ctx.fillText(label, 0, ly);
+    ctx.restore();
+  }
+
+  function drawView2Cities() {
+    if (!VIEW2_CITIES.length) return;
+    updateView2Cover();
+    for (let i = 0; i < VIEW2_CITIES.length; i++) {
+      const city = VIEW2_CITIES[i];
+      const p = cityCanvasPos(city);
+      drawRtwCity(p[0], p[1], city, selectedCityName === city.name);
+    }
+  }
+
+  function findCityAt(cx, cy) {
+    const hitR = cityIconScale() * 1.15;
+    const hitR2 = hitR * hitR;
+    let best = null;
+    let bestD = hitR2;
+    for (let i = 0; i < VIEW2_CITIES.length; i++) {
+      const p = cityCanvasPos(VIEW2_CITIES[i]);
+      const d = (p[0] - cx) * (p[0] - cx) + (p[1] - cy) * (p[1] - cy);
+      if (d < bestD) {
+        bestD = d;
+        best = VIEW2_CITIES[i];
+      }
+    }
+    return best;
+  }
+
+  function openCityConstruction(city) {
+    selectedCityName = city.name;
+    const idx = pixelRegions.findIndex((r) => r.id === city.region);
+    if (idx >= 0) {
+      pixelSelectedIndex = idx;
+      state.selectedIndex = -1;
+    }
+    if (window.CampaignUI) {
+      CampaignUI.openCity(city, {
+        switchTab: window.switchTab,
+        openPanel: openSidePanel,
+        flyTo: function (c) {
+          const rect = viewport.getBoundingClientRect();
+          CampaignUI.flyToCity(c, {
+            tx: state.tx,
+            ty: state.ty,
+            scale: state.scale,
+            minScale: state.minScale,
+            maxScale: state.maxScale,
+            mapW: state.canvasW,
+            mapH: state.canvasH,
+            viewportRect: rect,
+            cityPos: function (ci) {
+              const p = cityCanvasPos(ci);
+              return { x: p[0], y: p[1] };
             }
-
-            img.src = icons[faction] || icons.rome;
-            img.alt = faction;
+          }, function () { applyTransform(); render(); });
         }
+      });
+      if (sidePanelNote) {
+        sidePanelNote.textContent = 'Строительство · очередь зданий внизу экрана.';
+      }
+      return;
+    }
+    if (sidePanelNote) {
+      sidePanelNote.textContent = 'Поселение · откройте вкладку «Поселение» для строительства.';
+    }
+    openSidePanel(city.ru || city.name);
+    if (typeof window.switchTab === 'function') window.switchTab('settlement');
+    render();
+  }
 
-        function endTurn() {
-            const btn = document.querySelector('.btn-end-turn');
-            btn.style.opacity = '0.5';
-            setTimeout(() => {
-                alert(window.GameI18n ? GameI18n.t('alert.endTurn') : 'Ход передан другим фракциям.');
-                btn.style.opacity = '1';
-            }, 400);
+  function drawView1() {
+    try {
+      ctx.fillStyle = '#2a6e90';
+      ctx.fillRect(0, 0, state.canvasW, state.canvasH);
+      if (!state.features.length) {
+        ctx.fillStyle = 'rgba(232, 210, 140, 0.9)';
+        ctx.font = '22px Cinzel, serif';
+        ctx.textAlign = 'center';
+        ctx.fillText('Нет данных GeoJSON для вида 1', state.canvasW / 2, state.canvasH / 2);
+        return;
+      }
+      const under = paintView1Underlay();
+      ctx.drawImage(under, 0, 0);
+      drawAllBorders(state.selectedIndex);
+      drawCampaignOnMap();
+    } catch (err) {
+      console.warn('drawView1', err);
+      drawView2GeoFallback();
+    }
+  }
+
+  /** Запасной режим без картинки — старый GeoJSON-скетч. */
+  function drawView2GeoFallback() {
+    ctx.fillStyle = '#c5d9e8';
+    ctx.fillRect(0, 0, state.canvasW, state.canvasH);
+    for (let i = 0; i < state.features.length; i++) {
+      fillFeature(state.features[i], '#e8dcc4');
+    }
+    drawAllBorders(-1);
+  }
+
+  function render() {
+    try {
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = 'high';
+    } catch (_) {}
+    ctx.clearRect(0, 0, state.canvasW, state.canvasH);
+    if (state.view === 1) drawView1();
+    else if (isPixelView(state.view)) drawView2();
+    else drawView2GeoFallback();
+    window.__campaignMapRender = render;
+    try { updateMinimap(); } catch (_) {}
+  }
+
+  function updateMinimap() {
+    if (!window.CampaignUI) return;
+    const geo = minimapGeo || state.geojson;
+    let viewQuad = null;
+    let center = null;
+
+    if (EXTRA_MAPS[state.view]) {
+      if (extraCamera && extraCamera.viewQuad) viewQuad = extraCamera.viewQuad;
+      if (extraCamera && extraCamera.center) center = extraCamera.center;
+    } else {
+      const rect = viewport.getBoundingClientRect();
+      const corners = [
+        [rect.left, rect.top],
+        [rect.right, rect.top],
+        [rect.right, rect.bottom],
+        [rect.left, rect.bottom]
+      ];
+      viewQuad = corners.map(function (xy) {
+        const p = canvasPointFromClient(xy[0], xy[1]);
+        const ll = canvasToLonLat(p[0], p[1]);
+        return { lon: ll[0], lat: ll[1] };
+      });
+      const mid = canvasPointFromClient(rect.left + rect.width / 2, rect.top + rect.height / 2);
+      const cll = canvasToLonLat(mid[0], mid[1]);
+      center = { lon: cll[0], lat: cll[1] };
+    }
+
+    let highlightRings = null;
+    if (center) {
+      const feat = findGeoFeatureAt(geo, center.lon, center.lat);
+      if (feat) highlightRings = ringsFromFeature(feat);
+    }
+
+    CampaignUI.renderMinimap({
+      geojson: geo,
+      bbox: state.bbox,
+      viewQuad: viewQuad,
+      highlightRings: highlightRings,
+      mapW: state.canvasW,
+      mapH: state.canvasH
+    });
+  }
+
+  function cameraMode() {
+    return CAMERA_MODES[state.cameraMode] || CAMERA_MODES[0];
+  }
+
+  function updateCameraBtn() {
+    if (!cameraBtn) return;
+    cameraBtn.textContent = cameraMode().label;
+    cameraBtn.classList.toggle('active', cameraMode().id !== 'top');
+  }
+
+  function cycleCameraMode() {
+    state.cameraMode = (state.cameraMode + 1) % CAMERA_MODES.length;
+    localStorage.setItem('campaignMapCameraV2', String(state.cameraMode));
+    state.tiltExtra = 0;
+    state.yawExtra = 0;
+    updateCameraBtn();
+    fitCanvasToViewport();
+    render();
+  }
+
+  function applyTransform() {
+    clampCamera();
+    const cam = cameraMode();
+    if (window.MapEngine && MapEngine.applyCssTransform) {
+      MapEngine.applyCssTransform(stage, cam, state.tx, state.ty, state.scale, state.canvasH, state.tiltExtra, state.yawExtra);
+    } else {
+      const liftPx = Math.round(state.canvasH * (cam.lift || 0));
+      const rx = Math.max(0, Math.min(75, (cam.rotateX || 0) + (state.tiltExtra || 0)));
+      const rz = (cam.rotateZ || 0) + (state.yawExtra || 0);
+      stage.style.transform =
+        'translate3d(' + state.tx + 'px,' + state.ty + 'px,0) scale(' + state.scale + ') ' +
+        'rotateX(' + rx + 'deg) rotateZ(' + rz + 'deg) ' +
+        'matrix(' + cam.a + ',' + cam.b + ',' + cam.c + ',' + cam.d + ',0,' + liftPx + ')';
+    }
+    updateCameraScaleHud();
+    try { updateMinimap(); } catch (_) {}
+  }
+
+  function wrapYaw(deg) {
+    deg = deg % 360;
+    if (deg < 0) deg += 360;
+    return deg;
+  }
+
+  function effectiveRotateZ() {
+    return (cameraMode().rotateZ || 0) + (state.yawExtra || 0);
+  }
+
+  function updateCameraScaleHud() {
+    const zoomEl = document.getElementById('hudZoomPct');
+    const tiltEl = document.getElementById('hudTiltPct');
+    const yawEl = document.getElementById('hudYawPct');
+    if (!zoomEl || !tiltEl) return;
+    const minS = state.minScale || 0.5;
+    zoomEl.textContent = Math.round((state.scale / minS) * 100) + '%';
+    const cam = cameraMode();
+    const rx = Math.max(0, Math.min(75, (cam.rotateX || 0) + (state.tiltExtra || 0)));
+    tiltEl.textContent = Math.round((rx / 75) * 100) + '%';
+    if (yawEl) yawEl.textContent = Math.round(wrapYaw(state.yawExtra || 0)) + '°';
+    if (terrainCanvas && isPixelView(state.view) && state.view !== 4) {
+      const z = state.scale / minS;
+      terrainCanvas.style.opacity = String(Math.min(0.62, 0.28 + (z - 1) * 0.17));
+    }
+    if (state.view === 4 && window.View4Relief && View4Relief.renderTilt) {
+      View4Relief.renderTilt(rx);
+    }
+  }
+
+  /** Не даём утащить карту за край экрана (как в Total War). */
+  const STAGE_ORIGIN_Y = 0.92;
+  const PAN_EDGE = 14;
+
+  function originOffsetY() {
+    return (STAGE_ORIGIN_Y - 0.5) * state.canvasH;
+  }
+
+  function cameraYScale() {
+    const cam = cameraMode();
+    const rx = Math.max(0, Math.min(75, (cam.rotateX || 0) + (state.tiltExtra || 0)));
+    const base = Math.max(0.35, cam.fitY || cam.d || 1);
+    const k = Math.cos(rx * Math.PI / 180);
+    return Math.max(0.3, base * (0.4 + 0.6 * k));
+  }
+
+  function clampCamera() {
+    const rect = viewport.getBoundingClientRect();
+    const vw = Math.max(1, rect.width);
+    const vh = Math.max(1, rect.height);
+    const minS = state.minScale || 0.5;
+    const maxS = state.maxScale || 8;
+    state.scale = Math.max(minS, Math.min(maxS, state.scale));
+    const s = state.scale;
+    const sw = state.canvasW * s;
+    const visH = state.canvasH * s;
+    const oy = STAGE_ORIGIN_Y;
+    const offY = originOffsetY();
+    const mx = Math.max(36, vw * 0.1);
+    const my = Math.max(vh * 0.08, 40);
+
+    let minTx;
+    let maxTx;
+    if (sw >= vw - 2 * mx) {
+      maxTx = mx - vw / 2 + sw / 2;
+      minTx = vw / 2 - mx - sw / 2;
+    } else {
+      minTx = 0;
+      maxTx = 0;
+    }
+
+    const rx = Math.max(0, Math.min(75, (cameraMode().rotateX || 0) + (state.tiltExtra || 0)));
+    let maxTy = vh / 2 - my - offY + oy * visH;
+    let minTy = my - vh / 2 - offY - (1 - oy) * visH;
+    maxTy += visH * (0.12 + 0.55 * (1 - rx / 75));
+    minTy -= visH * 0.22;
+    if (minTy > maxTy) {
+      const pad = (minTy - maxTy) / 2 + 120;
+      minTy -= pad;
+      maxTy += pad;
+    }
+
+    state.tx = Math.max(minTx, Math.min(maxTx, state.tx));
+    state.ty = Math.max(minTy, Math.min(maxTy, state.ty));
+  }
+
+  function fitCanvasToViewport() {
+    const rect = viewport.getBoundingClientRect();
+    const cssW = Math.max(400, Math.floor(rect.width));
+    const cssH = Math.max(400, Math.floor(rect.height));
+
+    if (isPixelView(state.view) && state.mapImage) {
+      const iw = state.mapImage.naturalWidth || state.mapImage.width || 4086;
+      const ih = state.mapImage.naturalHeight || state.mapImage.height || 3465;
+      const k = Math.min(1, VIEW2_MAX_EDGE / Math.max(iw, ih));
+      state.canvasW = Math.max(1, Math.round(iw * k));
+      state.canvasH = Math.max(1, Math.round(ih * k));
+      view1Affine = null;
+      updateView2Cover();
+    } else {
+      view1Affine = null;
+      view1Paint = null;
+      view1PaintKey = '';
+      const [minLon, minLat, maxLon, maxLat] = saneBbox(state.bbox);
+      state.bbox = [minLon, minLat, maxLon, maxLat];
+      const geoW = Math.max(0.001, maxLon - minLon);
+      const geoH = Math.max(0.001, maxLat - minLat);
+      const geoAspect = geoW / geoH;
+      const base = 1600;
+      if (geoAspect >= 1) {
+        state.canvasW = base;
+        state.canvasH = Math.max(640, Math.round(base / geoAspect));
+      } else {
+        state.canvasH = base;
+        state.canvasW = Math.max(640, Math.round(base * geoAspect));
+      }
+    }
+
+    canvas.width = state.canvasW;
+    canvas.height = state.canvasH;
+    stage.style.width = state.canvasW + 'px';
+    stage.style.height = state.canvasH + 'px';
+    stage.style.marginLeft = (-state.canvasW / 2) + 'px';
+    stage.style.marginTop = (-state.canvasH / 2) + 'px';
+    syncPixelUnderlay();
+    rebuildTerrainLayer();
+    rebuildView4Relief();
+
+    const cam = cameraMode();
+    const yFactor = Math.max(0.35, cam.fitY || cam.d || 1);
+    const fitW = cssW / state.canvasW;
+    const fitH = cssH / (state.canvasH * yFactor);
+    const cover = Math.max(fitW, fitH) * 1.03;
+    state.minScale = cover;
+    state.maxScale = cover * 5;
+    state.scale = cover;
+    state.tx = 0;
+    state.ty = originOffsetY() * (cover * yFactor - 1);
+    applyTransform();
+  }
+
+  function findFeatureAtLonLat(lon, lat) {
+    if (typeof turf === 'undefined') return null;
+    const pt = turf.point([lon, lat]);
+    for (let i = 0; i < state.features.length; i++) {
+      const f = state.features[i];
+      try {
+        if (turf.booleanPointInPolygon(pt, f)) return { feature: f, index: i };
+      } catch (_) { /* skip broken geom */ }
+    }
+    return null;
+  }
+
+  function openSidePanel(name, note) {
+    sidePanelName.textContent = name || '—';
+    if (note && sidePanelNote) sidePanelNote.textContent = note;
+    sidePanel.classList.add('open');
+  }
+
+  function closeSidePanel() {
+    sidePanel.classList.remove('open');
+  }
+
+  function selectFeature(index) {
+    state.selectedIndex = index;
+    pixelSelectedIndex = -1;
+    if (index < 0) {
+      closeSidePanel();
+      render();
+      return;
+    }
+    const f = state.features[index];
+    const name = (f.properties && f.properties.reg_name) || 'Регион';
+    if (sidePanelNote) {
+      sidePanelNote.textContent =
+        'Границы провинций по GeoJSON. Голубое свечение — как в Rome: Total War.';
+    }
+    openSidePanel(name);
+    render();
+  }
+
+  function selectPixelRegion(index) {
+    pixelSelectedIndex = index;
+    state.selectedIndex = -1;
+    if (index < 0) {
+      closeSidePanel();
+      render();
+      return;
+    }
+    const r = pixelRegions[index];
+    if (r && r.id) CS.revealRegion(r.id);
+    if (sidePanelNote) {
+      sidePanelNote.textContent =
+        'Провинции по пиксельной маске подложки (берег = берег картинки). Не GeoJSON.';
+    }
+    openSidePanel(r ? r.name : 'Провинция');
+    render();
+  }
+
+  function setView(view) {
+    view = Number(view);
+    if (view === 7) view = 3;
+    if (!VALID_VIEWS.includes(view)) view = 1;
+
+    if (isPixelView(state.view) && state.view !== view) stashPixelView(state.view);
+
+    const prevView = state.view;
+    state.view = view;
+    localStorage.setItem('campaignMapVariant', String(view));
+
+    document.querySelectorAll('.map-variant-btn[data-view]').forEach((btn) => {
+      btn.classList.toggle('active', Number(btn.dataset.view) === view);
+    });
+
+    const isExtra = Boolean(EXTRA_MAPS[view]);
+    if (mapArea) mapArea.classList.toggle('extra-mode', isExtra);
+    if (cameraBtn) cameraBtn.style.display = isExtra ? 'none' : '';
+    var frameEl = document.querySelector('.game-frame');
+    if (frameEl) frameEl.classList.remove('tw-immersive');
+
+    if (isExtra) {
+      closeSidePanel();
+      stage.classList.remove('is-pixel-view');
+      if (mapExtraFrame) {
+        mapExtraFrame.classList.add('visible');
+        const nextSrc = EXTRA_MAPS[view];
+        const abs = new URL(nextSrc, window.location.href).href;
+        const switchEngine = ENGINE_VIEWS[view] && ENGINE_VIEWS[prevView]
+          && mapExtraFrame.contentWindow
+          && /\/maps\/view10\/map\.html/.test(mapExtraFrame.src);
+        if (switchEngine) {
+          mapExtraFrame.contentWindow.postMessage({ type: 'set-engine', engine: ENGINE_VIEWS[view] }, '*');
+        } else if (mapExtraFrame.src !== abs) {
+          mapExtraFrame.src = nextSrc;
         }
+        extraCamera = null;
+        setTimeout(function () {
+          try {
+            if (mapExtraFrame.contentWindow) {
+              mapExtraFrame.contentWindow.postMessage({ type: 'camera-state-request' }, '*');
+            }
+          } catch (_) {}
+        }, 400);
+      }
+      setPlaceholder('', false);
+      if (window.CampaignUI) CampaignUI.syncToIframe(mapExtraFrame);
+      updateMinimap();
+      return;
+    }
 
-        window.addEventListener('resize', () => {
-            const modal = document.getElementById('modalContent');
-            const sec = document.getElementById('secondaryContent');
-            if (modal && modal.style.display === 'block') {
-                if (modalMode === 'tech') {
-                    layoutTechPanel(modal);
-                } else if (modalMode === 'framed') {
-                    layoutFramedPanel(modal);
-                } else {
-                    layoutSidePanel(modal, 'right');
-                }
-            }
-            if (sec && sec.style.display === 'block') {
-                if (sec.style.transform.includes('translate')) {
-                    layoutCenterDetailPanel(sec);
-                } else {
-                    layoutSidePanel(sec, 'left');
-                }
-            }
+    if (mapExtraFrame) {
+      mapExtraFrame.classList.remove('visible');
+      mapExtraFrame.src = 'about:blank';
+    }
+    extraCamera = null;
+
+    if (isPixelView(view)) {
+      if (pixelCache[view] && pixelCache[view].mapImage) {
+        applyPixelPack(view);
+        setPlaceholder('', false);
+        fitCanvasToViewport();
+        render();
+        return;
+      }
+      setPlaceholder('Загрузка подложки…', true);
+      ensurePixelView(view).then(function (ok) {
+        if (state.view !== view) return;
+        if (!ok) {
+          setPlaceholder('Не удалось загрузить подложку вида ' + view, true);
+          return;
+        }
+        setPlaceholder('', false);
+        fitCanvasToViewport();
+        render();
+      });
+      return;
+    }
+
+    PIXEL_REF = pixelRefFor(2);
+    setPlaceholder('', false);
+    fitCanvasToViewport();
+    render();
+    requestAnimationFrame(function () {
+      if (state.view !== view) return;
+      fitCanvasToViewport();
+      render();
+    });
+  }
+
+  function panCanvasPointToCenter(mapX, mapY) {
+    const cam = cameraMode();
+    const s = state.scale || 1;
+    let cx = mapX - state.canvasW / 2;
+    let cy = mapY - state.canvasH / 2;
+    let ux = cam.a * cx + cam.c * cy;
+    let uy = cam.b * cx + cam.d * cy;
+    const rz = (effectiveRotateZ() * Math.PI) / 180;
+    const cz = Math.cos(rz);
+    const sz = Math.sin(rz);
+    let px = ux * cz - uy * sz;
+    let py = ux * sz + uy * cz;
+    const rx = Math.max(0, Math.min(75, (cam.rotateX || 0) + (state.tiltExtra || 0))) * Math.PI / 180;
+    const cosX = Math.cos(rx);
+    if (Math.abs(cosX) > 0.08) py *= cosX;
+    state.tx = -px * s;
+    state.ty = -py * s;
+    applyTransform();
+  }
+
+  function panToLonLat(lon, lat) {
+    if (EXTRA_MAPS[state.view]) {
+      if (mapExtraFrame && mapExtraFrame.contentWindow) {
+        try {
+          mapExtraFrame.contentWindow.postMessage({ type: 'camera-goto', lon: lon, lat: lat }, '*');
+        } catch (_) {}
+      }
+      return;
+    }
+    const p = lonLatToCanvas(lon, lat);
+    panCanvasPointToCenter(p[0], p[1]);
+  }
+
+  function canvasPointFromClient(clientX, clientY) {
+    const rect = viewport.getBoundingClientRect();
+    const vx = clientX - rect.left - rect.width / 2;
+    const vy = clientY - rect.top - rect.height / 2;
+    const cam = cameraMode();
+    const s = state.scale || 1;
+    let px = (vx - state.tx) / s;
+    let py = (vy - state.ty) / s;
+    const rx = (cam.rotateX || 0) * Math.PI / 180;
+    const cosX = Math.cos(rx);
+    if (Math.abs(cosX) > 0.08) py = py / cosX;
+    const rz = -(effectiveRotateZ() * Math.PI / 180);
+    const cz = Math.cos(rz);
+    const sz = Math.sin(rz);
+    const ux = px * cz - py * sz;
+    const uy = px * sz + py * cz;
+    const det = cam.a * cam.d - cam.b * cam.c || 1;
+    const cx = (cam.d * ux - cam.c * uy) / det;
+    const cy = (-cam.b * ux + cam.a * uy) / det;
+    return [cx + state.canvasW / 2, cy + state.canvasH / 2];
+  }
+
+  viewport.addEventListener('wheel', (e) => {
+    if (EXTRA_MAPS[state.view]) return;
+    e.preventDefault();
+    const factor = e.deltaY < 0 ? 1.1 : 1 / 1.1;
+    const next = Math.min(state.maxScale || 8, Math.max(state.minScale || 0.5, state.scale * factor));
+    if (Math.abs(next - state.scale) < 1e-6) return;
+    const rect = viewport.getBoundingClientRect();
+    const k = next / state.scale;
+    const cx = e.clientX - rect.left - rect.width / 2;
+    const cy = e.clientY - rect.top - rect.height / 2;
+    state.tx = cx - (cx - state.tx) * k;
+    state.ty = cy - (cy - state.ty) * k;
+    state.scale = next;
+    applyTransform();
+  }, { passive: false });
+
+  viewport.addEventListener('mousedown', (e) => {
+    if (EXTRA_MAPS[state.view]) return;
+    if (e.button !== 0) return;
+    state.dragging = true;
+    state.moved = false;
+    state.lastX = e.clientX;
+    state.lastY = e.clientY;
+    viewport.classList.add('is-dragging');
+  });
+
+  window.addEventListener('mousemove', (e) => {
+    if (!state.dragging) return;
+    const dx = e.clientX - state.lastX;
+    const dy = e.clientY - state.lastY;
+    if (Math.abs(dx) > 3 || Math.abs(dy) > 3) state.moved = true;
+    state.lastX = e.clientX;
+    state.lastY = e.clientY;
+    state.tx += dx;
+    state.ty += dy;
+    applyTransform();
+  });
+
+  window.addEventListener('mouseup', (e) => {
+    if (e.target && e.target.id === 'minimapCanvas') {
+      state.dragging = false;
+      viewport.classList.remove('is-dragging');
+      return;
+    }
+    if (!state.dragging) return;
+    const wasDrag = state.moved;
+    state.dragging = false;
+    viewport.classList.remove('is-dragging');
+    if (wasDrag) return;
+    if (EXTRA_MAPS[state.view]) return;
+
+    const [cx, cy] = canvasPointFromClient(e.clientX, e.clientY);
+    if (cx < 0 || cy < 0 || cx > state.canvasW || cy > state.canvasH) return;
+
+    if (isPixelView(state.view) && state.mapImage) {
+      updateView2Cover();
+      const city = findCityAt(cx, cy);
+      if (city) {
+        openCityConstruction(city);
+        return;
+      }
+      if (pixelRegions.length) {
+        const hit = findPixelRegionAt(cx, cy);
+        if (!hit) return;
+        selectedCityName = '';
+        selectPixelRegion(hit.index);
+        return;
+      }
+    }
+
+    const [lon, lat] = unproject(cx, cy);
+    const hit = findFeatureAtLonLat(lon, lat);
+    if (!hit) return;
+    selectFeature(hit.index);
+  });
+
+  document.querySelectorAll('.map-variant-btn[data-view]').forEach((btn) => {
+    btn.addEventListener('click', () => setView(btn.dataset.view));
+  });
+  if (cameraBtn) cameraBtn.addEventListener('click', cycleCameraMode);
+
+  const minimapEl = document.getElementById('minimapCanvas');
+  if (minimapEl) {
+    minimapEl.addEventListener('mousedown', function (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    });
+    minimapEl.addEventListener('click', function (e) {
+      e.preventDefault();
+      e.stopPropagation();
+      if (!window.MapEngine || !MapEngine.minimapToLonLat) return;
+      const rect = minimapEl.getBoundingClientRect();
+      const px = (e.clientX - rect.left) * (minimapEl.width / Math.max(1, rect.width));
+      const py = (e.clientY - rect.top) * (minimapEl.height / Math.max(1, rect.height));
+      const ll = MapEngine.minimapToLonLat(px, py, {
+        width: minimapEl.width,
+        height: minimapEl.height,
+        bbox: state.bbox
+      });
+      panToLonLat(ll.lon, ll.lat);
+    });
+  }
+
+  window.addEventListener('message', function (e) {
+    if (!e.data) return;
+    if (e.data.type === 'camera-state') {
+      extraCamera = e.data;
+      updateMinimap();
+      return;
+    }
+    if (e.data.type === 'army-select') {
+      if (window.CampaignUI && CampaignUI.openFieldArmy) {
+        CampaignUI.openFieldArmy(e.data.armyId || (CampaignState.state.fieldArmies[0] && CampaignState.state.fieldArmies[0].id));
+      }
+      return;
+    }
+    if (e.data.type === 'army-deselect') {
+      if (window.CampaignUI && CampaignUI.clearCityPanels) {
+        if (!CampaignState.state.selectedCity) CampaignUI.clearCityPanels();
+      }
+      return;
+    }
+    if (e.data.type === 'army-merged' && e.data.city) {
+      if (window.CampaignUI && window.CampaignState) {
+        var city = CampaignState.getCity(e.data.city);
+        if (city) {
+          CampaignUI.openCity(city, {
+            tab: 'army',
+            switchTab: window.switchTab
+          });
+        }
+      }
+      return;
+    }
+    if (e.data.type === 'city-select' && e.data.city) {
+      if (window.CampaignUI && CampaignUI.clearGarrisonSelection) {
+        CampaignUI.clearGarrisonSelection();
+      }
+      var city = e.data.city;
+      var known = window.CampaignState && CampaignState.getCity(city.name);
+      if (!known && window.CampaignState) {
+        known = CampaignState.CITIES.find(function (c) {
+          return c.ru === city.ru || Math.abs((c.lon || 0) - (city.lon || 0)) < 0.15;
         });
+      }
+      var target = known || {
+        name: city.name,
+        ru: city.ru || city.name,
+        region: city.region,
+        lon: city.lon,
+        lat: city.lat,
+        faction: city.faction || 'rome',
+        capital: !!city.capital,
+        x: 2100,
+        y: 1680
+      };
+      if (window.CampaignUI) {
+        CampaignUI.openCity(target, {
+          switchTab: function (tab) {
+            window.switchTab(e.data.tab === 'army' ? 'army' : (tab || 'settlement'));
+          }
+        });
+      } else if (typeof window.switchTab === 'function') {
+        window.switchTab(e.data.tab === 'army' ? 'army' : 'settlement');
+      }
+      if (e.data.tab === 'army' && typeof window.switchTab === 'function') {
+        window.switchTab('army');
+      }
+      return;
+    }
+    if (e.data.type === 'city-deselect') {
+      if (window.CampaignUI && CampaignUI.deselectCity) {
+        CampaignUI.deselectCity();
+      } else if (window.CampaignState) {
+        if (CampaignState.clearSelectedCity) CampaignState.clearSelectedCity();
+        else CampaignState.state.selectedCity = null;
+        if (window.CampaignUI && CampaignUI.clearCityPanels) CampaignUI.clearCityPanels();
+      }
+      return;
+    }
+  });
 
-        (function initFromQuery() {
-            if (window.GameI18n) GameI18n.apply();
-            loadFactionIcon();
+  window.addEventListener('keydown', (e) => {
+    const tag = e.target && e.target.tagName;
+    if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+    if (e.code === 'KeyQ' || e.code === 'KeyE') {
+      e.preventDefault();
+      const delta = e.code === 'KeyQ' ? -3 : 3;
+      if (EXTRA_MAPS[state.view] && mapExtraFrame && mapExtraFrame.contentWindow) {
+        mapExtraFrame.contentWindow.postMessage({ type: 'camera-tilt', delta: delta }, '*');
+        return;
+      }
+      const cam = cameraMode();
+      const next = Math.max(0, Math.min(75, (cam.rotateX || 0) + (state.tiltExtra || 0) + delta));
+      state.tiltExtra = next - (cam.rotateX || 0);
+      applyTransform();
+      return;
+    }
+    if (e.code === 'KeyZ' || e.code === 'KeyC') {
+      e.preventDefault();
+      const delta = e.code === 'KeyZ' ? -6 : 6;
+      if (EXTRA_MAPS[state.view] && mapExtraFrame && mapExtraFrame.contentWindow) {
+        mapExtraFrame.contentWindow.postMessage({ type: 'camera-rotate', delta: delta }, '*');
+        return;
+      }
+      state.yawExtra = wrapYaw((state.yawExtra || 0) + delta);
+      applyTransform();
+    }
+  });
+  document.getElementById('sidePanelClose').addEventListener('click', () => {
+    state.selectedIndex = -1;
+    pixelSelectedIndex = -1;
+    closeSidePanel();
+    render();
+  });
 
-            const params = new URLSearchParams(window.location.search);
-            const faction = (params.get('faction') || 'rome').toLowerCase();
-            const mapPlaceholder = document.getElementById('mapPlaceholder');
-            if (!mapPlaceholder) return;
+  let resizeTimer = null;
+  window.addEventListener('resize', () => {
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(() => {
+      if (EXTRA_MAPS[state.view]) return;
+      fitCanvasToViewport();
+      render();
+    }, 150);
+  });
 
-            const config = {
-                rome: {
-                    titleKey: 'title.campaign.rome',
-                    labelKey: 'map.rome',
-                },
-                carthage: {
-                    titleKey: 'title.campaign.carthage',
-                    labelKey: 'map.carthage',
-                },
-            }[faction] || {
-                titleKey: 'title.campaign.rome',
-                labelKey: 'map.placeholder',
-            };
+  window.switchTab = function (tab) {
+    document.querySelectorAll('.tab-btn').forEach((btn, i) => {
+      btn.classList.toggle('active', (tab === 'army' && i === 0) || (tab === 'settlement' && i === 1));
+    });
+    const sg = document.getElementById('settlementGrid');
+    const ag = document.getElementById('armyGrid');
+    const ag2 = document.getElementById('armyGrid2');
+    if (sg && ag && ag2) {
+      const isSet = tab === 'settlement';
+      sg.style.display = isSet ? 'grid' : 'none';
+      ag.style.display = isSet ? 'none' : 'flex';
+      ag2.style.display = isSet ? 'none' : 'flex';
+      if (window.CampaignUI && window.CampaignState) {
+        if (isSet) {
+          CampaignUI.renderSettlementPanel(CampaignState.state.selectedCity);
+        } else if (CampaignState.state.selectedFieldArmyId && CampaignUI.renderFieldArmyPanel) {
+          CampaignUI.renderFieldArmyPanel(CampaignState.state.selectedFieldArmyId);
+        } else {
+          CampaignUI.renderArmyPanel(CampaignState.state.selectedCity);
+        }
+      }
+    }
+  };
 
-            document.title = GameI18n.t(config.titleKey);
-            mapPlaceholder.textContent = GameI18n.t(config.labelKey);
-        })();
+  async function boot() {
+    let saved = Number(localStorage.getItem('campaignMapVariant') || 1);
+    if (saved === 7) saved = 3;
+    if (!VALID_VIEWS.includes(saved)) saved = 1;
+    state.cameraMode = 0;
+    updateCameraBtn();
+
+    setPlaceholder(EXTRA_MAPS[saved] ? '' : 'Загрузка регионов Италии…', !EXTRA_MAPS[saved]);
+
+    if (typeof turf === 'undefined') {
+      console.warn('Turf.js не загрузился — Вид 1 (GeoJSON) будет ограничен');
+    }
+
+    let geo = null;
+    try {
+      geo = await fetchFirstJson(GEOJSON_URLS);
+    } catch (err) {
+      console.error(err);
+    }
+    try {
+      minimapGeo = await fetchFirstJson(MINIMAP_GEO_URLS);
+    } catch (_) {
+      minimapGeo = geo;
+    }
+    if (!minimapGeo) minimapGeo = geo;
+    if (geo) geo = simplifyCollection(geo, 96);
+    if (minimapGeo) minimapGeo = simplifyCollection(minimapGeo, 72);
+
+    loadTerrainTiles();
+    if (window.ItalyDEM) {
+      ItalyDEM.load().then(function (ok) {
+        if (!ok) return;
+        view1Paint = null;
+        view1PaintKey = '';
+        if (state.view === 1) render();
+      });
+    }
+
+    if (geo && geo.features && geo.features.length) {
+      state.geojson = geo;
+      state.features = geo.features.slice();
+        try {
+          state.bbox = saneBbox(turf.bbox(geo));
+        } catch (_) {
+          state.bbox = [6.5, 36.4, 18.6, 47.2];
+        }
+    } else {
+      state.geojson = null;
+      state.features = [];
+    }
+
+    window.__mapDebug = {
+      getState: () => ({
+        view: state.view,
+        canvas: [state.canvasW, state.canvasH],
+        affine: view1Affine,
+        pixelRegions: pixelRegions.length,
+        rome: project(12.5, 41.9),
+        features: state.features.length
+      }),
+      project: project,
+      setView: setView
+    };
+
+    if (window.CampaignUI) {
+      CampaignUI.init({
+        onEndTurn: function () {
+          render();
+          if (EXTRA_MAPS[state.view]) CampaignUI.syncToIframe(mapExtraFrame);
+          var ys = document.getElementById('hudYearSide');
+          var ts = document.getElementById('hudTreasurySide');
+          if (ys) ys.textContent = document.getElementById('hudYear').textContent;
+          if (ts) ts.textContent = document.getElementById('hudTreasury').textContent;
+        },
+        onFrame: function () {
+          if (EXTRA_MAPS[state.view]) return;
+          if (state.view === 1 || isPixelView(state.view)) render();
+        }
+      });
+    }
+
+    setPlaceholder('', false);
+    setView(saved);
+  }
+
+  boot();
+})();
     </script>
 
-    <div id="modalBackdrop" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.65); z-index:1000; pointer-events:none;"></div>
-    <iframe id="modalContent" style="display:none; position:fixed; z-index:1001; border:none; background:#0a0502;" frameborder="0"></iframe>
-    <iframe id="secondaryContent" style="display:none; position:fixed; z-index:1002; border:none; background:#0a0502;" frameborder="0"></iframe>
+    <div id="modalBackdrop" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.65); z-index:1000;"></div>
+    <iframe id="modalContent" title="Панель" style="display:none; position:fixed; z-index:1001; border:none; background:#0a0502;" frameborder="0"></iframe>
+    <iframe id="secondaryContent" title="Доп. панель" style="display:none; position:fixed; z-index:1002; border:none; background:#0a0502;" frameborder="0"></iframe>
 
+    <script>
+    (function () {
+      'use strict';
+      var PANEL_EDGE = 4;
+      var PANEL_WIDTH = '40%';
+      var FRAME_INSET = 24;
+      var SIDE_PANEL_HEIGHT_SCALE = 1.2;
+      var modalMode = 'right';
+
+      function getSidePanelHeight() {
+        var bottomPanel = document.querySelector('.bottom-panel');
+        var bottomHeight = bottomPanel ? bottomPanel.getBoundingClientRect().height : 120;
+        var baseHeight = window.innerHeight - bottomHeight - PANEL_EDGE;
+        return Math.ceil(baseHeight * SIDE_PANEL_HEIGHT_SCALE) + 'px';
+      }
+
+      function applyPanelBorder(el, side) {
+        el.style.border = 'none';
+        el.style.borderTop = '2px solid #c9a84c';
+        el.style.borderBottom = '2px solid #c9a84c';
+        if (side === 'right') {
+          el.style.borderLeft = '2px solid #c9a84c';
+          el.style.borderRight = 'none';
+        } else {
+          el.style.borderRight = '2px solid #c9a84c';
+          el.style.borderLeft = 'none';
+        }
+      }
+
+      function layoutSidePanel(el, side) {
+        el.style.position = 'fixed';
+        el.style.top = PANEL_EDGE + 'px';
+        el.style.width = PANEL_WIDTH;
+        el.style.height = getSidePanelHeight();
+        el.style.transform = 'none';
+        el.style.pointerEvents = 'auto';
+        el.style.background = '#0a0502';
+        el.style.borderRadius = '0';
+        if (side === 'right') {
+          el.style.left = 'auto';
+          el.style.right = PANEL_EDGE + 'px';
+          el.style.boxShadow = '-10px 0 30px rgba(0,0,0,0.8)';
+        } else {
+          el.style.left = PANEL_EDGE + 'px';
+          el.style.right = 'auto';
+          el.style.boxShadow = '10px 0 30px rgba(0,0,0,0.8)';
+        }
+        applyPanelBorder(el, side);
+      }
+
+      function layoutTechPanel(el) {
+        var margin = 0.05;
+        el.style.position = 'fixed';
+        el.style.top = Math.round(window.innerHeight * margin) + 'px';
+        el.style.left = Math.round(window.innerWidth * margin) + 'px';
+        el.style.right = 'auto';
+        el.style.bottom = 'auto';
+        el.style.width = Math.round(window.innerWidth * (1 - margin * 2)) + 'px';
+        el.style.height = Math.round(window.innerHeight * (1 - margin * 2)) + 'px';
+        el.style.transform = 'none';
+        el.style.pointerEvents = 'auto';
+        el.style.background = '#0a0502';
+        el.style.border = '2px solid #c9a84c';
+        el.style.borderRadius = '6px';
+        el.style.boxShadow = '0 0 40px rgba(0,0,0,0.85)';
+      }
+
+      function layoutFramedPanel(el) {
+        el.style.position = 'fixed';
+        el.style.top = FRAME_INSET + 'px';
+        el.style.left = FRAME_INSET + 'px';
+        el.style.right = FRAME_INSET + 'px';
+        el.style.bottom = FRAME_INSET + 'px';
+        el.style.width = 'auto';
+        el.style.height = 'auto';
+        el.style.transform = 'none';
+        el.style.pointerEvents = 'auto';
+        el.style.background = '#0a0502';
+        el.style.border = '2px solid #c9a84c';
+        el.style.borderRadius = '6px';
+        el.style.boxShadow = '0 0 40px rgba(0,0,0,0.85)';
+      }
+
+      function layoutCenterDetailPanel(el) {
+        el.style.position = 'fixed';
+        el.style.left = '50%';
+        el.style.top = '50%';
+        el.style.width = 'min(960px, 94vw)';
+        el.style.height = 'min(90vh, 880px)';
+        el.style.transform = 'translate(-50%, -50%)';
+        el.style.pointerEvents = 'auto';
+        el.style.background = '#0a0502';
+        el.style.border = '2px solid #c9a84c';
+        el.style.borderRadius = '6px';
+        el.style.boxShadow = '0 0 40px rgba(0,0,0,0.85)';
+      }
+
+      function closeSecondaryModal() {
+        var sec = document.getElementById('secondaryContent');
+        if (sec) {
+          sec.style.display = 'none';
+          sec.src = 'about:blank';
+        }
+      }
+
+      window.openSecondaryModal = function (url, opts) {
+        opts = opts || {};
+        var sec = document.getElementById('secondaryContent');
+        if (!sec) return;
+        var side = opts.position === 'right' ? 'right' : 'left';
+        if (opts.position === 'center') {
+          layoutCenterDetailPanel(sec);
+        } else {
+          layoutSidePanel(sec, side);
+        }
+        sec.style.display = 'block';
+        sec.src = url;
+      };
+
+      window.closeSecondaryModal = closeSecondaryModal;
+
+      window.openEntityDetailPage = function (entityId) {
+        if (!entityId) return;
+        window.openSecondaryModal(
+          'pageOfDetailAboutUnitAndBuild.html?entity=' + encodeURIComponent(entityId),
+          { position: 'left' }
+        );
+      };
+
+      window.openBottomArmyDetail = function (entityId) {
+        if (window.CampaignUI && CampaignUI.openFieldArmy && window.CampaignState) {
+          var id = CampaignState.state.selectedFieldArmyId
+            || (CampaignState.state.fieldArmies[0] && CampaignState.state.fieldArmies[0].id);
+          if (id) CampaignUI.openFieldArmy(id);
+        }
+      };
+
+      window.closeBottomArmyDetail = function () {
+        if (window.CampaignUI && window.CampaignState) {
+          var city = CampaignState.state.selectedCity;
+          if (city) {
+            CampaignUI.renderSettlementPanel(city);
+            CampaignUI.renderArmyPanel(city);
+          } else if (CampaignUI.clearCityPanels) {
+            CampaignUI.clearCityPanels();
+          }
+        }
+      };
+
+      function getCampaignFaction() {
+        var params = new URLSearchParams(window.location.search);
+        return (params.get('faction') || 'rome').toLowerCase();
+      }
+
+      function setIconActive(which) {
+        var army = document.getElementById('iconArmy');
+        var build = document.getElementById('iconBuild');
+        var tech = document.getElementById('iconTech');
+        if (army) army.classList.toggle('active', which === 'army');
+        if (build) build.classList.toggle('active', which === 'build');
+        if (tech) tech.classList.toggle('active', which === 'tech');
+      }
+
+      window.closeModal = function () {
+        closeSecondaryModal();
+        var modal = document.getElementById('modalContent');
+        var backdrop = document.getElementById('modalBackdrop');
+        if (modal) {
+          modal.style.display = 'none';
+          modal.src = 'about:blank';
+          modalMode = 'right';
+        }
+        if (backdrop) backdrop.style.display = 'none';
+      };
+
+      window.openModal = function (url, mode) {
+        mode = mode || 'right';
+        var modal = document.getElementById('modalContent');
+        var backdrop = document.getElementById('modalBackdrop');
+        if (!modal || !backdrop) return;
+        modalMode = mode;
+        if (mode === 'tech') {
+          closeSecondaryModal();
+          layoutTechPanel(modal);
+        } else if (mode === 'framed') {
+          closeSecondaryModal();
+          layoutFramedPanel(modal);
+        } else {
+          layoutSidePanel(modal, 'right');
+        }
+        modal.style.display = 'block';
+        backdrop.style.display = 'block';
+        modal.src = url;
+      };
+
+      window.openBuildArmy = function (tab) {
+        setIconActive(tab === 'build' ? 'build' : 'army');
+        var city = (window.CampaignState && CampaignState.state.selectedCity) || '';
+        window.openModal(
+          'buildArmy.html?tab=' + encodeURIComponent(tab || 'recruit') +
+          '&faction=' + encodeURIComponent(getCampaignFaction()) +
+          '&city=' + encodeURIComponent(city),
+          'right'
+        );
+      };
+
+      window.openTech = function () {
+        closeSecondaryModal();
+        setIconActive('tech');
+        window.openModal('tech.html', 'tech');
+      };
+
+      window.openFactionWindow = function () {
+        closeSecondaryModal();
+        setIconActive(null);
+        window.openModal(
+          'pageOfCountry.html?faction=' + encodeURIComponent(getCampaignFaction()),
+          'tech'
+        );
+      };
+
+      window.endTurn = function () {
+        if (window.CampaignState) CampaignState.endTurn();
+        if (window.CampaignUI) CampaignUI.updateHud();
+      };
+
+      var backdrop = document.getElementById('modalBackdrop');
+      if (backdrop) {
+        backdrop.style.pointerEvents = 'auto';
+        backdrop.addEventListener('click', function () { window.closeModal(); });
+      }
+
+      window.addEventListener('message', function (event) {
+        if (!event.data) return;
+        if (event.data.type === 'close-modal' || event.data.type === 'closeFaction' || event.data.type === 'close') {
+          window.closeModal();
+        }
+      });
+
+      window.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape') {
+          window.closeBottomArmyDetail && window.closeBottomArmyDetail();
+          window.closeModal();
+        }
+      });
+
+      window.addEventListener('resize', function () {
+        var modal = document.getElementById('modalContent');
+        var sec = document.getElementById('secondaryContent');
+        if (modal && modal.style.display === 'block') {
+          if (modalMode === 'tech') layoutTechPanel(modal);
+          else if (modalMode === 'framed') layoutFramedPanel(modal);
+          else layoutSidePanel(modal, 'right');
+        }
+        if (sec && sec.style.display === 'block') {
+          if ((sec.style.transform || '').indexOf('translate') >= 0) layoutCenterDetailPanel(sec);
+          else layoutSidePanel(sec, 'left');
+        }
+      });
+
+      (function loadFactionIcon() {
+        var faction = getCampaignFaction();
+        var img = document.getElementById('factionIconImg');
+        if (!img) return;
+        var icons = { rome: '../images/icon_rome.png', carthage: '../images/icon_carthage.png' };
+        if (window.GameContent) {
+          var data = GameContent.getFaction(faction);
+          if (data && data.icon) {
+            img.src = data.icon;
+            img.alt = data.name || faction;
+            return;
+          }
+        }
+        img.src = icons[faction] || icons.rome;
+        img.alt = faction;
+      })();
+    })();
+    </script>
 </body>
 </html>

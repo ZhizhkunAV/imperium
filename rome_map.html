@@ -1,0 +1,658 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Rome Map — Вид 4 / Вид 5</title>
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700&family=EB+Garamond:wght@500;600&display=swap" rel="stylesheet">
+  <style>
+    html, body { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background: #04080c; font-family: 'EB Garamond', Georgia, serif; color: #efe4d0; }
+    #view4, #view5 { position: absolute; inset: 0; width: 100%; height: 100%; }
+    #view4 { z-index: 1; cursor: grab; display: block; }
+    #view4.dragging { cursor: grabbing; }
+    #view5 { z-index: 1; display: none; cursor: grab; }
+    #view5 canvas { display: block; width: 100% !important; height: 100% !important; }
+    #hud {
+      position: fixed; top: 12px; right: 12px; z-index: 30; padding: 10px 12px;
+      background: rgba(12, 8, 4, 0.72); border: 1px solid rgba(201, 168, 76, 0.45);
+      box-shadow: 0 8px 24px rgba(0,0,0,0.45); min-width: 180px;
+    }
+    #hud.embedded { display: none; }
+    #hud button {
+      width: 100%; font-family: 'Cinzel', serif; font-size: 11px; letter-spacing: 0.08em;
+      text-transform: uppercase; color: #f5e6c8; background: rgba(30, 22, 12, 0.9);
+      border: 1px solid rgba(201, 168, 76, 0.55); padding: 8px 10px; cursor: pointer;
+    }
+    #hud button:hover { border-color: #e0c878; color: #fff; }
+    #hud .hint { margin-top: 7px; font-size: 12px; color: #b7a078; line-height: 1.35; }
+    #camHud {
+      position: fixed; top: 12px; left: 12px; z-index: 30; min-width: 118px;
+      padding: 8px 10px; background: rgba(16, 12, 8, 0.88);
+      border: 1px solid rgba(201, 168, 76, 0.45); pointer-events: none;
+    }
+    #camHud .row { display: flex; justify-content: space-between; gap: 12px; font-size: 12px; }
+    #camHud .row + .row { margin-top: 3px; }
+    #camHud span { color: #b7a078; text-transform: uppercase; letter-spacing: 0.08em; font-size: 10px; }
+    #camHud b { font-family: 'Cinzel', serif; color: #f5e6c8; }
+    #status {
+      position: fixed; left: 12px; bottom: 12px; z-index: 30; font-size: 13px; color: #c9b48a;
+      background: rgba(8, 6, 3, 0.55); padding: 6px 10px; border: 1px solid rgba(201, 168, 76, 0.25);
+      pointer-events: none;
+    }
+  </style>
+</head>
+<body>
+  <canvas id="view4" tabindex="0"></canvas>
+  <div id="view5"></div>
+  <div id="hud">
+    <button type="button" id="swapBtn">Сменить вид карты</button>
+    <div class="hint" id="hudHint">Сейчас: Вид 4 (Canvas)</div>
+  </div>
+  <div id="camHud">
+    <div class="row"><span>Зум</span><b id="hudZoom">100%</b></div>
+    <div class="row"><span>Наклон</span><b id="hudTilt">80%</b></div>
+  </div>
+  <div id="status">Загрузка карты Италии…</div>
+
+  <script src="three.min.js"></script>
+  <script src="/maps/rome/three.min.js"></script>
+  <script>
+(function () {
+  'use strict';
+
+  var GEO_URLS = [
+    '/maps/view3/italy.geojson',
+    '../view3/italy.geojson',
+    'https://cdn.jsdelivr.net/gh/holtzy/D3-graph-gallery@master/DATA/world.geojson',
+    'https://raw.githubusercontent.com/holtzy/D3-graph-gallery/master/DATA/world.geojson'
+  ];
+  var FALLBACK_RINGS = [
+    [[7.5,43.75],[8.15,44.35],[8.75,44.85],[9.2,45.55],[10.55,45.75],[11.05,46.52],[12.35,46.52],[13.72,45.65],[13.48,43.62],[13.95,42.38],[14.95,41.92],[16.05,41.92],[17.25,40.82],[18.37,40.38],[17.15,40.52],[16.55,39.52],[17.15,39.52],[16.48,38.86],[15.63,38.12],[15.78,39.52],[16.18,41.55],[14.78,40.72],[14.15,40.92],[13.52,41.22],[12.18,41.68],[11.12,42.38],[10.48,42.85],[10.28,43.52],[9.82,44.12],[8.48,44.28],[7.55,43.78]],
+    [[12.42,38.18],[13.28,38.28],[15.08,38.28],[15.63,38.08],[15.28,36.68],[14.28,37.02],[12.52,37.52],[12.42,38.18]],
+    [[8.13,41.25],[9.63,41.22],[9.78,39.12],[8.38,38.86],[8.13,41.25]]
+  ];
+  var TILT_MIN = 0, TILT_MAX = 75, TILT_DEFAULT = 60, TILT_STEP = 3;
+  var MIN_ZOOM = 1, MAX_ZOOM = 5;
+
+  var params = {};
+  try {
+    window.location.search.slice(1).split('&').forEach(function (pair) {
+      var p = pair.split('=');
+      if (p[0]) params[decodeURIComponent(p[0])] = decodeURIComponent(p[1] || '');
+    });
+  } catch (_) {}
+
+  var embedded = window.parent !== window;
+  var mode = params.view === '5' ? 5 : 4;
+  var canvas = document.getElementById('view4');
+  var ctx = canvas.getContext('2d');
+  var view5 = document.getElementById('view5');
+  var statusEl = document.getElementById('status');
+  var hud = document.getElementById('hud');
+  var hudHint = document.getElementById('hudHint');
+  if (embedded) hud.classList.add('embedded');
+
+  var italyRings = [];
+  var drawRings = [];
+  var landMask = null;
+  var meshMask = null;
+  var meshBBox = [6.6, 36.5, 18.6, 47.1];
+  var maskW = 240;
+  var maskH = 280;
+  var bbox = [6.6, 36.5, 18.6, 47.1];
+  var ready = false;
+  var W = 0, H = 0, time = 0;
+  var zoom = 1.15, panX = 0, panY = 0, tiltDeg = TILT_DEFAULT;
+  var dragging = false, lastX = 0, lastY = 0;
+
+  var three = { renderer: null, scene: null, camera: null, armies: [], raf: 0, built: false, scale: 6, cx: 12.5, cy: 42 };
+
+  function setStatus(t) { statusEl.textContent = t; }
+  function yScale() { return Math.max(0.22, Math.cos(tiltDeg * Math.PI / 180)); }
+  function updateHud() {
+    document.getElementById('hudZoom').textContent = Math.round(zoom * 100) + '%';
+    document.getElementById('hudTilt').textContent = Math.round((tiltDeg / TILT_MAX) * 100) + '%';
+  }
+  function nudgeTilt(d) {
+    tiltDeg = Math.max(TILT_MIN, Math.min(TILT_MAX, tiltDeg + d));
+    updateHud();
+    if (mode === 5) applyThreeCamera();
+  }
+  function setZoom(next, clientX, clientY) {
+    next = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, next));
+    if (Math.abs(next - zoom) < 1e-6) return;
+    var k = next / zoom;
+    if (mode === 4 || !three.built) {
+      var cx = clientX - W / 2;
+      var cy = clientY - H / 2;
+      panX = cx - (cx - panX) * k;
+      panY = cy - (cy - panY) * k;
+    }
+    zoom = next;
+    updateHud();
+    if (mode === 5) applyThreeCamera();
+  }
+
+  function showLayers() {
+    var use3d = mode === 5 && three.built;
+    canvas.style.display = use3d ? 'none' : 'block';
+    view5.style.display = use3d ? 'block' : 'none';
+  }
+
+  function applyMode() {
+    var is5 = mode === 5;
+    hudHint.textContent = is5 ? 'Сейчас: Вид 5 (3D)' : 'Сейчас: Вид 4 (Canvas)';
+    setStatus(is5 ? 'Вид 5 · колесо — зум · Q / E — наклон' : 'Вид 4 · колесо — зум · Q / E — наклон');
+    if (is5) startThree();
+    else if (three.raf) { cancelAnimationFrame(three.raf); three.raf = 0; }
+    showLayers();
+    updateHud();
+  }
+
+  document.getElementById('swapBtn').addEventListener('click', function () {
+    mode = mode === 4 ? 5 : 4;
+    applyMode();
+  });
+
+  function fetchFirst(urls) {
+    var i = 0;
+    function next() {
+      if (i >= urls.length) return Promise.reject(new Error('GeoJSON недоступен'));
+      var url = urls[i++];
+      return fetch(url).then(function (r) {
+        if (!r.ok) throw new Error('HTTP');
+        return r.json();
+      }).catch(function () { return next(); });
+    }
+    return next();
+  }
+
+  function simplifyRing(ring, maxPts) {
+    if (ring.length <= maxPts) return ring.slice();
+    var step = Math.ceil(ring.length / maxPts);
+    var out = [];
+    for (var i = 0; i < ring.length; i += step) out.push(ring[i]);
+    var last = ring[ring.length - 1];
+    var prev = out[out.length - 1];
+    if (!prev || prev[0] !== last[0] || prev[1] !== last[1]) out.push(last);
+    return out;
+  }
+
+  function extractItaly(geojson) {
+    var list = geojson.features || [];
+    var feature = null;
+    for (var i = 0; i < list.length; i++) {
+      var p = list[i].properties || {};
+      var name = (p.name || p.NAME || p.ADMIN || '').toString();
+      if (name === 'Italy' || p.ISO_A3 === 'ITA' || p.iso_a3 === 'ITA') { feature = list[i]; break; }
+    }
+    if (!feature && geojson.type === 'Feature') feature = geojson;
+    var rings = [];
+    var minLon = Infinity, minLat = Infinity, maxLon = -Infinity, maxLat = -Infinity;
+    function absorb(ring) {
+      if (!ring || ring.length < 3) return;
+      var pts = simplifyRing(ring, 220);
+      for (var i = 0; i < pts.length; i++) {
+        var lon = pts[i][0], lat = pts[i][1];
+        if (lon < minLon) minLon = lon;
+        if (lat < minLat) minLat = lat;
+        if (lon > maxLon) maxLon = lon;
+        if (lat > maxLat) maxLat = lat;
+      }
+      if (pts.length >= 3) rings.push(pts);
+    }
+    function absorbFeature(f) {
+      if (!f || !f.geometry) return;
+      var g = f.geometry;
+      if (g.type === 'Polygon') absorb(g.coordinates[0]);
+      else if (g.type === 'MultiPolygon') {
+        for (var pi = 0; pi < g.coordinates.length; pi++) absorb(g.coordinates[pi][0]);
+      }
+    }
+    if (feature) absorbFeature(feature);
+    else for (var fi = 0; fi < list.length; fi++) absorbFeature(list[fi]);
+    if (!rings.length) throw new Error('Italy not found');
+    setRings(rings, minLon, minLat, maxLon, maxLat);
+  }
+
+  function setRings(rings, minLon, minLat, maxLon, maxLat) {
+    italyRings = rings;
+    drawRings = rings.map(function (r) { return simplifyRing(r, 140); });
+    var padLon = (maxLon - minLon) * 0.06;
+    var padLat = (maxLat - minLat) * 0.06;
+    bbox = [minLon - padLon, minLat - padLat, maxLon + padLon, maxLat + padLat];
+    buildLandMask();
+  }
+
+  function useFallbackOutline() {
+    var minLon = Infinity, minLat = Infinity, maxLon = -Infinity, maxLat = -Infinity;
+    FALLBACK_RINGS.forEach(function (ring) {
+      ring.forEach(function (pt) {
+        if (pt[0] < minLon) minLon = pt[0];
+        if (pt[1] < minLat) minLat = pt[1];
+        if (pt[0] > maxLon) maxLon = pt[0];
+        if (pt[1] > maxLat) maxLat = pt[1];
+      });
+    });
+    setRings(FALLBACK_RINGS, minLon, minLat, maxLon, maxLat);
+    meshBBox = bbox.slice();
+    meshMask = landMask ? new Uint8Array(landMask) : null;
+  }
+
+  function buildLandMask() {
+    var oc = document.createElement('canvas');
+    oc.width = maskW;
+    oc.height = maskH;
+    var octx = oc.getContext('2d');
+    octx.clearRect(0, 0, maskW, maskH);
+    octx.beginPath();
+    for (var r = 0; r < italyRings.length; r++) {
+      var ring = italyRings[r];
+      octx.moveTo(lonToMaskX(ring[0][0]), latToMaskY(ring[0][1]));
+      for (var i = 1; i < ring.length; i++) octx.lineTo(lonToMaskX(ring[i][0]), latToMaskY(ring[i][1]));
+      octx.closePath();
+    }
+    octx.fillStyle = '#fff';
+    octx.fill();
+    var data = octx.getImageData(0, 0, maskW, maskH).data;
+    landMask = new Uint8Array(maskW * maskH);
+    for (var p = 0; p < landMask.length; p++) landMask[p] = data[p * 4] > 8 ? 1 : 0;
+  }
+  function lonToMaskX(lon) { return (lon - bbox[0]) / (bbox[2] - bbox[0]) * (maskW - 1); }
+  function latToMaskY(lat) { return (bbox[3] - lat) / (bbox[3] - bbox[1]) * (maskH - 1); }
+
+  function pointInMesh(lon, lat) {
+    var box = meshBBox;
+    var mask = meshMask || landMask;
+    if (!mask) return false;
+    var x = Math.round((lon - box[0]) / (box[2] - box[0]) * (maskW - 1));
+    var y = Math.round((box[3] - lat) / (box[3] - box[1]) * (maskH - 1));
+    if (x < 0 || y < 0 || x >= maskW || y >= maskH) return false;
+    return mask[y * maskW + x] === 1;
+  }
+  function heightAt(lon, lat) {
+    var h = 0.6;
+    if (lat > 45.2 && lon > 6.7 && lon < 13.8) h = Math.max(h, 7.5 * Math.min(1, (lat - 45.15) / 1.15));
+    var ax = 9.0, ay = 44.4, bx = 16.4, by = 39.0;
+    var dx = bx - ax, dy = by - ay, l2 = dx * dx + dy * dy;
+    var t = Math.max(0, Math.min(1, ((lon - ax) * dx + (lat - ay) * dy) / l2));
+    var px = ax + dx * t, py = ay + dy * t;
+    var d = Math.sqrt((lon - px) * (lon - px) + (lat - py) * (lat - py));
+    if (d < 1.15) h = Math.max(h, 5.5 * (1 - d / 1.15));
+    return h;
+  }
+
+  function project(lon, lat) {
+    var geoW = bbox[2] - bbox[0], geoH = bbox[3] - bbox[1];
+    var s = Math.min(W / geoW, H / geoH) * 0.86;
+    return { x: (lon - bbox[0]) * s + (W - geoW * s) / 2, y: (bbox[3] - lat) * s + (H - geoH * s) / 2 };
+  }
+  function landPath(c) {
+    var rings = drawRings.length ? drawRings : italyRings;
+    c.beginPath();
+    for (var r = 0; r < rings.length; r++) {
+      var ring = rings[r];
+      var p0 = project(ring[0][0], ring[0][1]);
+      c.moveTo(p0.x, p0.y);
+      for (var i = 1; i < ring.length; i++) {
+        var p = project(ring[i][0], ring[i][1]);
+        c.lineTo(p.x, p.y);
+      }
+      c.closePath();
+    }
+  }
+
+  function resizeCanvas() {
+    W = Math.max(1, window.innerWidth);
+    H = Math.max(1, window.innerHeight);
+    canvas.width = W;
+    canvas.height = H;
+  }
+
+  function applyCanvasCamera() {
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.translate(W / 2 + panX, H / 2 + panY);
+    ctx.scale(zoom, zoom);
+    ctx.rotate(-8 * Math.PI / 180);
+    ctx.scale(1, yScale());
+    ctx.translate(-W / 2, -H / 2);
+  }
+
+  function drawMountains() {
+    var peaks = [[7.6,45.9],[8.5,46.1],[9.5,46.15],[10.6,46.25],[11.7,46.4],[12.8,46.5],[10.0,44.1],[11.1,43.5],[12.2,42.6],[13.3,41.7],[14.4,40.9],[15.5,40.1]];
+    for (var i = 0; i < peaks.length; i++) {
+      var p = project(peaks[i][0], peaks[i][1]);
+      var s = 11 + (i % 4) * 4;
+      ctx.beginPath();
+      ctx.moveTo(p.x, p.y - s);
+      ctx.lineTo(p.x - s * 0.7, p.y + s * 0.45);
+      ctx.lineTo(p.x + s * 0.7, p.y + s * 0.45);
+      ctx.closePath();
+      ctx.fillStyle = i < 6 ? '#8a8680' : '#7a766c';
+      ctx.fill();
+    }
+  }
+  function drawForests() {
+    var seeds = [[8.8,44.3],[9.3,45.5],[11.2,43.7],[12.4,42.3],[14.1,41.0],[16.2,39.4]];
+    for (var s = 0; s < seeds.length; s++) {
+      var c = project(seeds[s][0], seeds[s][1]);
+      for (var n = 0; n < 12; n++) {
+        var a = n * 2.4;
+        ctx.beginPath();
+        ctx.arc(c.x + Math.cos(a) * 16, c.y + Math.sin(a) * 11, 6 + (n % 5), 0, Math.PI * 2);
+        ctx.fillStyle = n % 2 ? '#2f4a28' : '#243b20';
+        ctx.fill();
+      }
+    }
+  }
+  function armyPos(which, t) {
+    var a = project(9.2, 45.4), b = project(16.2, 39.3);
+    var u = which === 'red' ? (0.12 + 0.38 * (0.5 + 0.5 * Math.sin(t * 0.00035))) : (0.88 - 0.38 * (0.5 + 0.5 * Math.sin(t * 0.00035)));
+    return { x: a.x + (b.x - a.x) * u, y: a.y + (b.y - a.y) * u };
+  }
+  function drawArmy(p, color) {
+    ctx.save(); ctx.translate(p.x, p.y);
+    ctx.beginPath(); ctx.arc(0, 0, 9, 0, Math.PI * 2);
+    ctx.fillStyle = color; ctx.fill();
+    ctx.strokeStyle = '#fff8e0'; ctx.lineWidth = 2; ctx.stroke();
+    ctx.restore();
+  }
+
+  function renderCanvas() {
+    if (mode === 5 && three.built) return;
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    var sea = ctx.createRadialGradient(W * 0.5, H * 0.45, 40, W * 0.5, H * 0.5, Math.max(W, H) * 0.8);
+    sea.addColorStop(0, '#163a58'); sea.addColorStop(1, '#071422');
+    ctx.fillStyle = sea; ctx.fillRect(0, 0, W, H);
+    applyCanvasCamera();
+    if (!ready) return;
+    ctx.save(); ctx.translate(8, 16); landPath(ctx);
+    ctx.fillStyle = 'rgba(20,16,8,0.5)'; ctx.fill(); ctx.restore();
+    landPath(ctx); ctx.fillStyle = '#6a8248'; ctx.fill();
+    ctx.save(); landPath(ctx); ctx.clip();
+    var rome = project(12.5, 41.9);
+    var g = ctx.createRadialGradient(rome.x, rome.y, 20, rome.x, rome.y - 40, 220);
+    g.addColorStop(0, 'rgba(210,200,140,0.35)'); g.addColorStop(1, 'rgba(80,90,40,0)');
+    ctx.fillStyle = g; ctx.fillRect(rome.x - 240, rome.y - 260, 480, 520);
+    ctx.restore();
+    landPath(ctx); ctx.strokeStyle = 'rgba(40,55,28,0.8)'; ctx.lineWidth = 1.4; ctx.stroke();
+    drawForests(); drawMountains();
+    drawArmy(armyPos('red', time), '#9a3030');
+    drawArmy(armyPos('blue', time), '#2a4a9a');
+  }
+
+  function loopCanvas() {
+    time = performance.now();
+    renderCanvas();
+    requestAnimationFrame(loopCanvas);
+  }
+
+  function applyThreeCamera() {
+    if (!three.camera) return;
+    var t = tiltDeg * Math.PI / 180;
+    var dist = 118 / zoom;
+    var yaw = -8 * Math.PI / 180;
+    three.camera.position.set(
+      panX + Math.sin(yaw) * dist * Math.cos(t),
+      Math.max(8, dist * Math.sin(t)),
+      panY + Math.cos(yaw) * dist * Math.cos(t)
+    );
+    three.camera.lookAt(panX, 3, panY);
+  }
+
+  function startThree() {
+    if (!ready) return;
+    if (typeof THREE === 'undefined') {
+      setStatus('Вид 5: Three.js не загрузился, показан запасной вид · Q / E — наклон');
+      three.built = false;
+      showLayers();
+      return;
+    }
+    if (!three.built) {
+      try { buildThree(); }
+      catch (err) {
+        setStatus('Вид 5 ошибка: ' + err.message);
+        three.built = false;
+        showLayers();
+        return;
+      }
+    }
+    if (three.renderer) {
+      var w = Math.max(1, window.innerWidth), h = Math.max(1, window.innerHeight);
+      three.renderer.setSize(w, h, false);
+      three.camera.aspect = w / h;
+      three.camera.updateProjectionMatrix();
+      applyThreeCamera();
+    }
+    showLayers();
+    if (!three.raf) loopThree();
+  }
+
+  function buildThree() {
+    var w = Math.max(1, window.innerWidth), h = Math.max(1, window.innerHeight);
+    var renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false, preserveDrawingBuffer: true });
+    renderer.setPixelRatio(Math.min(2, window.devicePixelRatio || 1));
+    renderer.setSize(w, h, false);
+    renderer.setClearColor(0x071422, 1);
+    renderer.shadowMap.enabled = true;
+    view5.innerHTML = '';
+    view5.appendChild(renderer.domElement);
+    renderer.domElement.style.display = 'block';
+    renderer.domElement.style.width = '100%';
+    renderer.domElement.style.height = '100%';
+
+    var scene = new THREE.Scene();
+    scene.fog = new THREE.Fog(0x071422, 140, 320);
+    var camera = new THREE.PerspectiveCamera(45, w / h, 0.1, 900);
+
+    scene.add(new THREE.HemisphereLight(0xc8e4ff, 0x3a2a18, 0.6));
+    var sun = new THREE.DirectionalLight(0xfff1d0, 1);
+    sun.position.set(-50, 80, 30);
+    sun.castShadow = true;
+    scene.add(sun);
+
+    var sea = new THREE.Mesh(
+      new THREE.PlaneGeometry(420, 420),
+      new THREE.MeshPhongMaterial({ color: 0x0b1c33, shininess: 12 })
+    );
+    sea.rotation.x = -Math.PI / 2;
+    sea.receiveShadow = true;
+    scene.add(sea);
+
+    var box = meshBBox;
+    var cx = (box[0] + box[2]) / 2;
+    var cy = (box[1] + box[3]) / 2;
+    var scale = 82 / Math.max(box[2] - box[0], box[3] - box[1]);
+    var cols = 140, rows = 160;
+    var positions = [];
+    var colors = [];
+    var indices = [];
+    var inside = [];
+    var i, j;
+    for (j = 0; j <= rows; j++) {
+      for (i = 0; i <= cols; i++) {
+        var lon = box[0] + (box[2] - box[0]) * i / cols;
+        var lat = box[3] - (box[3] - box[1]) * j / rows;
+        var on = pointInMesh(lon, lat);
+        inside.push(on);
+        var x = (lon - cx) * scale;
+        var z = -(lat - cy) * scale;
+        var y = on ? heightAt(lon, lat) : -0.35;
+        positions.push(x, y, z);
+        if (on) colors.push(0.42, 0.52, 0.28);
+        else colors.push(0.05, 0.12, 0.2);
+      }
+    }
+    for (j = 0; j < rows; j++) {
+      for (i = 0; i < cols; i++) {
+        var a = j * (cols + 1) + i;
+        var b = a + 1;
+        var cIdx = a + cols + 1;
+        var d = cIdx + 1;
+        if (!(inside[a] || inside[b] || inside[cIdx] || inside[d])) continue;
+        indices.push(a, cIdx, b, b, cIdx, d);
+      }
+    }
+    var geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+    geo.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+    geo.setIndex(indices);
+    geo.computeVertexNormals();
+    var landMat = new THREE.MeshPhongMaterial({
+      vertexColors: (typeof THREE.VertexColors !== 'undefined') ? THREE.VertexColors : true,
+      flatShading: true,
+      shininess: 6,
+      side: THREE.DoubleSide
+    });
+    var land = new THREE.Mesh(geo, landMat);
+    land.castShadow = true;
+    land.receiveShadow = true;
+    scene.add(land);
+
+    function sphere(color) {
+      var m = new THREE.Mesh(
+        new THREE.SphereGeometry(1.3, 16, 12),
+        new THREE.MeshPhongMaterial({ color: color, emissive: color, emissiveIntensity: 0.2 })
+      );
+      m.castShadow = true;
+      scene.add(m);
+      return m;
+    }
+
+    three.renderer = renderer;
+    three.scene = scene;
+    three.camera = camera;
+    three.armies = [
+      { mesh: sphere(0x9a3030), from: { lon: 9.2, lat: 45.4 }, to: { lon: 16.2, lat: 39.3 } },
+      { mesh: sphere(0x2a4a9a), from: { lon: 16.2, lat: 39.3 }, to: { lon: 9.2, lat: 45.4 } }
+    ];
+    three.scale = scale;
+    three.cx = cx;
+    three.cy = cy;
+    three.built = true;
+    applyThreeCamera();
+  }
+
+  function placeArmy(a, u) {
+    var lon = a.from.lon + (a.to.lon - a.from.lon) * u;
+    var lat = a.from.lat + (a.to.lat - a.from.lat) * u;
+    a.mesh.position.set((lon - three.cx) * three.scale, heightAt(lon, lat) + 2.4, -(lat - three.cy) * three.scale);
+  }
+
+  function loopThree() {
+    if (mode !== 5 || !three.built) { three.raf = 0; return; }
+    var t = (performance.now() * 0.00018) % 2;
+    var u = t < 1 ? t : 2 - t;
+    if (three.armies[0]) { placeArmy(three.armies[0], u); placeArmy(three.armies[1], u); }
+    three.renderer.render(three.scene, three.camera);
+    three.raf = requestAnimationFrame(loopThree);
+  }
+
+  canvas.addEventListener('mousedown', function (e) {
+    if (e.button !== 0) return;
+    dragging = true; lastX = e.clientX; lastY = e.clientY;
+    canvas.classList.add('dragging');
+  });
+  view5.addEventListener('mousedown', function (e) {
+    if (mode !== 5 || e.button !== 0) return;
+    dragging = true; lastX = e.clientX; lastY = e.clientY;
+  });
+  window.addEventListener('mousemove', function (e) {
+    if (!dragging) return;
+    var dx = e.clientX - lastX, dy = e.clientY - lastY;
+    lastX = e.clientX; lastY = e.clientY;
+    if (mode === 4 || !three.built) { panX += dx; panY += dy; }
+    else {
+      var k = 0.22 / zoom;
+      panX -= dx * k;
+      panY += dy * k;
+      applyThreeCamera();
+    }
+  });
+  window.addEventListener('mouseup', function () {
+    dragging = false;
+    canvas.classList.remove('dragging');
+  });
+  function onWheel(e) {
+    e.preventDefault();
+    var f = e.deltaY < 0 ? 1.1 : 1 / 1.1;
+    setZoom(zoom * f, e.clientX, e.clientY);
+  }
+  canvas.addEventListener('wheel', onWheel, { passive: false });
+  view5.addEventListener('wheel', onWheel, { passive: false });
+  window.addEventListener('keydown', function (e) {
+    if (e.code === 'KeyQ') { e.preventDefault(); nudgeTilt(-TILT_STEP); }
+    else if (e.code === 'KeyE') { e.preventDefault(); nudgeTilt(TILT_STEP); }
+  });
+  window.addEventListener('message', function (e) {
+    if (!e.data) return;
+    if (e.data.type === 'camera-tilt') {
+      if (typeof e.data.delta === 'number') nudgeTilt(e.data.delta);
+      else if (typeof e.data.deg === 'number') { tiltDeg = e.data.deg; nudgeTilt(0); }
+    }
+    if (e.data.type === 'camera-state-request') {
+      try {
+        window.parent.postMessage({
+          type: 'camera-state',
+          center: { lon: 12.5, lat: 42.0 },
+          viewQuad: [
+            { lon: bbox[0], lat: bbox[3] }, { lon: bbox[2], lat: bbox[3] },
+            { lon: bbox[2], lat: bbox[1] }, { lon: bbox[0], lat: bbox[1] }
+          ]
+        }, '*');
+      } catch (_) {}
+    }
+  });
+  window.addEventListener('resize', function () {
+    resizeCanvas();
+    if (three.renderer) {
+      var w = Math.max(1, window.innerWidth), h = Math.max(1, window.innerHeight);
+      three.renderer.setSize(w, h, false);
+      three.camera.aspect = w / h;
+      three.camera.updateProjectionMatrix();
+      applyThreeCamera();
+    }
+  });
+
+  function resetThree() {
+    if (three.raf) cancelAnimationFrame(three.raf);
+    three.raf = 0;
+    if (three.renderer) {
+      try { three.renderer.dispose(); } catch (_) {}
+      three.renderer = null;
+    }
+    three.scene = null;
+    three.camera = null;
+    three.armies = [];
+    three.built = false;
+    view5.innerHTML = '';
+  }
+
+  function markReady(note) {
+    ready = true;
+    if (mode === 5) {
+      if (!three.built) startThree();
+      else showLayers();
+    } else showLayers();
+    setStatus(note || ((mode === 5 ? 'Вид 5' : 'Вид 4') + ' · колесо — зум · Q / E — наклон'));
+  }
+
+  resizeCanvas();
+  updateHud();
+  useFallbackOutline();
+  ready = true;
+  applyMode();
+  loopCanvas();
+
+  fetchFirst(GEO_URLS)
+    .then(function (geo) {
+      extractItaly(geo);
+      markReady();
+    })
+    .catch(function () {
+      markReady((mode === 5 ? 'Вид 5' : 'Вид 4') + ' · запасной контур · колесо — зум · Q / E — наклон');
+    });
+})();
+  </script>
+</body>
+</html>

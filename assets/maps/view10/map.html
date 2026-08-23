@@ -1,0 +1,2184 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Италия — Three.js / Babylon.js / Phaser</title>
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700&family=EB+Garamond:wght@500;600&display=swap" rel="stylesheet">
+  <style>
+    html, body { margin: 0; width: 100%; height: 100%; overflow: hidden; background: #071018; font-family: 'EB Garamond', Georgia, serif; color: #efe4d0; }
+    #stage {
+      position: absolute; inset: 0; width: 100%; height: 100%;
+      background: #071018;
+    }
+    #stage canvas { display: block; width: 100%; height: 100%; }
+    #camHud {
+      position: fixed; top: 12px; left: 12px; z-index: 40;
+      display: flex; flex-direction: column; gap: 3px; min-width: 118px;
+      font-size: 12px; letter-spacing: 0.06em;
+      color: #d8c9a4; background: rgba(8, 6, 3, 0.55);
+      padding: 6px 10px; border: 1px solid rgba(201, 168, 76, 0.25);
+      pointer-events: none; text-transform: uppercase;
+    }
+    #camHud span { display: flex; justify-content: space-between; gap: 12px; }
+    #camHud b { color: #f5e6c8; font-weight: 600; }
+    #engineBar {
+      position: fixed; top: 12px; right: 12px; z-index: 40;
+      display: flex; flex-direction: column; gap: 6px; min-width: 168px;
+    }
+    body.embedded #engineBar { display: none; }
+    #engineBar button, #resetBtn {
+      font-family: 'Cinzel', serif; font-size: 11px; letter-spacing: 0.08em;
+      text-transform: uppercase; color: #f5e6c8; background: rgba(16, 12, 8, 0.88);
+      border: 1px solid rgba(201, 168, 76, 0.5); padding: 8px 10px; cursor: pointer;
+    }
+    #engineBar button:hover, #resetBtn:hover { border-color: #e0c878; color: #fff; }
+    #engineBar button.active { background: rgba(201, 168, 76, 0.22); border-color: #e0c878; color: #fff; }
+    #resetWrap {
+      position: fixed; top: 12px; left: 12px; z-index: 40;
+    }
+    #status {
+      position: fixed; left: 12px; bottom: 12px; z-index: 40; font-size: 13px; color: #c9b48a;
+      background: rgba(8, 6, 3, 0.55); padding: 6px 10px; border: 1px solid rgba(201, 168, 76, 0.25);
+      pointer-events: none;
+    }
+    #battleModal {
+      display: none; position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%);
+      z-index: 90; width: min(92vw, 420px); padding: 22px 24px 18px;
+      background: rgba(14, 10, 6, 0.94); border: 1px solid rgba(201, 168, 76, 0.55);
+      box-shadow: 0 18px 48px rgba(0, 0, 0, 0.55); text-align: center;
+    }
+    #battleModal.show { display: block; }
+    #battleModal p { margin: 0 0 16px; font-size: 18px; line-height: 1.4; color: #f5ead0; }
+    #battleModal button {
+      font-family: 'Cinzel', serif; font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase;
+      color: #f5e6c8; background: rgba(30, 22, 12, 0.95); border: 1px solid rgba(201, 168, 76, 0.55);
+      padding: 8px 16px; cursor: pointer;
+    }
+    #battleModal button:hover { border-color: #e0c878; color: #fff; }
+  </style>
+  <script src="/maps/rome/three.min.js"></script>
+  <script src="/js/italy-dem.js"></script>
+  <script src="/js/walk-unit-three.js"></script>
+  <script src="/js/walk-unit-babylon.js"></script>
+  <script src="/js/walk-unit-phaser.js"></script>
+  <script src="/maps/view14/provinces.js"></script>
+  <script src="/js/campaign-map-bridge.js"></script>
+</head>
+<body>
+  <div id="stage"></div>
+  <div id="engineBar">
+    <button type="button" data-engine="three">Three.js 3D</button>
+    <button type="button" data-engine="babylon">Babylon.js 3D</button>
+    <button type="button" data-engine="phaser">Phaser 3D</button>
+  </div>
+  <div id="resetWrap">
+    <button type="button" id="resetBtn">Сброс</button>
+  </div>
+  <div id="camHud">
+    <span>Зум <b id="hudZoom">115%</b></span>
+    <span>Наклон <b id="hudTilt">80%</b></span>
+    <span>Поворот <b id="hudYaw">0°</b></span>
+  </div>
+  <div id="status">Загрузка карты Италии…</div>
+  <div id="battleModal" role="dialog" aria-modal="true">
+    <p>Начинается бой, ваши войска Рима атаковали армию Карфагена</p>
+    <button type="button" id="battleModalClose">Закрыть</button>
+  </div>
+
+  <script>
+(function () {
+  'use strict';
+
+  var GEO_URLS = [
+    'https://raw.githubusercontent.com/holtzy/D3-graph-gallery/master/DATA/world.geojson',
+    'https://cdn.jsdelivr.net/gh/holtzy/D3-graph-gallery@master/DATA/world.geojson',
+    '/maps/view1/regions.geojson',
+    '/maps/view3/italy.geojson'
+  ];
+  var PROV_COLORS = [0xc4b47a, 0xa8b86c, 0xd2c49a, 0x9cba8c, 0xc9b896, 0xb8c48a, 0xdbc8a0, 0xb0a878, 0x8eaa72, 0xccb888, 0xa3b67e, 0xd8c8a8, 0x97ad70, 0xc2b080, 0xb5c090, 0xe0d0b0, 0x8fa86a, 0xcdb892, 0xaab484, 0xd4bc94];
+  var NAME_RU = {
+    Piemonte: 'Пьемонт', Lombardia: 'Ломбардия', Veneto: 'Венето', Liguria: 'Лигурия',
+    'Emilia-Romagna': 'Эмилия', Toscana: 'Тоскана', Umbria: 'Умбрия', Marche: 'Марке',
+    Lazio: 'Лацио', Abruzzo: 'Абруццо', Molise: 'Молизе', Campania: 'Кампания',
+    Puglia: 'Апулия', Basilicata: 'Базиликата', Calabria: 'Калабрия', Sicilia: 'Сицилия',
+    Sardegna: 'Сардиния', 'Friuli-Venezia Giulia': 'Фриули', 'Trentino-Alto Adige': 'Трентино',
+    'Valle d\'Aosta': 'Валле-д’Аоста', "Valle d'Aosta": 'Валле-д’Аоста'
+  };
+  var FALLBACK = [
+    [[7.5,43.75],[8.15,44.35],[8.75,44.85],[9.2,45.55],[10.55,45.75],[11.05,46.52],[12.35,46.52],[13.72,45.65],[13.48,43.62],[13.95,42.38],[14.95,41.92],[16.05,41.92],[17.25,40.82],[18.37,40.38],[17.15,40.52],[16.55,39.52],[17.15,39.52],[16.48,38.86],[15.63,38.12],[15.78,39.52],[16.18,41.55],[14.78,40.72],[14.15,40.92],[13.52,41.22],[12.18,41.68],[11.12,42.38],[10.48,42.85],[10.28,43.52],[9.82,44.12],[8.48,44.28],[7.55,43.78]],
+    [[12.42,38.18],[13.28,38.28],[15.08,38.28],[15.63,38.08],[15.28,36.68],[14.28,37.02],[12.52,37.52],[12.42,38.18]],
+    [[8.13,41.25],[9.63,41.22],[9.78,39.12],[8.38,38.86],[8.13,41.25]]
+  ];
+  var SCALE = 19.2;
+  var CX = 12.65;
+  var CY = 41.8;
+
+  var params = {};
+  try {
+    location.search.slice(1).split('&').forEach(function (pair) {
+      var p = pair.split('=');
+      if (p[0]) params[decodeURIComponent(p[0])] = decodeURIComponent(p[1] || '');
+    });
+  } catch (_) {}
+
+  var embedded = window.parent !== window;
+  if (embedded) document.body.classList.add('embedded');
+
+  var engine = params.engine === 'babylon' ? 'babylon' : params.engine === 'phaser' ? 'phaser' : 'three';
+  var stage = document.getElementById('stage');
+  var statusEl = document.getElementById('status');
+  var italyRings = FALLBACK.slice();
+  var provinceFeatures = [];
+  var current = { name: '', three: null, babylon: null, phaser: null, raf: 0 };
+  var TILT_MIN = 0, TILT_MAX = 75, TILT_DEFAULT = 60, TILT_STEP = 3;
+  var YAW_STEP = 6, BABYLON_BASE_ALPHA = Math.PI * 0.42;
+  var MIN_ZOOM = 0.28, MAX_ZOOM = 4.2, BASE_DIST = 95;
+  var camTilt = TILT_DEFAULT;
+  var camZoom = 1.15;
+  var camYaw = 0;
+
+  function setStatus(t) { statusEl.textContent = t; }
+  var battleModal = document.getElementById('battleModal');
+  var battleClose = document.getElementById('battleModalClose');
+  function showBattleDialog() {
+    if (battleModal) battleModal.classList.add('show');
+    setStatus('Бой начался');
+  }
+  function hideBattleDialog() {
+    if (battleModal) battleModal.classList.remove('show');
+  }
+  if (battleClose) battleClose.addEventListener('click', hideBattleDialog);
+  function xz(lon, lat) { return { x: (lon - CX) * SCALE, z: (CY - lat) * SCALE }; }
+  function wrapYaw(deg) {
+    deg = deg % 360;
+    if (deg < 0) deg += 360;
+    return deg;
+  }
+  function updateCamHud() {
+    var z = document.getElementById('hudZoom');
+    var t = document.getElementById('hudTilt');
+    var y = document.getElementById('hudYaw');
+    if (z) z.textContent = Math.round(camZoom * 100) + '%';
+    if (t) t.textContent = Math.round((camTilt / TILT_MAX) * 100) + '%';
+    if (y) y.textContent = Math.round(wrapYaw(camYaw)) + '°';
+  }
+  function applyThreeCam() {
+    var pack = current.three;
+    if (!pack || !pack.camera) return;
+    var target = (pack.controls && pack.controls.target)
+      ? pack.controls.target
+      : (pack.camTarget || new THREE.Vector3(0, 1.2, 2));
+    var dist = BASE_DIST / camZoom;
+    var a = camTilt * Math.PI / 180;
+    var yaw = camYaw * Math.PI / 180;
+    pack.camera.position.set(
+      target.x + Math.sin(yaw) * dist * Math.cos(a),
+      target.y + Math.max(6, dist * Math.sin(a)),
+      target.z + Math.cos(yaw) * dist * Math.cos(a)
+    );
+    pack.camera.lookAt(target);
+  }
+  function applyBabylonCam() {
+    var pack = current.babylon;
+    if (!pack || !pack.camera) return;
+    var cam = pack.camera;
+    cam.alpha = BABYLON_BASE_ALPHA + camYaw * Math.PI / 180;
+    cam.beta = Math.max(0.08, Math.PI / 2 - camTilt * Math.PI / 180);
+    cam.radius = BASE_DIST / camZoom;
+    cam.lowerRadiusLimit = BASE_DIST / MAX_ZOOM;
+    cam.upperRadiusLimit = BASE_DIST / MIN_ZOOM;
+    cam.lowerBetaLimit = Math.PI / 2 - TILT_MAX * Math.PI / 180;
+    cam.upperBetaLimit = Math.PI / 2 - TILT_MIN * Math.PI / 180 + 0.02;
+  }
+  function applyPhaserCam() {
+    var pack = current.phaser;
+    if (!pack || !pack.game) return;
+    stage.style.perspective = 'none';
+    stage.style.perspectiveOrigin = 'center center';
+    stage.style.background = '#163c4c';
+    var canvas = stage.querySelector('canvas');
+    if (canvas) {
+      canvas.style.transform = 'none';
+      canvas.style.transformOrigin = 'center center';
+      canvas.style.cursor = 'grab';
+    }
+    try {
+      var sc = pack.game.scene && pack.game.scene.scenes && pack.game.scene.scenes[0];
+      if (sc && sc.cameras && sc.cameras.main) {
+        sc.cameras.main.setZoom(1);
+        sc.cameras.main.setScroll(0, 0);
+        sc.cameras.main.setRotation(0);
+        sc.cameras.main.setBackgroundColor('#163c4c');
+      }
+      if (pack.flatMap) {
+        var base = pack.flatBaseScale || pack.flatMap.scaleX || 1;
+        var sy = Math.max(0.38, Math.cos(Math.min(72, camTilt) * Math.PI / 180));
+        pack.flatMap.setScale(base, base * sy);
+        return;
+      }
+      var w = sc && sc.scale ? Math.max(1, sc.scale.width) : window.innerWidth || 1024;
+      var h = sc && sc.scale ? Math.max(1, sc.scale.height) : window.innerHeight || 768;
+      // зум только дистанцией; modelScale константа — карта всегда заполняет кадр (нет синей шторки)
+      var z = Math.max(0.92, Math.min(1.7, camZoom));
+      var dist = Math.max(4.35, Math.min(6.9, (pack.baseZ || 5.8) / Math.pow(z, 0.4)));
+      var s = pack.baseScale || 1.62;
+      var meshes = pack.meshes && pack.meshes.length ? pack.meshes : (pack.terrain ? [pack.terrain] : []);
+      var i, mesh;
+      for (i = 0; i < meshes.length; i++) {
+        mesh = meshes[i];
+        if (!mesh || !mesh.modelRotation) continue;
+        mesh.setPosition(w / 2, h * 0.52);
+        if (typeof mesh.setSize === 'function') mesh.setSize(w, h);
+        else { mesh.width = w; mesh.height = h; }
+        if (typeof mesh.setPerspective === 'function') mesh.setPerspective(w, h, 44, 0.6, 220);
+        if (mesh.viewPosition) {
+          mesh.viewPosition.x = 0;
+          mesh.viewPosition.y = 0.02;
+          mesh.viewPosition.z = dist;
+        }
+        if (mesh.dirtyCache) mesh.dirtyCache[10] = 1;
+        mesh.modelRotation.x = Math.max(0.22, Math.min(0.78, camTilt * Math.PI / 180));
+        mesh.modelRotation.y = camYaw * Math.PI / 180;
+        mesh.modelRotation.z = 0;
+        mesh.modelPosition.x = pack.panX || 0;
+        mesh.modelPosition.y = 0;
+        mesh.modelPosition.z = pack.panZ || 0;
+        if (mesh.modelScale) {
+          mesh.modelScale.x = s;
+          mesh.modelScale.y = s;
+          mesh.modelScale.z = s;
+        }
+        if (typeof mesh.preUpdate === 'function') mesh.preUpdate();
+      }
+      if (pack.syncProps) pack.syncProps();
+    } catch (_) {}
+  }
+  function applyCam() {
+    updateCamHud();
+    if (current.name === 'three') applyThreeCam();
+    else if (current.name === 'babylon') applyBabylonCam();
+    else if (current.name === 'phaser') applyPhaserCam();
+  }
+  function nudgeTilt(d) {
+    camTilt = Math.max(TILT_MIN, Math.min(TILT_MAX, camTilt + d));
+    applyCam();
+  }
+  function nudgeYaw(d) {
+    camYaw = wrapYaw(camYaw + d);
+    applyCam();
+  }
+  function nudgeZoom(factor) {
+    // Phaser: мягкий зум дистанцией — без шторки и без гигантских полигонов
+    var minZ = (current.name === 'phaser') ? 0.92 : MIN_ZOOM;
+    var maxZ = (current.name === 'phaser') ? 1.7 : MAX_ZOOM;
+    camZoom = Math.max(minZ, Math.min(maxZ, camZoom * factor));
+    applyCam();
+  }
+  function pointInRing(lon, lat, ring) {
+    var inside = false;
+    for (var i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+      var xi = ring[i][0], yi = ring[i][1];
+      var xj = ring[j][0], yj = ring[j][1];
+      var denom = yj - yi || 1e-12;
+      if (((yi > lat) !== (yj > lat)) && (lon < (xj - xi) * (lat - yi) / denom + xi)) inside = !inside;
+    }
+    return inside;
+  }
+  function inItaly(lon, lat) {
+    for (var r = 0; r < italyRings.length; r++) {
+      if (pointInRing(lon, lat, italyRings[r])) return true;
+    }
+    return false;
+  }
+
+  /** Концептуальная высота Альп (1…25) по ТЗ + пики-валенты + микрорельеф. */
+  function alpineBandZ(lon, lat) {
+    var z = 0;
+    // Высокие Альпы
+    if (lat > 45.0 && lat < 47.0 && lon > 6.0 && lon < 13.5) z = 25;
+    // Пеннинские / центральные
+    else if (lat > 43.0 && lat < 45.0 && lon > 9.0 && lon < 13.0) z = 15;
+    // Приморские Альпы
+    else if (lat > 43.0 && lat < 44.0 && lon > 7.0 && lon < 9.0) z = 12;
+    // Долина По / равнины севера (по смыслу ТЗ; lat<43+lon<13 иначе сплющит весь юг)
+    else if (lat >= 44.15 && lat <= 45.35 && lon >= 7.4 && lon <= 12.4) z = 1;
+    else return 0;
+
+    // Валентные вершины: (45.5,9.5), (45.5,11.0), (45.0,7.5)
+    var peaks = [[9.5, 45.5], [11.0, 45.5], [7.5, 45.0]];
+    var pi, dlon, dlat, d2, boost;
+    for (pi = 0; pi < peaks.length; pi++) {
+      dlon = (lon - peaks[pi][0]) / 0.55;
+      dlat = (lat - peaks[pi][1]) / 0.4;
+      d2 = dlon * dlon + dlat * dlat;
+      if (d2 < 1) {
+        boost = (1 - d2) * (1 - d2);
+        z = Math.max(z, z * 0.72 + 25 * boost + z * (1 - boost) * 0.28);
+      }
+    }
+    // зубчатый микрорельеф хребтов (не плоская «полка»)
+    if (z >= 12) {
+      var ridge =
+        Math.sin(lon * 9.3 + lat * 4.1) * 0.5 +
+        Math.sin(lon * 17.7 - lat * 11.2) * 0.35 +
+        Math.cos(lon * 5.4 + lat * 8.8) * 0.25;
+      var keep = Math.max(0, ridge);
+      if (z >= 20) z = z * (0.78 + keep * 0.32) + keep * 3.2;
+      else z = z * (0.86 + keep * 0.22) + keep * 1.6;
+    }
+    // лёгкий спуск к югу внутри альпийской зоны
+    if (z > 1 && lat < 45.2) z *= 0.82 + Math.max(0, (lat - 44.0) / 1.2) * 0.18;
+    return Math.max(1, Math.min(28, z));
+  }
+
+  /** Миры: DEM + альпийский слой. Z≈25 → ~22 world Y. */
+  function heightAt(lon, lat) {
+    var demM = 0;
+    if (window.ItalyDEM && ItalyDEM.ready()) {
+      demM = ItalyDEM.meters(lon, lat) || 0;
+      if (!(demM > 8) && !inItaly(lon, lat)) return 0;
+    } else if (!inItaly(lon, lat)) {
+      return 0;
+    }
+
+    var az = alpineBandZ(lon, lat);
+    if (az > 0) {
+      // база от концептуальной высоты + деталь DEM
+      var base = 0.35 + (az / 25) * 21.5;
+      var demBoost = demM > 8 ? Math.pow(Math.min(1, demM / 3200), 0.55) * 4.8 : 0;
+      // равнины По остаются низкими
+      if (az <= 2) return 0.25 + demBoost * 0.15;
+      return base + demBoost;
+    }
+
+    if (demM > 8) return 0.2 + demM / 4800 * 16.2;
+    var h = 0.4;
+    var ax = 9.0, ay = 44.4, bx = 16.4, by = 39.0;
+    var dx = bx - ax, dy = by - ay, l2 = dx * dx + dy * dy;
+    var t = Math.max(0, Math.min(1, ((lon - ax) * dx + (lat - ay) * dy) / l2));
+    var px = ax + dx * t, py = ay + dy * t;
+    var d = Math.sqrt((lon - px) * (lon - px) + (lat - py) * (lat - py));
+    if (d < 1.15) h = Math.max(h, 0.4 + 4.2 * (1 - d / 1.15));
+    return h;
+  }
+
+  function alpineColorRGB(z, demM) {
+    // Высоты по шкале ТЗ / смешанной DEM
+    var h = z > 0 ? z : (demM > 8 ? demM / 120 : 1);
+    if (h > 20) {
+      // Stein-Granit → снег
+      var t = Math.min(1, (h - 20) / 8);
+      return [
+        Math.round(168 + t * 72),
+        Math.round(166 + t * 70),
+        Math.round(158 + t * 78)
+      ];
+    }
+    if (h > 15) {
+      // плотный горный лес dunkelgrün
+      var t2 = (h - 15) / 5;
+      return [
+        Math.round(42 + t2 * 28),
+        Math.round(72 + t2 * 18),
+        Math.round(38 + t2 * 12)
+      ];
+    }
+    if (h > 10) {
+      // Buntwald dunkelgrün + braun
+      var t3 = (h - 10) / 5;
+      return [
+        Math.round(78 + t3 * 20),
+        Math.round(86 - t3 * 10),
+        Math.round(48 + t3 * 6)
+      ];
+    }
+    if (h > 1) {
+      // dunkelbeige равнина
+      var t4 = (h - 1) / 9;
+      return [
+        Math.round(168 - t4 * 40),
+        Math.round(148 - t4 * 28),
+        Math.round(98 - t4 * 18)
+      ];
+    }
+    // olive-green суша
+    return [139, 168, 136];
+  }
+
+  /** Текстура суши с альпийской палитрой Total War. */
+  function paintAlpineGeo(w, h, box, seaHex) {
+    box = box || [6.4, 36.2, 18.9, 47.4];
+    var c = document.createElement('canvas');
+    c.width = w;
+    c.height = h;
+    var g = c.getContext('2d');
+    g.fillStyle = seaHex || '#1a4e60';
+    g.fillRect(0, 0, w, h);
+    var img = g.getImageData(0, 0, w, h);
+    var px = img.data;
+    var elev = new Float32Array(w * h);
+    var i, x, y, lon, lat, demM, az, col, shade, mx, my, nx, ny, nlen;
+    for (y = 0; y < h; y++) {
+      lat = box[3] - y / Math.max(1, h - 1) * (box[3] - box[1]);
+      for (x = 0; x < w; x++) {
+        lon = box[0] + x / Math.max(1, w - 1) * (box[2] - box[0]);
+        demM = (window.ItalyDEM && ItalyDEM.ready()) ? (ItalyDEM.meters(lon, lat) || 0) : 0;
+        az = alpineBandZ(lon, lat);
+        if (demM > 6 || az > 0 || inItaly(lon, lat)) {
+          elev[y * w + x] = az > 0 ? az * 120 : demM;
+        } else {
+          elev[y * w + x] = 0;
+        }
+      }
+    }
+    for (y = 0; y < h; y++) {
+      lat = box[3] - y / Math.max(1, h - 1) * (box[3] - box[1]);
+      for (x = 0; x < w; x++) {
+        lon = box[0] + x / Math.max(1, w - 1) * (box[2] - box[0]);
+        i = (y * w + x) * 4;
+        demM = elev[y * w + x];
+        if (!(demM > 4)) {
+          px[i] = 26; px[i + 1] = 78; px[i + 2] = 96; px[i + 3] = 255;
+          continue;
+        }
+        az = alpineBandZ(lon, lat);
+        col = alpineColorRGB(az, demM);
+        // лёгкая база olive #8ba888
+        if (az <= 0 && demM < 400) {
+          col = [
+            Math.round(col[0] * 0.45 + 139 * 0.55),
+            Math.round(col[1] * 0.45 + 168 * 0.55),
+            Math.round(col[2] * 0.45 + 136 * 0.55)
+          ];
+        }
+        mx = x + 1 < w ? elev[y * w + x + 1] : demM;
+        my = y + 1 < h ? elev[(y + 1) * w + x] : demM;
+        nx = demM - mx;
+        ny = demM - my;
+        nlen = Math.sqrt(nx * nx + ny * ny + 120 * 120) || 1;
+        // мягкий свет с юга (~45°)
+        shade = Math.max(0.58, Math.min(1.35, (nx * 0.35 + ny * 0.55 + 120) / nlen * 1.42));
+        // снежные шапки
+        if (az > 20 || demM > 2400) {
+          var snow = Math.min(1, ((az > 20 ? az : demM / 120) - 20) / 6);
+          col[0] = Math.round(col[0] * (1 - snow) + 236 * snow);
+          col[1] = Math.round(col[1] * (1 - snow) + 238 * snow);
+          col[2] = Math.round(col[2] * (1 - snow) + 242 * snow);
+          shade = Math.max(shade, 1.05);
+        }
+        px[i] = Math.max(0, Math.min(255, col[0] * shade));
+        px[i + 1] = Math.max(0, Math.min(255, col[1] * shade));
+        px[i + 2] = Math.max(0, Math.min(255, col[2] * shade));
+        px[i + 3] = 255;
+      }
+    }
+    g.putImageData(img, 0, 0);
+    return c;
+  }
+
+  function onLand(lon, lat) {
+    if (window.ItalyDEM && ItalyDEM.ready()) return ItalyDEM.meters(lon, lat) > 10;
+    return inItaly(lon, lat);
+  }
+  function simplify(ring, maxPts) {
+    if (ring.length <= maxPts) return ring.slice();
+    var step = Math.ceil(ring.length / maxPts);
+    var out = [];
+    for (var i = 0; i < ring.length; i += step) out.push(ring[i]);
+    return out;
+  }
+  function extractItaly(geojson) {
+    var list = geojson.features || [];
+    var feature = null;
+    for (var i = 0; i < list.length; i++) {
+      var p = list[i].properties || {};
+      var name = (p.name || p.NAME || p.ADMIN || '').toString();
+      if (name === 'Italy' || p.ISO_A3 === 'ITA' || p.iso_a3 === 'ITA') { feature = list[i]; break; }
+    }
+    if (!feature && geojson.type === 'Feature') feature = geojson;
+    var rings = [];
+    function absorb(ring) {
+      var pts = simplify(ring, 180);
+      if (pts.length >= 3) rings.push(pts);
+    }
+    function absorbFeature(f) {
+      if (!f || !f.geometry) return;
+      var g = f.geometry;
+      if (g.type === 'Polygon') absorb(g.coordinates[0]);
+      else if (g.type === 'MultiPolygon') {
+        for (var pi = 0; pi < g.coordinates.length; pi++) absorb(g.coordinates[pi][0]);
+      }
+    }
+    if (feature) absorbFeature(feature);
+    else for (var fi = 0; fi < list.length; fi++) absorbFeature(list[fi]);
+    if (rings.length) italyRings = rings;
+
+    provinceFeatures = [];
+    var regionLike = list.length >= 4 && list.some(function (f) {
+      var p = (f && f.properties) || {};
+      return p.reg_name || p.name || p.NAME;
+    });
+    if (regionLike && !feature) {
+      for (var ri = 0; ri < list.length; ri++) {
+        var f = list[ri];
+        if (!f || !f.geometry) continue;
+        var prings = [];
+        function take(ring) {
+          var pts = simplify(ring, 120);
+          if (pts.length >= 3) prings.push(pts);
+        }
+        var gg = f.geometry;
+        if (gg.type === 'Polygon') take(gg.coordinates[0]);
+        else if (gg.type === 'MultiPolygon') {
+          for (var pj = 0; pj < gg.coordinates.length; pj++) take(gg.coordinates[pj][0]);
+        }
+        if (!prings.length) continue;
+        var pp = f.properties || {};
+        var raw = (pp.reg_name || pp.name || pp.NAME || ('Регион ' + (ri + 1))).toString();
+        provinceFeatures.push({
+          name: NAME_RU[raw] || raw,
+          rings: prings,
+          color: PROV_COLORS[ri % PROV_COLORS.length]
+        });
+      }
+    }
+  }
+  function buildBabylonItaly(scene) {
+    var box = (window.ItalyDEM && ItalyDEM.bbox) ? ItalyDEM.bbox.slice() : [6.4, 36.2, 18.9, 47.4];
+    var positions = [];
+    var uvs = [];
+    var indices = [];
+    if (window.ItalyDEM && ItalyDEM.ready() && ItalyDEM.buildHeightMesh) {
+      var meshData = ItalyDEM.buildHeightMesh({
+        box: box,
+        cols: 360,
+        rows: 420,
+        sea: 8,
+        coastY: 0.04,
+        toXZ: xz,
+        height: function (lon, lat, m) { return heightAt(lon, lat); }
+      });
+      positions = meshData.positions;
+      uvs = meshData.uvs;
+      indices = meshData.indices;
+    } else {
+      var cols = 220, rows = 260, i, j, lon, lat, on, p, a, b, cIdx, d;
+      for (j = 0; j <= rows; j++) {
+        for (i = 0; i <= cols; i++) {
+          lon = box[0] + (box[2] - box[0]) * i / cols;
+          lat = box[3] - (box[3] - box[1]) * j / rows;
+          on = onLand(lon, lat);
+          p = xz(lon, lat);
+          positions.push(p.x, on ? heightAt(lon, lat) : 0, p.z);
+          uvs.push(i / cols, 1 - j / rows);
+        }
+      }
+      for (j = 0; j < rows; j++) {
+        for (i = 0; i < cols; i++) {
+          a = j * (cols + 1) + i;
+          b = a + 1;
+          cIdx = a + cols + 1;
+          d = cIdx + 1;
+          indices.push(a, cIdx, b, b, cIdx, d);
+        }
+      }
+    }
+    var mesh = new BABYLON.Mesh('italyLand', scene);
+    var vd = new BABYLON.VertexData();
+    vd.positions = positions;
+    vd.indices = indices;
+    vd.uvs = uvs;
+    var normals = [];
+    BABYLON.VertexData.ComputeNormals(positions, indices, normals);
+    vd.normals = normals;
+    vd.applyToMesh(mesh, true);
+    var mat = new BABYLON.StandardMaterial('land', scene);
+    mat.specularColor = new BABYLON.Color3(0.18, 0.18, 0.16);
+    mat.specularPower = 24;
+    // светло-серый Piedmont / Kalkstein для высоких зон
+    mat.emissiveColor = new BABYLON.Color3(0.1, 0.11, 0.1);
+    mat.backFaceCulling = false;
+    var geoCanvas = paintAlpineGeo(2048, 2048, box, '#1a4e60');
+    if (geoCanvas) {
+      var dyn = new BABYLON.DynamicTexture('italyGeo', { width: geoCanvas.width, height: geoCanvas.height }, scene, false);
+      dyn.getContext().drawImage(geoCanvas, 0, 0);
+      dyn.update();
+      dyn.wrapU = BABYLON.Texture.CLAMP_ADDRESSMODE;
+      dyn.wrapV = BABYLON.Texture.CLAMP_ADDRESSMODE;
+      dyn.vScale = -1;
+      dyn.vOffset = 1;
+      mat.diffuseTexture = dyn;
+    } else {
+      mat.diffuseColor = new BABYLON.Color3(0.42, 0.5, 0.32);
+    }
+    mesh.material = mat;
+    mesh.receiveShadows = true;
+    return mesh;
+  }
+  function cssHex(n) {
+    return '#' + ('00000' + n.toString(16)).slice(-6);
+  }
+  function paintItalyMap(w, d) {
+    var tw = 1024, th = 1200;
+    var lon0 = CX - (w / 2) / SCALE, lon1 = CX + (w / 2) / SCALE;
+    var lat0 = CY - (d / 2) / SCALE, lat1 = CY + (d / 2) / SCALE;
+    var c = document.createElement('canvas');
+    c.width = tw;
+    c.height = th;
+    var ctx = c.getContext('2d');
+    ctx.fillStyle = '#1a4a66';
+    ctx.fillRect(0, 0, tw, th);
+    function toXY(lon, lat) {
+      return {
+        x: (lon - lon0) / (lon1 - lon0) * tw,
+        y: (lat1 - lat) / (lat1 - lat0) * th
+      };
+    }
+    function drawRings(rings, fill, stroke) {
+      ctx.beginPath();
+      for (var r = 0; r < rings.length; r++) {
+        var ring = rings[r];
+        if (!ring || ring.length < 3) continue;
+        var p0 = toXY(ring[0][0], ring[0][1]);
+        ctx.moveTo(p0.x, p0.y);
+        for (var i = 1; i < ring.length; i++) {
+          var p = toXY(ring[i][0], ring[i][1]);
+          ctx.lineTo(p.x, p.y);
+        }
+        ctx.closePath();
+      }
+      if (fill) { ctx.fillStyle = fill; ctx.fill(); }
+      if (stroke) { ctx.strokeStyle = stroke; ctx.lineWidth = 1.6; ctx.stroke(); }
+    }
+    var provinces = provinceFeatures.length ? provinceFeatures : [{
+      rings: italyRings,
+      color: 0x8ba888,
+      name: ''
+    }];
+    for (var pi = 0; pi < provinces.length; pi++) {
+      drawRings(provinces[pi].rings, cssHex(provinces[pi].color), '#5a4030');
+    }
+    ctx.fillStyle = '#2a1c0c';
+    ctx.strokeStyle = '#f3e6c4';
+    ctx.lineWidth = 3;
+    ctx.font = '600 22px Cinzel, Georgia, serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    for (var li = 0; li < provinces.length; li++) {
+      var prov = provinces[li];
+      if (!prov.name || !prov.rings[0] || prov.rings[0].length < 3) continue;
+      var sx = 0, sy = 0, n = prov.rings[0].length;
+      for (var j = 0; j < n; j++) {
+        var xy = toXY(prov.rings[0][j][0], prov.rings[0][j][1]);
+        sx += xy.x; sy += xy.y;
+      }
+      var label = prov.name;
+      ctx.font = (label.length > 10 ? '600 18px' : '600 22px') + ' Cinzel, Georgia, serif';
+      ctx.strokeText(label, sx / n, sy / n);
+      ctx.fillText(label, sx / n, sy / n);
+    }
+    return c.toDataURL('image/png');
+  }
+  function flareDataUrl() {
+    var c = document.createElement('canvas');
+    c.width = c.height = 32;
+    var g = c.getContext('2d');
+    var grd = g.createRadialGradient(16, 16, 1, 16, 16, 16);
+    grd.addColorStop(0, '#fff8e0');
+    grd.addColorStop(0.4, '#ffb040');
+    grd.addColorStop(1, 'rgba(255,120,0,0)');
+    g.fillStyle = grd;
+    g.fillRect(0, 0, 32, 32);
+    return c.toDataURL('image/png');
+  }
+
+  function markButtons() {
+    document.querySelectorAll('#engineBar [data-engine]').forEach(function (btn) {
+      btn.classList.toggle('active', btn.getAttribute('data-engine') === engine);
+    });
+  }
+
+  function stopRaf() {
+    if (current.raf) { cancelAnimationFrame(current.raf); current.raf = 0; }
+  }
+
+  function disposeAll() {
+    stopRaf();
+    if (current.three) {
+      try {
+        if (current.three.units && current.three.units.dispose) current.three.units.dispose();
+        else if (current.three.walker && current.three.walker.dispose) current.three.walker.dispose();
+        if (current.three.controls) current.three.controls.dispose();
+        current.three.renderer.dispose();
+        if (current.three.renderer.forceContextLoss) current.three.renderer.forceContextLoss();
+      } catch (_) {}
+      current.three = null;
+    }
+    if (current.babylon) {
+      try {
+        if (current.babylon.walker && current.babylon.walker.dispose) current.babylon.walker.dispose();
+        current.babylon.scene.dispose();
+        current.babylon.engine.dispose();
+      } catch (_) {}
+      current.babylon = null;
+    }
+    if (current.phaser) {
+      try { current.phaser.game.destroy(true); } catch (_) {}
+      current.phaser = null;
+    }
+    stage.innerHTML = '';
+    stage.style.perspective = '';
+    stage.style.perspectiveOrigin = '';
+    current.name = '';
+  }
+
+  function makeCanvas() {
+    var c = document.createElement('canvas');
+    c.id = 'engineCanvas';
+    stage.appendChild(c);
+    function fit() {
+      var w = Math.max(1, stage.clientWidth || window.innerWidth);
+      var h = Math.max(1, stage.clientHeight || window.innerHeight);
+      c.width = w;
+      c.height = h;
+      c.style.width = '100%';
+      c.style.height = '100%';
+    }
+    fit();
+    return { el: c, fit: fit };
+  }
+
+  /* ========== THREE.JS ========== */
+  function redStarts() {
+    var a = [];
+    var o = xz(12.35, 42.85);
+    for (var i = 0; i < 12; i++) {
+      var x = o.x - 8.4 + (i % 6) * 2.85;
+      var z = o.z - 3.6 + Math.floor(i / 6) * 3.0;
+      var lon = x / SCALE + CX, lat = CY - z / SCALE;
+      a.push({ x: x, z: z, y: heightAt(lon, lat) + 1.8 });
+    }
+    return a;
+  }
+  function blueStarts() {
+    var a = [];
+    var o = xz(11.55, 41.55);
+    for (var i = 0; i < 10; i++) {
+      var x = o.x - 6.6 + (i % 5) * 2.85;
+      var z = o.z - 3.0 + Math.floor(i / 5) * 3.0;
+      var lon = x / SCALE + CX, lat = CY - z / SCALE;
+      a.push({ x: x, z: z, y: heightAt(lon, lat) + 1.8 });
+    }
+    return a;
+  }
+
+  function startThree() {
+    if (typeof THREE === 'undefined') { setStatus('Three.js не загрузился (CDN)'); return; }
+    var pack = makeCanvas();
+    var renderer = new THREE.WebGLRenderer({ canvas: pack.el, antialias: true });
+    renderer.setPixelRatio(Math.min(2, window.devicePixelRatio || 1));
+    renderer.setSize(pack.el.width, pack.el.height, false);
+    renderer.setClearColor(0x1a4e60, 1);
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+
+    var scene = new THREE.Scene();
+    scene.fog = new THREE.Fog(0x6a98a8, 180, 620);
+    var camera = new THREE.PerspectiveCamera(45, pack.el.width / pack.el.height, 0.2, 1800);
+    camera.position.set(0, 38, 28);
+    camera.lookAt(0, 0, 0);
+
+    var sun = new THREE.DirectionalLight(0xfff1d0, 1.05);
+    // с юга под ~45° — мягкие тени Total War, без резкого «прожектора»
+    sun.position.set(0, 72, 72);
+    sun.castShadow = true;
+    sun.shadow.mapSize.set(2048, 2048);
+    sun.shadow.camera.left = -140;
+    sun.shadow.camera.right = 140;
+    sun.shadow.camera.top = 140;
+    sun.shadow.camera.bottom = -140;
+    sun.shadow.bias = -0.00025;
+    scene.add(sun);
+    scene.add(new THREE.AmbientLight(0x6a7a88, 0.48));
+    scene.add(new THREE.HemisphereLight(0xb8d4e8, 0x3a2a18, 0.38));
+
+    var sea = new THREE.Mesh(
+      new THREE.PlaneGeometry(820, 820),
+      new THREE.MeshStandardMaterial({ color: 0x1e5468, roughness: 0.62, metalness: 0.06 })
+    );
+    sea.rotation.x = -Math.PI / 2;
+    sea.position.y = -0.2;
+    sea.receiveShadow = true;
+    scene.add(sea);
+
+    var box = (window.ItalyDEM && ItalyDEM.bbox) ? ItalyDEM.bbox.slice() : [6.4, 36.2, 18.9, 47.4];
+    var meshData;
+    if (window.ItalyDEM && ItalyDEM.ready() && ItalyDEM.buildHeightMesh) {
+      meshData = ItalyDEM.buildHeightMesh({
+        box: box,
+        cols: 420,
+        rows: 480,
+        sea: 8,
+        coastY: 0.04,
+        toXZ: xz,
+        height: function (lon, lat, m) { return heightAt(lon, lat); }
+      });
+    } else {
+      meshData = { positions: [], uvs: [], indices: [] };
+      var cols = 220, rows = 260, i, j, lon, lat, on, p, a, b, cIdx, d, n;
+      for (j = 0; j <= rows; j++) {
+        for (i = 0; i <= cols; i++) {
+          lon = box[0] + (box[2] - box[0]) * i / cols;
+          lat = box[3] - (box[3] - box[1]) * j / rows;
+          on = onLand(lon, lat);
+          p = xz(lon, lat);
+          meshData.positions.push(p.x, on ? heightAt(lon, lat) : 0, p.z);
+          meshData.uvs.push(i / cols, 1 - j / rows);
+        }
+      }
+      for (j = 0; j < rows; j++) {
+        for (i = 0; i < cols; i++) {
+          a = j * (cols + 1) + i;
+          b = a + 1;
+          cIdx = a + cols + 1;
+          d = cIdx + 1;
+          n = 4;
+          meshData.indices.push(a, cIdx, b, b, cIdx, d);
+        }
+      }
+    }
+    var landGeo = new THREE.BufferGeometry();
+    landGeo.setAttribute('position', new THREE.Float32BufferAttribute(meshData.positions, 3));
+    landGeo.setAttribute('uv', new THREE.Float32BufferAttribute(meshData.uvs, 2));
+    landGeo.setIndex(meshData.indices);
+    landGeo.computeVertexNormals();
+    var geoCanvas = paintAlpineGeo(2048, 2048, box, '#1a4e60');
+    var tex = new THREE.Texture(geoCanvas);
+    tex.needsUpdate = true;
+    tex.generateMipmaps = true;
+    tex.minFilter = THREE.LinearMipmapLinearFilter || THREE.LinearFilter;
+    tex.magFilter = THREE.LinearFilter;
+    var landMat = new THREE.MeshStandardMaterial({
+      map: tex,
+      roughness: 0.9,
+      metalness: 0.03
+    });
+    var landMesh = new THREE.Mesh(landGeo, landMat);
+    landMesh.receiveShadow = true;
+    landMesh.castShadow = true;
+    landMesh.name = 'italyLand';
+    scene.add(landMesh);
+
+    // обводка снежных пиков (тонкий snow-cap слой на самых высоких вершинах)
+    (function addSnowCaps() {
+      var peakLon = [9.5, 11.0, 7.5, 10.2, 12.1];
+      var peakLat = [45.5, 45.5, 45.0, 46.1, 45.8];
+      var snowMat = new THREE.MeshStandardMaterial({
+        color: 0xf2f4f6,
+        roughness: 0.72,
+        metalness: 0.02,
+        emissive: 0x1a1e22,
+        emissiveIntensity: 0.08
+      });
+      var k, pl, pt, hy;
+      for (k = 0; k < peakLon.length; k++) {
+        pl = peakLon[k];
+        pt = peakLat[k];
+        if (!onLand(pl, pt) && !(window.ItalyDEM && ItalyDEM.ready() && ItalyDEM.meters(pl, pt) > 200)) continue;
+        hy = heightAt(pl, pt);
+        var cap = new THREE.Mesh(new THREE.ConeGeometry(1.35 + k * 0.15, 2.4, 7), snowMat);
+        var pp = xz(pl, pt);
+        cap.position.set(pp.x, hy + 0.9, pp.z);
+        cap.castShadow = true;
+        scene.add(cap);
+      }
+    })();
+
+    var cityMarks = [];
+    var cityRay = new THREE.Raycaster();
+    var cityNdc = new THREE.Vector2();
+    var Bridge = window.CampaignMapBridge;
+
+    function addCityMarker(city) {
+      var p = xz(city.lon, city.lat);
+      var y = heightAt(city.lon, city.lat);
+      var s = city.capital ? 1.25 : 1;
+      var g = new THREE.Group();
+      g.position.set(p.x, y, p.z);
+      var body = new THREE.Mesh(
+        new THREE.BoxGeometry(0.95 * s, 0.72 * s, 0.95 * s),
+        new THREE.MeshPhongMaterial({ color: 0xe8dcc4, shininess: 8 })
+      );
+      body.position.y = 0.36 * s;
+      body.castShadow = true;
+      g.add(body);
+      var pole = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.05 * s, 0.06 * s, 1.9 * s, 5),
+        new THREE.MeshPhongMaterial({ color: 0xc9b070 })
+      );
+      pole.position.set(0.65 * s, 0.95 * s, 0);
+      g.add(pole);
+      var bannerCol = city.faction === 'greek' ? 0x6a3d8a : (city.faction === 'carthage' ? 0x9a3a32 : 0xa03030);
+      var flag = new THREE.Mesh(
+        new THREE.BoxGeometry(0.55 * s, 0.42 * s, 0.04 * s),
+        new THREE.MeshPhongMaterial({ color: bannerCol })
+      );
+      flag.position.set(0.9 * s, 1.55 * s, 0);
+      g.add(flag);
+      var hit = new THREE.Mesh(
+        new THREE.CylinderGeometry(1.15 * s, 1.15 * s, 2.4 * s, 10),
+        new THREE.MeshBasicMaterial({ visible: false })
+      );
+      hit.position.y = 0.9 * s;
+      hit.userData.isCityHit = true;
+      g.add(hit);
+      scene.add(g);
+      cityMarks.push({
+        city: city,
+        hit: hit,
+        campaignName: Bridge ? Bridge.campaignName(city.name) : city.name
+      });
+    }
+
+    var citiesList = (Bridge && Bridge.getCities()) ? Bridge.getCities() : [];
+    for (var ci = 0; ci < citiesList.length; ci++) addCityMarker(citiesList[ci]);
+
+    var roadsList = (Bridge && Bridge.getRoads()) ? Bridge.getRoads() : [];
+    var byCityName = {};
+    citiesList.forEach(function (c) { byCityName[c.name] = c; });
+    roadsList.forEach(function (pair) {
+      var a = byCityName[pair[0]], b = byCityName[pair[1]];
+      if (!a || !b) return;
+      var pa = xz(a.lon, a.lat), pb = xz(b.lon, b.lat);
+      var ya = heightAt(a.lon, a.lat) + 0.12;
+      var yb = heightAt(b.lon, b.lat) + 0.12;
+      var mid = {
+        x: (pa.x + pb.x) * 0.5,
+        y: (ya + yb) * 0.5 + 0.15,
+        z: (pa.z + pb.z) * 0.5
+      };
+      var curve = new THREE.CatmullRomCurve3([
+        new THREE.Vector3(pa.x, ya, pa.z),
+        new THREE.Vector3(mid.x, mid.y, mid.z),
+        new THREE.Vector3(pb.x, yb, pb.z)
+      ]);
+      var tube = new THREE.Mesh(
+        new THREE.TubeGeometry(curve, 14, 0.11, 4, false),
+        new THREE.MeshPhongMaterial({ color: 0xc4a56a, shininess: 4 })
+      );
+      scene.add(tube);
+    });
+
+    if (Bridge && Bridge.addResourceMeshesThree) {
+      Bridge.addResourceMeshesThree(
+        THREE, scene, Bridge.getResources(),
+        function (lon, lat) { return xz(lon, lat); },
+        function (lon, lat) { return heightAt(lon, lat); },
+        1.15
+      );
+    }
+
+    var treeMat = new THREE.MeshLambertMaterial({ color: 0x1d3820 });
+    var trunkMat = new THREE.MeshLambertMaterial({ color: 0x4a3420 });
+    var coneGeo = new THREE.ConeGeometry(0.55, 1.35, 6);
+    var trunkGeo = new THREE.CylinderGeometry(0.09, 0.12, 0.32, 5);
+    var planted = 0, tries = 0;
+    while (planted < 280 && tries < 6000) {
+      tries++;
+      var tlon = box[0] + Math.random() * (box[2] - box[0]);
+      var tlat = box[1] + Math.random() * (box[3] - box[1]);
+      if (!onLand(tlon, tlat)) continue;
+      var tm = (window.ItalyDEM && ItalyDEM.ready()) ? ItalyDEM.meters(tlon, tlat) : 200;
+      if (tm < 80 || tm > 1100) continue;
+      var tg = new THREE.Group();
+      var trunk = new THREE.Mesh(trunkGeo, trunkMat);
+      trunk.position.y = 0.16;
+      tg.add(trunk);
+      var crown = new THREE.Mesh(coneGeo, treeMat);
+      crown.position.y = 0.95;
+      crown.castShadow = true;
+      tg.add(crown);
+      var tp = xz(tlon, tlat);
+      tg.position.set(tp.x, heightAt(tlon, tlat), tp.z);
+      tg.scale.setScalar(0.85 + Math.random() * 0.7);
+      scene.add(tg);
+      planted++;
+    }
+
+    var cylGeo = new THREE.CylinderGeometry(0.72, 0.85, 3.2, 10);
+    var redMat = new THREE.MeshStandardMaterial({ color: 0x9a3030 });
+    var blueMat = new THREE.MeshStandardMaterial({ color: 0x2a4a9a });
+    var reds = [];
+    var blues = [];
+    function spawn(list, mat, starts) {
+      starts.forEach(function (s) {
+        var m = new THREE.Mesh(cylGeo, mat);
+        m.castShadow = true;
+        m.position.set(s.x, s.y, s.z);
+        scene.add(m);
+        list.push({ mesh: m, home: { x: s.x, y: s.y, z: s.z }, stopped: false });
+      });
+    }
+    spawn(reds, redMat, redStarts());
+    spawn(blues, blueMat, blueStarts());
+
+    var controls = null;
+    var camTarget = new THREE.Vector3(0, 1.2, 2);
+    if (THREE.OrbitControls) {
+      controls = new THREE.OrbitControls(camera, pack.el);
+      controls.enableDamping = true;
+      controls.enableZoom = false;
+      controls.enableRotate = false;
+      controls.enablePan = true;
+      controls.screenSpacePanning = true;
+      if (THREE.MOUSE) {
+        controls.mouseButtons = { LEFT: THREE.MOUSE.PAN, MIDDLE: THREE.MOUSE.DOLLY, RIGHT: THREE.MOUSE.PAN };
+      }
+      controls.target.copy(camTarget);
+    } else {
+      // без OrbitControls (локальный three.min) — свой пан ЛКМ
+      var dragging = false, lx = 0, ly = 0, panOk = true;
+      pack.el.addEventListener('mousedown', function (e) {
+        if (e.button !== 0 || !panOk) return;
+        dragging = true; lx = e.clientX; ly = e.clientY;
+      });
+      window.addEventListener('mousemove', function (e) {
+        if (!dragging) return;
+        var dx = e.clientX - lx, dy = e.clientY - ly;
+        lx = e.clientX; ly = e.clientY;
+        var yaw = camYaw * Math.PI / 180;
+        var k = 0.08 / camZoom;
+        camTarget.x -= (Math.cos(yaw) * dx + Math.sin(yaw) * dy) * k;
+        camTarget.z -= (-Math.sin(yaw) * dx + Math.cos(yaw) * dy) * k;
+        applyThreeCam();
+      });
+      window.addEventListener('mouseup', function () { dragging = false; });
+      pack._setPanEnabled = function (on) { panOk = on; };
+    }
+
+    var rome = xz(12.38, 41.82);
+    var capua = xz(14.08, 41.18);
+    for (var cci = 0; cci < citiesList.length; cci++) {
+      if (citiesList[cci].name === 'Capua') {
+        capua = xz(citiesList[cci].lon, citiesList[cci].lat);
+        break;
+      }
+    }
+    var walker = null;
+    var units = null;
+
+    function worldToLonLat(x, z) {
+      return { lon: x / SCALE + CX, lat: CY - z / SCALE };
+    }
+    function pickCity(e) {
+      if (!camera || !cityMarks.length) return null;
+      var rect = pack.el.getBoundingClientRect();
+      cityNdc.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+      cityNdc.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+      cityRay.setFromCamera(cityNdc, camera);
+      var hits = [];
+      cityMarks.forEach(function (m) {
+        var h = cityRay.intersectObject(m.hit, false);
+        if (h && h.length) hits.push({ mark: m, dist: h[0].distance });
+      });
+      if (!hits.length) return null;
+      hits.sort(function (a, b) { return a.dist - b.dist; });
+      return hits[0].mark;
+    }
+    function openCityPanel(mark) {
+      if (!mark || !Bridge) return;
+      setStatus('Город: ' + (mark.city.ru || mark.city.name));
+      Bridge.postCitySelect(Bridge.selectCityPayload(mark.city));
+    }
+    function handleCityClick(e) {
+      var mark = pickCity(e);
+      if (!mark) {
+        if (Bridge) Bridge.postCityDeselect();
+        return false;
+      }
+      openCityPanel(mark);
+      return true;
+    }
+    function pickLonLatFromEvent(e) {
+      var rect = pack.el.getBoundingClientRect();
+      var ndc = new THREE.Vector2(
+        ((e.clientX - rect.left) / rect.width) * 2 - 1,
+        -((e.clientY - rect.top) / rect.height) * 2 + 1
+      );
+      var ray = new THREE.Raycaster();
+      ray.setFromCamera(ndc, camera);
+      var hits = ray.intersectObject(landMesh, false);
+      if (!hits || !hits.length) return null;
+      return worldToLonLat(hits[0].point.x, hits[0].point.z);
+    }
+    function hidePlayerArmy() {
+      if (!units || !units.player) return;
+      units.player.setSelected(false);
+      units.player.root.visible = false;
+    }
+    function showPlayerArmyAt(lon, lat, armyId) {
+      if (!units || !units.player) return;
+      var p = xz(lon, lat);
+      units.player.root.visible = true;
+      units.player.root.position.set(p.x, heightAt(lon, lat) + 0.5, p.z);
+      if (units.player.setArmyId) units.player.setArmyId(armyId);
+      units.player.setSelected(true);
+    }
+
+    if (window.WalkUnitThree && WalkUnitThree.mountPair) {
+      var fieldArmyId = 'field_near_rome';
+      var armyStart = rome;
+      try {
+        var CS0 = Bridge && Bridge.parentCS ? Bridge.parentCS() : (window.parent && window.parent.CampaignState);
+        if (CS0 && CS0.state.fieldArmies && CS0.state.fieldArmies[0]) {
+          fieldArmyId = CS0.state.fieldArmies[0].id;
+        }
+        var fa = CS0 && CS0.getFieldArmy && CS0.getFieldArmy(fieldArmyId);
+        if (fa) armyStart = xz(fa.lon, fa.lat);
+      } catch (_) {}
+      var extras = (Bridge && Bridge.fieldArmyMountExtras)
+        ? Bridge.fieldArmyMountExtras({
+          pickLonLat: pickLonLatFromEvent,
+          pickCityName: function (e) {
+            var mark = pickCity(e);
+            return mark && mark.campaignName ? mark.campaignName : null;
+          },
+          worldToLonLat: worldToLonLat,
+          getFieldArmyId: function () { return fieldArmyId; },
+          setFieldArmyId: function (id) { fieldArmyId = id; },
+          showArmy: showPlayerArmyAt,
+          hideArmy: hidePlayerArmy,
+          getPlayer: function () { return units && units.player; },
+          setStatus: setStatus
+        })
+        : {};
+      units = WalkUnitThree.mountPair({
+        THREE: THREE,
+        scene: scene,
+        camera: camera,
+        canvas: pack.el,
+        land: landMesh,
+        hover: 0.5,
+        scale: 1.15,
+        speed: 8,
+        combatStop: 1.5,
+        armyId: fieldArmyId,
+        playerStart: armyStart,
+        npcStart: capua,
+        getHeight: function (x, z) {
+          return heightAt(x / SCALE + CX, CY - z / SCALE);
+        },
+        setPanEnabled: function (on) {
+          if (controls) controls.enablePan = on;
+          else if (pack._setPanEnabled) pack._setPanEnabled(on);
+        },
+        onMapClick: handleCityClick,
+        beforeRmbMove: extras.beforeRmbMove,
+        resolveEnterCity: extras.resolveEnterCity,
+        onSelect: extras.onSelect,
+        onArrive: extras.onArrive,
+        follow: function (x, y, z) {
+          var t = controls && controls.target ? controls.target : camTarget;
+          if (!t) return;
+          t.x += (x - t.x) * 0.06;
+          t.y += (y - t.y) * 0.06;
+          t.z += (z - t.z) * 0.06;
+        },
+        onBattle: showBattleDialog,
+        onStatus: setStatus
+      });
+      walker = units.player;
+    } else if (window.WalkUnitThree) {
+      walker = WalkUnitThree.mount({
+        THREE: THREE,
+        scene: scene,
+        camera: camera,
+        canvas: pack.el,
+        land: landMesh,
+        hover: 0.5,
+        scale: 1.15,
+        speed: 8,
+        start: rome,
+        getHeight: function (x, z) {
+          return heightAt(x / SCALE + CX, CY - z / SCALE);
+        },
+        setPanEnabled: function (on) {
+          if (controls) controls.enablePan = on;
+        },
+        follow: function (x, y, z) {
+          if (!controls || !controls.target) return;
+          controls.target.x += (x - controls.target.x) * 0.06;
+          controls.target.y += (y - controls.target.y) * 0.06;
+          controls.target.z += (z - controls.target.z) * 0.06;
+        },
+        onStatus: setStatus
+      });
+    }
+
+    var fighting = false;
+    function resetArmies() {
+      fighting = false;
+      reds.forEach(function (u) { u.stopped = false; u.mesh.position.set(u.home.x, u.home.y, u.home.z); });
+      blues.forEach(function (u) { u.stopped = false; u.mesh.position.set(u.home.x, u.home.y, u.home.z); });
+      setStatus('Three.js 3D · пан ЛКМ · Сброс армий');
+    }
+    function centroids() {
+      var rc = { x: 0, z: 0 }, bc = { x: 0, z: 0 };
+      reds.forEach(function (u) { rc.x += u.mesh.position.x; rc.z += u.mesh.position.z; });
+      blues.forEach(function (u) { bc.x += u.mesh.position.x; bc.z += u.mesh.position.z; });
+      rc.x /= reds.length; rc.z /= reds.length;
+      bc.x /= blues.length; bc.z /= blues.length;
+      return { rc: rc, bc: bc };
+    }
+    function tick() {
+      if (current.name !== 'three') return;
+      var now = performance.now();
+      var dt = Math.min(0.05, (now - (tick.last || now)) / 1000);
+      tick.last = now;
+      if (units) units.tick(dt);
+      else if (walker) walker.tick(dt);
+      var c = centroids();
+      var dx = c.bc.x - c.rc.x, dz = c.bc.z - c.rc.z;
+      var distG = Math.sqrt(dx * dx + dz * dz);
+      if (distG < 14) fighting = true;
+      if (!fighting) {
+        var nx = dx / (distG || 1), nz = dz / (distG || 1);
+        var sp = 0.09;
+        reds.forEach(function (u) {
+          if (!u.stopped) { u.mesh.position.x += nx * sp; u.mesh.position.z += nz * sp; }
+        });
+        blues.forEach(function (u) {
+          if (!u.stopped) { u.mesh.position.x -= nx * sp; u.mesh.position.z -= nz * sp; }
+        });
+      }
+      if (controls) controls.update();
+      applyThreeCam();
+      renderer.render(scene, camera);
+      current.raf = requestAnimationFrame(tick);
+    }
+
+    current.three = { renderer: renderer, scene: scene, camera: camera, controls: controls, camTarget: camTarget, reset: resetArmies, pack: pack, yaw: 0, walker: walker, units: units };
+    current.name = 'three';
+    resetArmies();
+    applyCam();
+    tick();
+    setStatus('Three.js 3D · клик солдата, затем карта · колесо — зум · Q/E — наклон');
+  }
+
+  function loadScript(src) {
+    return new Promise(function (resolve, reject) {
+      var s = document.createElement('script');
+      s.src = src;
+      s.onload = function () { resolve(true); };
+      s.onerror = function () { reject(new Error('load fail: ' + src)); };
+      document.head.appendChild(s);
+    });
+  }
+
+  function ensureBabylon() {
+    if (typeof BABYLON !== 'undefined') return Promise.resolve(true);
+    setStatus('Загрузка Babylon.js…');
+    return loadScript('https://cdn.babylonjs.com/babylon.js').then(function () {
+      return loadScript('https://cdn.babylonjs.com/materialsLibrary/babylonjs.materials.min.js').catch(function () {
+        return true;
+      });
+    });
+  }
+
+  function ensurePhaser() {
+    if (typeof Phaser !== 'undefined') return Promise.resolve(true);
+    setStatus('Загрузка Phaser…');
+    return loadScript('/maps/view10/phaser.min.js').catch(function () {
+      return loadScript('https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.min.js');
+    });
+  }
+
+  /* ========== BABYLON.JS ========== */
+  function startBabylon() {
+    ensureBabylon().then(function () {
+      startBabylonInner();
+    }).catch(function (err) {
+      setStatus('Babylon.js не загрузился · ' + (err && err.message ? err.message : 'сеть'));
+    });
+  }
+
+  function startBabylonInner() {
+    if (typeof BABYLON === 'undefined') { setStatus('Babylon.js не загрузился'); return; }
+    var pack = makeCanvas();
+    var engineB = new BABYLON.Engine(pack.el, true, { preserveDrawingBuffer: true, stencil: true });
+    var scene = new BABYLON.Scene(engineB);
+    scene.clearColor = new BABYLON.Color4(0.1, 0.3, 0.38, 1);
+    scene.fogMode = BABYLON.Scene.FOGMODE_LINEAR;
+    scene.fogStart = 90;
+    scene.fogEnd = 560;
+    scene.fogColor = new BABYLON.Color3(0.42, 0.6, 0.66);
+
+    var camera = new BABYLON.ArcRotateCamera('cam', Math.PI * 0.42, Math.PI / 5.5, BASE_DIST / camZoom, new BABYLON.Vector3(0, 1.2, 2), scene);
+    camera.attachControl(pack.el, true);
+    camera.panningSensibility = 80;
+    camera.pinchPrecision = 80;
+    camera.minZ = 0.2;
+    camera.maxZ = 2500;
+    if (camera.inputs && camera.inputs.attached && camera.inputs.attached.mousewheel) {
+      camera.inputs.remove(camera.inputs.attached.mousewheel);
+    }
+    applyBabylonCam();
+
+    var light = new BABYLON.DirectionalLight('sun', new BABYLON.Vector3(0.15, -1, 0.85), scene);
+    light.position = new BABYLON.Vector3(20, 140, 120);
+    light.intensity = 1.15;
+    light.diffuse = new BABYLON.Color3(1.0, 0.96, 0.88);
+    var hemi = new BABYLON.HemisphericLight('hemi', new BABYLON.Vector3(0, 1, 0.2), scene);
+    hemi.intensity = 0.58;
+    hemi.diffuse = new BABYLON.Color3(0.88, 0.9, 0.86);
+    hemi.groundColor = new BABYLON.Color3(0.28, 0.3, 0.26);
+    var shadow = new BABYLON.ShadowGenerator(2048, light);
+    shadow.useBlurExponentialShadowMap = true;
+    scene.ambientColor = new BABYLON.Color3(0.3, 0.32, 0.3);
+
+    try {
+      var env = BABYLON.CubeTexture.CreateFromPrefilteredData('https://assets.babylonjs.com/environments/environmentSpecular.env', scene);
+      scene.environmentTexture = env;
+      scene.createDefaultSkybox(env, true, 1800, 0.22);
+    } catch (_) {}
+
+    var ground = buildBabylonItaly(scene);
+    ground.receiveShadows = true;
+    ground.isPickable = true;
+
+    var BridgeB = window.CampaignMapBridge;
+    var cityMeshesB = [];
+    var citiesB = (BridgeB && BridgeB.getCities()) ? BridgeB.getCities() : [];
+    citiesB.forEach(function (city) {
+      var p = xz(city.lon, city.lat);
+      var y = heightAt(city.lon, city.lat);
+      var box = BABYLON.MeshBuilder.CreateBox('city_' + city.name, {
+        width: city.capital ? 1.5 : 1.15,
+        height: city.capital ? 1.35 : 1.0,
+        depth: city.capital ? 1.5 : 1.15
+      }, scene);
+      box.position.set(p.x, y + (city.capital ? 0.68 : 0.5), p.z);
+      var mat = new BABYLON.StandardMaterial('cm_' + city.name, scene);
+      var col = city.faction === 'greek'
+        ? new BABYLON.Color3(0.42, 0.24, 0.54)
+        : (city.faction === 'carthage'
+          ? new BABYLON.Color3(0.6, 0.23, 0.2)
+          : new BABYLON.Color3(0.91, 0.86, 0.75));
+      mat.diffuseColor = col;
+      box.material = mat;
+      box.isPickable = true;
+      box.metadata = { city: city };
+      cityMeshesB.push(box);
+      var pole = BABYLON.MeshBuilder.CreateCylinder('cp_' + city.name, {
+        height: 1.8, diameter: 0.1, tessellation: 6
+      }, scene);
+      pole.position.set(p.x + 0.7, y + 0.9, p.z);
+      var poleMat = new BABYLON.StandardMaterial('cpm_' + city.name, scene);
+      poleMat.diffuseColor = new BABYLON.Color3(0.79, 0.69, 0.44);
+      pole.material = poleMat;
+      pole.isPickable = false;
+      var flag = BABYLON.MeshBuilder.CreateBox('cf_' + city.name, {
+        width: 0.55, height: 0.4, depth: 0.05
+      }, scene);
+      flag.position.set(p.x + 0.95, y + 1.55, p.z);
+      var flagMat = new BABYLON.StandardMaterial('cfm_' + city.name, scene);
+      flagMat.diffuseColor = city.faction === 'greek'
+        ? new BABYLON.Color3(0.42, 0.24, 0.54)
+        : (city.faction === 'carthage'
+          ? new BABYLON.Color3(0.6, 0.23, 0.2)
+          : new BABYLON.Color3(0.63, 0.19, 0.19));
+      flag.material = flagMat;
+      flag.isPickable = false;
+    });
+    scene.onPointerObservable.add(function (pi) {
+      if (pi.type !== BABYLON.PointerEventTypes.POINTERPICK) return;
+      if (!BridgeB) return;
+      var hit = pi.pickInfo && pi.pickInfo.hit && pi.pickInfo.pickedMesh;
+      if (hit && hit.metadata && hit.metadata.city) {
+        BridgeB.postCitySelect(BridgeB.selectCityPayload(hit.metadata.city));
+        setStatus('Город: ' + (hit.metadata.city.ru || hit.metadata.city.name));
+        return;
+      }
+      BridgeB.postCityDeselect();
+    });
+
+    var sea = BABYLON.MeshBuilder.CreateGround('sea', { width: 820, height: 820 }, scene);
+    sea.position.y = -0.18;
+    var seaMat = new BABYLON.StandardMaterial('seaMat', scene);
+    seaMat.diffuseColor = new BABYLON.Color3(0.12, 0.33, 0.41);
+    seaMat.specularColor = new BABYLON.Color3(0.18, 0.28, 0.32);
+    seaMat.specularPower = 48;
+    seaMat.emissiveColor = new BABYLON.Color3(0.05, 0.12, 0.16);
+    seaMat.alpha = 0.96;
+    sea.material = seaMat;
+    sea.receiveShadows = true;
+
+    var treeMatB = new BABYLON.StandardMaterial('treeB', scene);
+    treeMatB.diffuseColor = new BABYLON.Color3(0.12, 0.22, 0.13);
+    treeMatB.specularColor = new BABYLON.Color3(0, 0, 0);
+    var trunkMatB = new BABYLON.StandardMaterial('trunkB', scene);
+    trunkMatB.diffuseColor = new BABYLON.Color3(0.29, 0.2, 0.13);
+    var boxT = (window.ItalyDEM && ItalyDEM.bbox) ? ItalyDEM.bbox.slice() : [6.4, 36.2, 18.9, 47.4];
+    var planted = 0, tries = 0, tlon, tlat, tm, tp, hy;
+    while (planted < 180 && tries < 4500) {
+      tries++;
+      tlon = boxT[0] + Math.random() * (boxT[2] - boxT[0]);
+      tlat = boxT[1] + Math.random() * (boxT[3] - boxT[1]);
+      tm = (window.ItalyDEM && ItalyDEM.ready()) ? ItalyDEM.meters(tlon, tlat) : 0;
+      if (tm < 90 || tm > 1050) continue;
+      tp = xz(tlon, tlat);
+      hy = heightAt(tlon, tlat);
+      var trunk = BABYLON.MeshBuilder.CreateCylinder('tr' + planted, { height: 0.5, diameter: 0.18, tessellation: 5 }, scene);
+      trunk.material = trunkMatB;
+      trunk.position.set(tp.x, hy + 0.25, tp.z);
+      trunk.isPickable = false;
+      var crown = BABYLON.MeshBuilder.CreateCylinder('cr' + planted, {
+        height: 1.45, diameterTop: 0.04, diameterBottom: 0.9, tessellation: 6
+      }, scene);
+      crown.material = treeMatB;
+      crown.position.set(tp.x, hy + 1.1, tp.z);
+      crown.isPickable = false;
+      planted++;
+    }
+
+    var pipeline = new BABYLON.DefaultRenderingPipeline('bloom', true, scene, [camera]);
+    pipeline.bloomEnabled = true;
+    pipeline.bloomThreshold = 0.85;
+    pipeline.bloomWeight = 0.12;
+    pipeline.bloomKernel = 24;
+    pipeline.fxaaEnabled = true;
+
+    var reds = [];
+    var blues = [];
+    function makeSphere(color, pos) {
+      var s = BABYLON.MeshBuilder.CreateSphere('u', { diameter: 1.05 }, scene);
+      var m = new BABYLON.StandardMaterial('um', scene);
+      m.diffuseColor = color;
+      m.emissiveColor = color.scale(0.18);
+      s.material = m;
+      s.position = pos.clone();
+      s.position.y = 0.85;
+      shadow.addShadowCaster(s);
+      return { mesh: s, home: pos.clone(), stopped: false };
+    }
+    redStarts().forEach(function (s) { reds.push(makeSphere(new BABYLON.Color3(0.62, 0.18, 0.18), new BABYLON.Vector3(s.x, 0, s.z))); });
+    blueStarts().forEach(function (s) { blues.push(makeSphere(new BABYLON.Color3(0.16, 0.28, 0.62), new BABYLON.Vector3(s.x, 0, s.z))); });
+
+    var romeB = xz(12.5, 41.9);
+    var walkerB = null;
+    if (window.WalkUnitBabylon) {
+      walkerB = WalkUnitBabylon.mount({
+        scene: scene,
+        camera: camera,
+        canvas: pack.el,
+        ground: ground,
+        hover: 0.45,
+        scale: 3.15,
+        speed: 6,
+        start: { x: romeB.x, z: romeB.z },
+        getHeight: function (x, z) {
+          return heightAt(x / SCALE + CX, CY - z / SCALE);
+        },
+        follow: function (x, y, z) {
+          var t = camera.getTarget();
+          camera.setTarget(new BABYLON.Vector3(
+            t.x + (x - t.x) * 0.07,
+            t.y + (y - t.y) * 0.07,
+            t.z + (z - t.z) * 0.07
+          ));
+        },
+        onStatus: setStatus
+      });
+    }
+
+    var exploded = false;
+    function explode(at) {
+      if (exploded) return;
+      exploded = true;
+      var ps = new BABYLON.ParticleSystem('boom', 450, scene);
+      ps.particleTexture = new BABYLON.Texture(flareDataUrl(), scene);
+      ps.emitter = at;
+      ps.minEmitBox = new BABYLON.Vector3(-0.4, 0, -0.4);
+      ps.maxEmitBox = new BABYLON.Vector3(0.4, 1, 0.4);
+      ps.color1 = new BABYLON.Color4(1, 0.85, 0.3, 1);
+      ps.color2 = new BABYLON.Color4(0.9, 0.2, 0.05, 1);
+      ps.colorDead = new BABYLON.Color4(0.2, 0.05, 0, 0);
+      ps.minSize = 0.3; ps.maxSize = 1.4;
+      ps.minLifeTime = 0.25; ps.maxLifeTime = 0.7;
+      ps.emitRate = 600;
+      ps.gravity = new BABYLON.Vector3(0, -6, 0);
+      ps.direction1 = new BABYLON.Vector3(-3, 6, -3);
+      ps.direction2 = new BABYLON.Vector3(3, 8, 3);
+      ps.minEmitPower = 4; ps.maxEmitPower = 9;
+      ps.targetStopDuration = 0.35;
+      ps.disposeOnStop = true;
+      ps.start();
+    }
+
+    var fighting = false;
+    function resetArmies() {
+      fighting = false;
+      exploded = false;
+      reds.forEach(function (u) { u.stopped = false; u.mesh.position.x = u.home.x; u.mesh.position.z = u.home.z; });
+      blues.forEach(function (u) { u.stopped = false; u.mesh.position.x = u.home.x; u.mesh.position.z = u.home.z; });
+      setStatus('Babylon.js 3D · Bloom / Fog / вода · Сброс армий');
+    }
+    function groupCenter(list) {
+      var x = 0, z = 0;
+      list.forEach(function (u) { x += u.mesh.position.x; z += u.mesh.position.z; });
+      return { x: x / list.length, z: z / list.length };
+    }
+    scene.onBeforeRenderObservable.add(function () {
+      if (current.name !== 'babylon') return;
+      var rc = groupCenter(reds), bc = groupCenter(blues);
+      var dx = bc.x - rc.x, dz = bc.z - rc.z;
+      var distG = Math.sqrt(dx * dx + dz * dz);
+      if (distG < 5) {
+        if (!fighting) explode(new BABYLON.Vector3((rc.x + bc.x) / 2, 3, (rc.z + bc.z) / 2));
+        fighting = true;
+      }
+      if (!fighting) {
+        var nx = dx / (distG || 1), nz = dz / (distG || 1), sp = 0.04;
+        reds.forEach(function (u) { u.mesh.position.x += nx * sp; u.mesh.position.z += nz * sp; });
+        blues.forEach(function (u) { u.mesh.position.x -= nx * sp; u.mesh.position.z -= nz * sp; });
+      }
+    });
+    engineB.runRenderLoop(function () {
+      if (current.name !== 'babylon') return;
+      scene.render();
+    });
+
+    current.babylon = { engine: engineB, scene: scene, camera: camera, reset: resetArmies, pack: pack, walker: walkerB };
+    current.name = 'babylon';
+    resetArmies();
+    applyCam();
+    setStatus('Babylon.js 3D · клик солдата, затем карта · колесо — зум · Q/E — наклон');
+  }
+
+  /* ========== PHASER ========== */
+  function startPhaser() {
+    ensurePhaser().then(function () {
+      startPhaserInner();
+    }).catch(function (err) {
+      setStatus('Phaser не загрузился · ' + (err && err.message ? err.message : 'сеть'));
+      stage.style.background = '#1a4e60';
+    });
+  }
+
+  function startPhaserInner() {
+    if (typeof Phaser === 'undefined') { setStatus('Phaser не загрузился'); return; }
+
+    var bbox = (window.ItalyDEM && ItalyDEM.bbox) ? ItalyDEM.bbox.slice() : [6.4, 36.2, 18.9, 47.4];
+    // чуть уже по широте — меньше «стены» Альп и лишнего моря в кадре
+    bbox[1] = Math.max(bbox[1], 36.6);
+    bbox[3] = Math.min(bbox[3], 46.35);
+    var lonSpan = bbox[2] - bbox[0];
+    var latSpan = bbox[3] - bbox[1];
+    var mapW = 4 * (lonSpan / latSpan); // ×2 к прежнему размеру
+    var mapD = 4;
+    var provinces = provinceFeatures.length ? provinceFeatures : [{
+      name: 'Италия',
+      color: 0xc4b47a,
+      rings: italyRings
+    }];
+
+    function lonLatToModel(lon, lat) {
+      return {
+        x: ((lon - bbox[0]) / lonSpan - 0.5) * mapW,
+        z: ((bbox[3] - lat) / latSpan - 0.5) * mapD
+      };
+    }
+    function elevY(m, lat, lon) {
+      // Phaser: альпийский рельеф по ТЗ (без прежнего squash севера)
+      if (lon != null && lat != null) {
+        var az = alpineBandZ(lon, lat);
+        if (az > 0) {
+          if (az <= 2) return 0.004;
+          // зубцы смотрят на юг: чуть сильнее подъём к северу кадра
+          var southFace = 0.92 + 0.08 * Math.max(0, Math.min(1, (lat - 44.5) / 1.5));
+          return (0.01 + (az / 25) * 0.095) * southFace;
+        }
+      }
+      if (!(m > 6)) return -0.005;
+      var t = Math.min(1, Math.max(0, m / 3800));
+      return 0.006 + Math.pow(t, 0.48) * 0.055;
+    }
+    function heightXZ(x, z) {
+      var lon = bbox[0] + (x / mapW + 0.5) * lonSpan;
+      var lat = bbox[3] - (z / mapD + 0.5) * latSpan;
+      var m = (window.ItalyDEM && ItalyDEM.ready()) ? ItalyDEM.meters(lon, lat) : 0;
+      return elevY(m || 0, lat, lon);
+    }
+    function projectModel(x, y, z) {
+      var mesh = current.phaser && current.phaser.terrain;
+      if (!mesh || !mesh.transformMatrix) return { x: 0, y: 0, scale: 1 };
+      try {
+        if (typeof mesh.preUpdate === 'function') mesh.preUpdate();
+      } catch (_) {}
+      var m = mesh.transformMatrix.val;
+      var tx = x * m[0] + y * m[4] + z * m[8] + m[12];
+      var ty = x * m[1] + y * m[5] + z * m[9] + m[13];
+      var tw = x * m[3] + y * m[7] + z * m[11] + m[15];
+      if (Math.abs(tw) < 1e-8) tw = 1e-8;
+      return {
+        x: mesh.x + (tx / tw) * mesh.width,
+        y: mesh.y - (ty / tw) * mesh.height,
+        scale: Math.max(0.45, Math.min(1.35, 0.95 / Math.max(0.35, tw)))
+      };
+    }
+    function paintPhaserTex(tw, th) {
+      var c = paintAlpineGeo(tw, th, bbox, '#163c4c');
+      var ctx = c.getContext('2d');
+      function toUV(lon, lat) {
+        return {
+          x: (lon - bbox[0]) / lonSpan * tw,
+          y: (bbox[3] - lat) / latSpan * th
+        };
+      }
+      // зубчатые альпийские гребни (dunkelgrün/braun), вершины смотрят на юг
+      ctx.save();
+      var ridgeLons = [7.5, 8.4, 9.5, 10.4, 11.0, 11.8, 12.4];
+      var ri, lonR, latBase, uv0, uva, uvb, azR;
+      for (ri = 0; ri < ridgeLons.length; ri++) {
+        lonR = ridgeLons[ri];
+        latBase = 45.15 + (ri % 3) * 0.22;
+        azR = alpineBandZ(lonR, latBase);
+        if (azR < 12) continue;
+        uv0 = toUV(lonR, latBase);
+        uva = toUV(lonR - 0.22, latBase + 0.55);
+        uvb = toUV(lonR + 0.22, latBase + 0.55);
+        ctx.beginPath();
+        ctx.moveTo(uva.x, uva.y);
+        ctx.lineTo(uv0.x, uv0.y + 6);
+        ctx.lineTo(uvb.x, uvb.y);
+        ctx.closePath();
+        ctx.fillStyle = azR > 20 ? 'rgba(220,224,228,0.42)' : 'rgba(48,72,40,0.38)';
+        ctx.fill();
+        ctx.strokeStyle = 'rgba(72,52,32,0.28)';
+        ctx.lineWidth = 1;
+        ctx.stroke();
+      }
+      ctx.restore();
+      ctx.lineJoin = 'round';
+      var pi, i, ring, p0, p;
+      for (pi = 0; pi < provinces.length; pi++) {
+        ctx.beginPath();
+        for (var rix = 0; rix < provinces[pi].rings.length; rix++) {
+          ring = provinces[pi].rings[rix];
+          if (!ring || ring.length < 3) continue;
+          p0 = toUV(ring[0][0], ring[0][1]);
+          ctx.moveTo(p0.x, p0.y);
+          for (i = 1; i < ring.length; i++) {
+            p = toUV(ring[i][0], ring[i][1]);
+            ctx.lineTo(p.x, p.y);
+          }
+          ctx.closePath();
+        }
+        ctx.strokeStyle = 'rgba(42, 28, 14, 0.42)';
+        ctx.lineWidth = 1.25;
+        ctx.stroke();
+      }
+      return c;
+    }
+    function makePineCanvas() {
+      var c = document.createElement('canvas');
+      c.width = 32; c.height = 48;
+      var g = c.getContext('2d');
+      g.fillStyle = 'rgba(0,0,0,0.22)';
+      g.beginPath();
+      g.ellipse(16, 44, 7, 3, 0, 0, Math.PI * 2);
+      g.fill();
+      g.fillStyle = '#4a3420';
+      g.fillRect(14, 32, 4, 12);
+      g.fillStyle = '#1a3820';
+      g.beginPath();
+      g.moveTo(16, 2); g.lineTo(28, 20); g.lineTo(4, 20); g.closePath(); g.fill();
+      g.fillStyle = '#245028';
+      g.beginPath();
+      g.moveTo(16, 10); g.lineTo(30, 36); g.lineTo(2, 36); g.closePath(); g.fill();
+      return c;
+    }
+    function buildReliefMesh(scene, texKey) {
+      if (!scene.add || typeof scene.add.mesh !== 'function') {
+        window.__phaserMeshErr = 'no scene.add.mesh';
+        return null;
+      }
+      var w = Math.max(2, scene.scale.width);
+      var h = Math.max(2, scene.scale.height);
+      var mesh = scene.add.mesh(w / 2, h / 2, texKey);
+      var cols = 168, rows = 200;
+      var verts = [], uvs = [], inds = [], colors = [], heights = [], landMask = [];
+      var i, j, lon, lat, m, a, b, cIdx, d, stride, x, z, y, nx, ny, nz, nlen, shade, byte, lx, ly, lz;
+      var seaM = 6;
+      lx = -0.35; ly = 0.92; lz = 0.25;
+      for (j = 0; j <= rows; j++) {
+        lat = bbox[3] - j / rows * latSpan;
+        z = (j / rows - 0.5) * mapD;
+        for (i = 0; i <= cols; i++) {
+          lon = bbox[0] + i / cols * lonSpan;
+          x = (i / cols - 0.5) * mapW;
+          m = (window.ItalyDEM && ItalyDEM.ready()) ? (ItalyDEM.meters(lon, lat) || 0) : 0;
+          y = elevY(m, lat, lon);
+          if (!(m > seaM) && alpineBandZ(lon, lat) <= 0) y = -0.012;
+          verts.push(x, y, z);
+          uvs.push(i / cols, j / rows);
+          heights.push(y);
+          landMask.push((m > seaM || alpineBandZ(lon, lat) > 0) ? 1 : 0);
+        }
+      }
+      stride = cols + 1;
+      for (j = 0; j <= rows; j++) {
+        for (i = 0; i <= cols; i++) {
+          var hL = heights[j * stride + Math.max(0, i - 1)];
+          var hR = heights[j * stride + Math.min(cols, i + 1)];
+          var hU = heights[Math.max(0, j - 1) * stride + i];
+          var hD = heights[Math.min(rows, j + 1) * stride + i];
+          nx = (hL - hR) * 0.35;
+          nz = (hU - hD) * 0.35;
+          ny = 0.75;
+          nlen = Math.sqrt(nx * nx + ny * ny + nz * nz) || 1;
+          shade = 0.88 + 0.16 * Math.max(0, (nx * lx + ny * ly + nz * lz) / nlen);
+          byte = Math.max(200, Math.min(255, Math.round(shade * 255)));
+          colors.push((byte << 16) | (byte << 8) | byte);
+        }
+      }
+      // полный прямоугольник (суша+море): при зуме нет дыр и синей «шторы» из фона
+      for (j = 0; j < rows; j++) {
+        for (i = 0; i < cols; i++) {
+          a = j * stride + i;
+          b = a + 1;
+          cIdx = a + stride;
+          d = cIdx + 1;
+          inds.push(a, cIdx, b, b, cIdx, d);
+        }
+      }
+      if (!inds.length) {
+        window.__phaserMeshErr = 'no land faces';
+        try { mesh.destroy(); } catch (_) {}
+        return null;
+      }
+      try {
+        mesh.addVertices(verts, uvs, inds, true, null, colors);
+        mesh.hideCCW = false;
+        mesh.setDepth(2);
+        if (typeof mesh.setSize === 'function') mesh.setSize(w, h);
+        else { mesh.width = w; mesh.height = h; }
+        if (typeof mesh.setPerspective === 'function') {
+          mesh.setPerspective(w, h, 44, 0.6, 220);
+        }
+        if (mesh.viewPosition) {
+          mesh.viewPosition.x = 0;
+          mesh.viewPosition.y = 0.02;
+          mesh.viewPosition.z = 5.8;
+        }
+        if (mesh.modelRotation) {
+          mesh.modelRotation.x = 0.48;
+          mesh.modelRotation.y = 0;
+          mesh.modelRotation.z = 0;
+        }
+        if (mesh.modelScale) {
+          mesh.modelScale.x = 1.62;
+          mesh.modelScale.y = 1.62;
+          mesh.modelScale.z = 1.62;
+        }
+        if (mesh.dirtyCache) mesh.dirtyCache[10] = 1;
+        if (typeof mesh.preUpdate === 'function') mesh.preUpdate();
+        return mesh;
+      } catch (err) {
+        console.warn('Phaser mesh', err);
+        window.__phaserMeshErr = (err && err.message) ? err.message : String(err);
+        try { mesh.destroy(); } catch (_) {}
+        return null;
+      }
+    }
+
+    var sceneCfg = {
+      key: 'italy',
+      create: function () {
+        var scene = this;
+        scene.cameras.main.setBackgroundColor('#163c4c');
+        scene.cameras.main.setScroll(0, 0);
+        scene.cameras.main.setZoom(1);
+
+        // без gradient-«шторки»: только цвет моря, совпадающий с текстурой
+        scene.cameras.main.setBackgroundColor('#163c4c');
+
+        var texCanvas = paintPhaserTex(2048, 2048);
+        if (scene.textures.exists('italy-relief')) scene.textures.remove('italy-relief');
+        scene.textures.addCanvas('italy-relief', texCanvas);
+
+        var terrain = buildReliefMesh(scene, 'italy-relief');
+        if (!terrain) {
+          setStatus('Phaser Mesh 3D недоступен' + (window.__phaserMeshErr ? (' · ' + window.__phaserMeshErr) : ''));
+          return;
+        }
+        if (!current.phaser) {
+          setStatus('Phaser: внутренний сбой (pack)');
+          return;
+        }
+        current.phaser.terrain = terrain;
+        current.phaser.flatMap = null;
+        current.phaser.meshes = [terrain];
+        current.phaser.baseZ = 5.8;
+        current.phaser.baseScale = 1.62;
+        current.phaser.panX = 0;
+        current.phaser.panZ = 0.08;
+        camTilt = 34;
+        camZoom = 1.0;
+        stage.style.background = '#163c4c';
+        scene.cameras.main.setBackgroundColor('#163c4c');
+        setStatus('Phaser 3D · ЛКМ перетаскивание · колесо — зум · Q/E — наклон');
+
+        if (!scene.textures.exists('pine-phaser')) {
+          scene.textures.addCanvas('pine-phaser', makePineCanvas());
+        }
+        var trees = [];
+        var planted = 0, tries = 0;
+        while (planted < 70 && tries < 4000) {
+          tries++;
+          var tlon = bbox[0] + Math.random() * lonSpan;
+          var tlat = bbox[1] + Math.random() * latSpan;
+          var tm = (window.ItalyDEM && ItalyDEM.ready()) ? ItalyDEM.meters(tlon, tlat) : 0;
+          if (!(tm > 90) || tm > 1050) continue;
+          var mp = lonLatToModel(tlon, tlat);
+          var spr = scene.add.image(0, 0, 'pine-phaser');
+          spr.setOrigin(0.5, 0.92);
+          spr.setDepth(8);
+          trees.push({ sprite: spr, x: mp.x, z: mp.z, y: elevY(tm, tlat, tlon), s: 0.55 + Math.random() * 0.45 });
+          planted++;
+        }
+
+        var BridgeP = window.CampaignMapBridge;
+        var cityMarksP = [];
+        var citiesP = (BridgeP && BridgeP.getCities()) ? BridgeP.getCities() : [];
+        if (!scene.textures.exists('city-flag-phaser')) {
+          var fc = document.createElement('canvas');
+          fc.width = 32; fc.height = 40;
+          var fg = fc.getContext('2d');
+          fg.fillStyle = '#a03030';
+          fg.fillRect(4, 2, 24, 28);
+          fg.fillStyle = '#c9b070';
+          fg.fillRect(2, 0, 4, 40);
+          scene.textures.addCanvas('city-flag-phaser', fc);
+        }
+        citiesP.forEach(function (city) {
+          var cm = lonLatToModel(city.lon, city.lat);
+          var hy = elevY((window.ItalyDEM && ItalyDEM.ready()) ? (ItalyDEM.meters(city.lon, city.lat) || 120) : 120, city.lat, city.lon);
+          var spr = scene.add.image(0, 0, 'city-flag-phaser');
+          spr.setOrigin(0.5, 0.9);
+          spr.setDepth(12);
+          spr.setInteractive({ useHandCursor: true });
+          spr.on('pointerdown', function (pointer) {
+            if (pointer && pointer.event) pointer.event.stopPropagation();
+            if (!BridgeP) return;
+            BridgeP.postCitySelect(BridgeP.selectCityPayload(city));
+            setStatus('Город: ' + (city.ru || city.name));
+            scene._cityClickHandled = true;
+          });
+          cityMarksP.push({ sprite: spr, x: cm.x, z: cm.z, y: hy + 0.15, s: city.capital ? 0.95 : 0.72, city: city });
+        });
+
+        function hitModel(pointer) {
+          if (!terrain || typeof terrain.getFaceAt !== 'function') return null;
+          var wx = pointer.worldX, wy = pointer.worldY;
+          var faces = terrain.getFaceAt(wx, wy, scene.cameras.main);
+          if (!faces || !faces.length) return null;
+          var f = faces[0];
+          var v1 = f.vertex1, v2 = f.vertex2, v3 = f.vertex3;
+          var lx = wx - terrain.x, ly = wy - terrain.y;
+          var t0x = v3.vx - v1.vx, t0y = v3.vy - v1.vy;
+          var t1x = v2.vx - v1.vx, t1y = v2.vy - v1.vy;
+          var t2x = lx - v1.vx, t2y = ly - v1.vy;
+          var dot00 = t0x * t0x + t0y * t0y;
+          var dot01 = t0x * t1x + t0y * t1y;
+          var dot02 = t0x * t2x + t0y * t2y;
+          var dot11 = t1x * t1x + t1y * t1y;
+          var dot12 = t1x * t2x + t1y * t2y;
+          var bc = dot00 * dot11 - dot01 * dot01;
+          var inv = bc === 0 ? 0 : 1 / bc;
+          var u = (dot11 * dot02 - dot01 * dot12) * inv;
+          var v = (dot00 * dot12 - dot01 * dot02) * inv;
+          var w = 1 - u - v;
+          return {
+            x: v1.x * w + v2.x * v + v3.x * u,
+            z: v1.z * w + v2.z * v + v3.z * u
+          };
+        }
+
+        var romeM = lonLatToModel(12.5, 41.9);
+        var walkerP = null;
+        if (window.WalkUnitPhaser) {
+          walkerP = WalkUnitPhaser.mount({
+            scene: scene,
+            start: romeM,
+            speed: 0.42,
+            project: projectModel,
+            getModelY: heightXZ,
+            onStatus: setStatus
+          });
+        }
+
+        current.phaser.syncProps = function () {
+          paintSky();
+          var ti, t, p;
+          for (ti = 0; ti < trees.length; ti++) {
+            t = trees[ti];
+            p = projectModel(t.x, t.y, t.z);
+            t.sprite.setPosition(p.x, p.y);
+            t.sprite.setScale(t.s * (p.scale || 1));
+            t.sprite.setDepth(8 + t.y * 4);
+          }
+          for (ti = 0; ti < cityMarksP.length; ti++) {
+            t = cityMarksP[ti];
+            p = projectModel(t.x, t.y, t.z);
+            t.sprite.setPosition(p.x, p.y);
+            t.sprite.setScale(t.s * (p.scale || 1));
+            t.sprite.setDepth(12 + t.y * 4);
+          }
+          if (walkerP && walkerP.sync) walkerP.sync();
+        };
+
+        var drag = { on: false, x: 0, y: 0, moved: false };
+        scene.input.on('pointerdown', function (pointer) {
+          if (!pointer.leftButtonDown()) return;
+          if (walkerP && walkerP.sprite) {
+            var hits = scene.input.hitTestPointer(pointer);
+            if (hits && hits.indexOf(walkerP.sprite) !== -1) {
+              drag.on = false;
+              walkerP.setSelected(true);
+              scene._walkIgnoreClick = true;
+              return;
+            }
+          }
+          if (scene._walkIgnoreClick) { drag.on = false; return; }
+          drag.on = true;
+          drag.moved = false;
+          drag.x = pointer.x;
+          drag.y = pointer.y;
+          try {
+            var cv = stage.querySelector('canvas');
+            if (cv) cv.style.cursor = 'grabbing';
+          } catch (_) {}
+        });
+        scene.input.on('pointerup', function (pointer) {
+          var wasDrag = drag.moved;
+          drag.on = false;
+          try {
+            var cv2 = stage.querySelector('canvas');
+            if (cv2) cv2.style.cursor = 'grab';
+          } catch (_) {}
+          if (scene._cityClickHandled) { scene._cityClickHandled = false; return; }
+          if (scene._walkIgnoreClick) { scene._walkIgnoreClick = false; return; }
+          if (wasDrag) return;
+          if (!walkerP || !walkerP.isSelected()) {
+            if (BridgeP && pointer.getDistance && pointer.getDistance() <= 8) BridgeP.postCityDeselect();
+            return;
+          }
+          if (pointer.getDistance && pointer.getDistance() > 8) return;
+          var hit = hitModel(pointer);
+          if (hit) walkerP.moveTo(hit.x, hit.z);
+        });
+        scene.input.on('pointermove', function (pointer) {
+          if (!drag.on || !pointer.isDown) return;
+          var dx = pointer.x - drag.x, dy = pointer.y - drag.y;
+          if (!drag.moved && (dx * dx + dy * dy) > 9) drag.moved = true;
+          drag.x = pointer.x; drag.y = pointer.y;
+          var yaw = camYaw * Math.PI / 180;
+          var zNow = Math.max(0.92, Math.min(1.7, camZoom));
+          var s = current.phaser.baseScale || 1.62;
+          var dist = Math.max(4.35, Math.min(6.9, (current.phaser.baseZ || 5.8) / Math.pow(zNow, 0.4)));
+          var vh = Math.max(2, scene.scale.height);
+          var k = (2 * Math.tan(22 * Math.PI / 180) * dist) / (vh * s);
+          var kY = k / Math.max(0.35, Math.sin(Math.max(18, camTilt) * Math.PI / 180));
+          // grab-пан: тянем карту за курсором (вправо → карта вправо)
+          current.phaser.panX += Math.cos(yaw) * dx * k + Math.sin(yaw) * dy * kY;
+          current.phaser.panZ += -Math.sin(yaw) * dx * k + Math.cos(yaw) * dy * kY;
+          applyPhaserCam();
+        });
+
+        current.phaser.reset = function () {
+          current.phaser.panX = 0;
+          current.phaser.panZ = 0.08;
+          camTilt = 34;
+          camZoom = 1.0;
+          camYaw = 0;
+          applyCam();
+          setStatus('Phaser 3D · ЛКМ перетаскивание · колесо — зум · Q/E — наклон');
+        };
+        applyCam();
+      }
+    };
+
+    current.phaser = {
+      game: null,
+      reset: function () {},
+      terrain: null,
+      meshes: [],
+      panX: 0,
+      panZ: 0,
+      baseZ: 5.8,
+      baseScale: 1.62,
+      syncProps: null
+    };
+    current.name = 'phaser';
+    var game;
+    try {
+      game = new Phaser.Game({
+        type: Phaser.WEBGL,
+        parent: stage,
+        width: Math.max(640, window.innerWidth || 1024),
+        height: Math.max(480, window.innerHeight || 768),
+        backgroundColor: '#163c4c',
+        render: { antialias: true },
+        scale: {
+          mode: Phaser.Scale.RESIZE,
+          autoCenter: Phaser.Scale.CENTER_BOTH
+        },
+        scene: sceneCfg
+      });
+    } catch (err) {
+      setStatus('Phaser 3D: нужен WebGL · ' + err.message);
+      return;
+    }
+    current.phaser.game = game;
+    setTimeout(function () {
+      if (!current.phaser || current.phaser.game !== game) return;
+      try {
+        game.scale.resize(Math.max(640, window.innerWidth), Math.max(480, window.innerHeight));
+        game.scale.refresh();
+      } catch (_) {}
+      applyCam();
+    }, 80);
+    setStatus('Phaser 3D · рельеф · клик солдата, затем карта · колесо — зум · Q/E — наклон');
+  }
+
+  function onResize() {
+    if (current.name === 'three' && current.three) {
+      current.three.pack.fit();
+      var w = current.three.pack.el.width, h = current.three.pack.el.height;
+      current.three.camera.aspect = w / h;
+      current.three.camera.updateProjectionMatrix();
+      current.three.renderer.setSize(w, h, false);
+    }
+    if (current.name === 'babylon' && current.babylon) {
+      current.babylon.pack.fit();
+      try { current.babylon.engine.resize(); } catch (_) {}
+    }
+    if (current.name === 'phaser' && current.phaser && current.phaser.game && current.phaser.game.scale) {
+      try {
+        current.phaser.game.scale.resize(Math.max(640, window.innerWidth), Math.max(480, window.innerHeight));
+      } catch (_) {}
+    }
+    applyCam();
+  }
+
+  function startEngine(name) {
+    engine = name;
+    markButtons();
+    disposeAll();
+    window.removeEventListener('resize', onResize);
+    try {
+      if (name === 'babylon') startBabylon();
+      else if (name === 'phaser') startPhaser();
+      else {
+        if (typeof THREE === 'undefined') {
+          setStatus('Three.js не загрузился (локальный)');
+          return;
+        }
+        startThree();
+      }
+    } catch (err) {
+      setStatus('Ошибка карты: ' + (err && err.message ? err.message : String(err)));
+      console.error(err);
+    }
+    window.addEventListener('resize', onResize);
+    try {
+      window.parent.postMessage({
+        type: 'camera-state',
+        center: { lon: 12.5, lat: 42.0 },
+        viewQuad: [
+          { lon: 6.6, lat: 47.1 }, { lon: 18.6, lat: 47.1 },
+          { lon: 18.6, lat: 36.5 }, { lon: 6.6, lat: 36.5 }
+        ]
+      }, '*');
+    } catch (_) {}
+  }
+
+  document.querySelectorAll('#engineBar [data-engine]').forEach(function (btn) {
+    btn.addEventListener('click', function () { startEngine(btn.getAttribute('data-engine')); });
+  });
+  document.getElementById('resetBtn').addEventListener('click', function () {
+    if (current.three && current.three.reset) current.three.reset();
+    if (current.babylon && current.babylon.reset) current.babylon.reset();
+    if (current.phaser && current.phaser.reset) current.phaser.reset();
+  });
+  window.addEventListener('wheel', function (e) {
+    e.preventDefault();
+    nudgeZoom(e.deltaY < 0 ? 1.1 : 1 / 1.1);
+  }, { passive: false });
+  window.addEventListener('keydown', function (e) {
+    if (e.code === 'KeyQ') { e.preventDefault(); nudgeTilt(-TILT_STEP); }
+    else if (e.code === 'KeyE') { e.preventDefault(); nudgeTilt(TILT_STEP); }
+    else if (e.code === 'KeyZ') { e.preventDefault(); nudgeYaw(-YAW_STEP); }
+    else if (e.code === 'KeyC') { e.preventDefault(); nudgeYaw(YAW_STEP); }
+  });
+  window.addEventListener('message', function (e) {
+    if (!e.data) return;
+    if (e.data.type === 'set-engine' && e.data.engine) startEngine(e.data.engine);
+    if (e.data.type === 'camera-tilt') {
+      if (typeof e.data.delta === 'number') nudgeTilt(e.data.delta);
+      else if (typeof e.data.deg === 'number') { camTilt = e.data.deg; nudgeTilt(0); }
+    }
+    if (e.data.type === 'camera-rotate') {
+      if (typeof e.data.delta === 'number') nudgeYaw(e.data.delta);
+      else if (typeof e.data.deg === 'number') { camYaw = wrapYaw(e.data.deg); nudgeYaw(0); }
+    }
+    if (e.data.type === 'camera-state-request') {
+      try {
+        window.parent.postMessage({
+          type: 'camera-state',
+          center: { lon: 12.5, lat: 42.0 },
+          viewQuad: [
+            { lon: 6.6, lat: 47.1 }, { lon: 18.6, lat: 47.1 },
+            { lon: 18.6, lat: 36.5 }, { lon: 6.6, lat: 36.5 }
+          ]
+        }, '*');
+      } catch (_) {}
+    }
+  });
+
+  function fetchFirst(urls) {
+    var i = 0;
+    function next() {
+      if (i >= urls.length) return Promise.reject(new Error('no geo'));
+      var url = urls[i++];
+      return fetch(url).then(function (r) { if (!r.ok) throw new Error('http'); return r.json(); }).catch(function () { return next(); });
+    }
+    return next();
+  }
+
+  markButtons();
+  Promise.all([
+    fetchFirst(GEO_URLS).then(function (geo) {
+      extractItaly(geo);
+      return true;
+    }).catch(function () { return false; }),
+    // регионы поверх контура Italy из world.geojson (если доступны)
+    fetch('/maps/view1/regions.geojson').then(function (r) {
+      if (!r.ok) throw new Error('no regions');
+      return r.json();
+    }).then(function (geo) {
+      var outline = italyRings.slice();
+      extractItaly(geo);
+      if (outline.length) italyRings = outline;
+      return true;
+    }).catch(function () { return false; }),
+    window.ItalyDEM ? ItalyDEM.load() : Promise.resolve(false)
+  ]).then(function () {
+    startEngine(engine);
+  });
+})();
+  </script>
+</body>
+</html>

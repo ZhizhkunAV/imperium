@@ -1,7 +1,14 @@
 import { defineConfig } from 'vite'
+import path from 'path'
 
 export default defineConfig({
+  publicDir: 'assets',
   server: {
-    open: true
+    open: true,
+    fs: {
+      allow: [
+        path.resolve(__dirname, '.'),
+      ]
+    }
   }
 })
