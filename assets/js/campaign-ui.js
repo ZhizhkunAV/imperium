@@ -406,21 +406,42 @@
     });
   }
 
-  function fillUnitCards(units, readonly) {
+  function fillUnitCards(units, readonly, army) {
     var ag = document.getElementById('armyGrid');
     var ag2 = document.getElementById('armyGrid2');
     if (!ag || !ag2) return;
     ag.innerHTML = '';
     ag2.innerHTML = '';
-    (units || []).forEach(function (a, i) {
-      var target = i < 10 ? ag : ag2;
+    if (army && army.general) {
+      var gen = document.createElement('div');
+      gen.className = 'card-slot settlement-slot built general-slot';
+      gen.style.cssText = 'min-width:120px;flex-direction:column;gap:4px;';
+      gen.innerHTML =
+        '<img src="' + (army.general.avatar || '/images/units/hannibal.svg') + '" alt="" style="width:72px;height:84px;object-fit:cover;border:1px solid rgba(201,168,76,.45)">' +
+        '<span class="slot-name">' + (army.general.name || 'Полководец') + '</span>';
+      gen.title = army.general.name || 'Полководец';
+      ag.appendChild(gen);
+    }
+    var unitList = (units || []).filter(function (a) { return !a.isGeneral; });
+    unitList.forEach(function (a, i) {
+      var target = (army && army.general ? i < 9 : i < 10) ? ag : ag2;
       var u = (CS.UNITS && a.unitId && CS.UNITS[a.unitId]) || null;
       var el = document.createElement('div');
       el.className = 'card-slot settlement-slot built';
-      el.innerHTML = '<span class="slot-icon">' + (u ? u.icon : '⚔️') + '</span><span class="slot-name">' + a.name + '</span>';
-      el.title = a.name + (a.strength != null ? (' · сила ' + a.strength) : '');
+      var av = (u && u.avatar) || null;
+      if (av) {
+        el.innerHTML =
+          '<img src="' + av + '" alt="" style="width:48px;height:48px;object-fit:cover;border:1px solid rgba(201,168,76,.35)">' +
+          '<span class="slot-name">' + a.name + '</span>' +
+          (a.soldiers != null ? ('<span style="font-size:11px;color:#b7a078">' + a.soldiers + '</span>') : '');
+      } else {
+        el.innerHTML = '<span class="slot-icon">' + (u ? u.icon : '⚔️') + '</span><span class="slot-name">' + a.name + '</span>';
+      }
+      el.title = a.name + (a.soldiers != null ? (' · ' + a.soldiers + ' солдат') : (a.strength != null ? (' · сила ' + a.strength) : ''));
       if (readonly) {
         bindEntitySlot(el, a.unitId || 'legionary');
+        el.style.cursor = 'default';
+        el.draggable = false;
       } else {
         bindGarrisonSlot(el, a);
       }
@@ -461,7 +482,7 @@
     document.querySelectorAll('.tab-btn').forEach(function (btn, i) {
       btn.classList.toggle('active', i === 0);
     });
-    fillUnitCards(army.units || [], true);
+    fillUnitCards(army.units || [], true, army);
   }
 
   function clearCityPanels() {

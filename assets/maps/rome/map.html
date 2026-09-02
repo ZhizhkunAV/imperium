@@ -77,9 +77,12 @@
 
   <script src="three.min.js"></script>
   <script src="/maps/rome/three.min.js"></script>
-  <script src="/js/italy-dem.js"></script>
+  <script src="/js/map-paint.js?v=20260831editor2"></script>
+  <script src="/js/italy-dem.js?v=20260831paint"></script>
   <script src="/js/walk-unit-three.js"></script>
-  <script src="/maps/view14/provinces.js"></script>
+<script src="/js/battle-system.js"></script>
+  <script src="/js/battle-map-hook.js"></script>
+  <script src="/js/italy-provinces.js"></script>
   <script src="/js/campaign-map-bridge.js"></script>
   <script>
 (function () {
@@ -152,14 +155,40 @@
   function setStatus(t) { statusEl.textContent = t; }
   var battleModal = document.getElementById('battleModal');
   var battleClose = document.getElementById('battleModalClose');
+  var __battleBind = null;
+  function battleMapCtx() {
+    return {
+      getPair: function () {
+        if (typeof three !== 'undefined' && three && three.units) return three.units;
+        return null;
+      },
+      xz: typeof xz === 'function' ? xz : null,
+      worldH: typeof worldH === 'function' ? worldH : null,
+      SCALE: typeof SCALE !== 'undefined' ? SCALE : null,
+      CX: typeof CX !== 'undefined' ? CX : null,
+      CY: typeof CY !== 'undefined' ? CY : null,
+      hover: 0.08,
+      onStatus: typeof setStatus === 'function' ? setStatus : function () {}
+    };
+  }
   function showBattleDialog() {
+    if (window.BattleSystem) {
+      __battleBind = BattleSystem.bindMap(battleMapCtx());
+      BattleSystem.openContact(battleMapCtx());
+      return;
+    }
     if (battleModal) battleModal.classList.add('show');
-    setStatus('Бой начался');
   }
   function hideBattleDialog() {
     if (battleModal) battleModal.classList.remove('show');
   }
   if (battleClose) battleClose.addEventListener('click', hideBattleDialog);
+  window.addEventListener('message', function (e) {
+    if (e.data && e.data.type === 'battle-local-done' && window.BattleSystem) {
+      BattleSystem.bindMap(battleMapCtx());
+      BattleSystem.finishLocalBattle(e.data);
+    }
+  });
   function yScale() { return Math.max(0.22, Math.cos(tiltDeg * Math.PI / 180)); }
   function wrapYaw(deg) {
     deg = deg % 360;
@@ -207,8 +236,8 @@
   function applyViewTint() {
     if (!three.renderer) return;
     if (mode === 4) {
-      three.renderer.setClearColor(0x243848, 1);
-      if (three.scene && three.scene.fog) three.scene.fog.color.setHex(0x5a6a70);
+      three.renderer.setClearColor(0x2a4850, 1);
+      if (three.scene && three.scene.fog) three.scene.fog.color.setHex(0x6a8890);
     } else {
       three.renderer.setClearColor(0x1a3848, 1);
       if (three.scene && three.scene.fog) three.scene.fog.color.setHex(0x4a6a78);
@@ -1120,7 +1149,7 @@
       three.units.player.setSelected(true);
     }
     if (window.WalkUnitThree && WalkUnitThree.mountPair) {
-      var fieldArmyId = 'field_near_rome';
+      var fieldArmyId = 'field_rome_1';
       var armyStart = xzAt(12.35, 41.78);
       var capuaNpc = xzAt(14.08, 41.18);
       for (var cci = 0; cci < citiesList.length; cci++) {
@@ -1175,7 +1204,15 @@
         resolveEnterCity: extras.resolveEnterCity,
         onSelect: extras.onSelect,
         onArrive: extras.onArrive,
-        onBattle: showBattleDialog,
+        onBattle: function () {
+          if (window.BattleMapHook) {
+            BattleMapHook.showBattleDialog({
+              getPair: function () { return three.units; },
+              xz: xz, worldH: worldH, SCALE: SCALE, CX: CX, CY: CY, hover: 0.12, onStatus: setStatus
+            });
+          } else showBattleDialog();
+        },
+        onNpcInspect: function () { if (window.BattleSystem) BattleSystem.inspectCarthageArmy(); },
         onStatus: setStatus
       });
       three.walker = pair.player;
@@ -1304,26 +1341,37 @@
       pc.width = 256;
       pc.height = 256;
       var pg = pc.getContext('2d');
-      pg.fillStyle = earth ? '#7a7054' : '#6a7050';
+      pg.fillStyle = earth ? '#5a8a48' : '#6a7050';
       pg.fillRect(0, 0, 256, 256);
       var rndg = seededRand(42);
       var gi;
-      for (gi = 0; gi < 3200; gi++) {
+      for (gi = 0; gi < 3600; gi++) {
         pg.fillStyle = rndg() > 0.5
-          ? (earth ? 'rgba(92, 82, 52, 0.36)' : 'rgba(78, 86, 52, 0.38)')
-          : (earth ? 'rgba(168, 150, 102, 0.18)' : 'rgba(168, 156, 102, 0.16)');
-        pg.fillRect(rndg() * 256, rndg() * 256, 1 + rndg() * 2.4, 1 + rndg() * 2.4);
+          ? (earth ? 'rgba(54, 110, 42, 0.42)' : 'rgba(78, 86, 52, 0.38)')
+          : (earth ? 'rgba(120, 168, 72, 0.28)' : 'rgba(168, 156, 102, 0.16)');
+        pg.fillRect(rndg() * 256, rndg() * 256, 1 + rndg() * 2.6, 1 + rndg() * 2.6);
+      }
+      // второй слой — жёлто-зелёные пятна лугов
+      if (earth) {
+        for (gi = 0; gi < 900; gi++) {
+          pg.fillStyle = rndg() > 0.55
+            ? 'rgba(160, 180, 70, 0.22)'
+            : 'rgba(40, 90, 48, 0.2)';
+          pg.beginPath();
+          pg.arc(rndg() * 256, rndg() * 256, 1.5 + rndg() * 4, 0, Math.PI * 2);
+          pg.fill();
+        }
       }
       grassPat = g.createPattern(pc, 'repeat');
     }
 
     landPath();
-    g.fillStyle = earth ? '#7a7358' : '#5e6444';
+    g.fillStyle = earth ? '#4e7a3c' : '#5e6444';
     g.fill('nonzero');
     g.save();
     landPath();
     g.clip();
-    g.globalAlpha = 0.55;
+    g.globalAlpha = earth ? 0.62 : 0.55;
     g.fillStyle = grassPat;
     g.fillRect(0, 0, tw, th);
     g.globalAlpha = 1;
@@ -1348,13 +1396,22 @@
           }
           var colR, colG, colB;
           if (earth) {
-            if (meters > 2600) { colR = 196; colG = 190; colB = 180; }
-            else if (meters > 1700) { colR = 138; colG = 124; colB = 108; }
-            else if (meters > 1050) { colR = 122; colG = 108; colB = 88; }
-            else if (meters > 520) { colR = 112; colG = 98; colB = 74; }
-            else if (meters > 140) { colR = 124; colG = 112; colB = 82; }
-            else if (meters > 35) { colR = 138; colG = 122; colB = 86; }
-            else { colR = 152; colG = 134; colB = 96; }
+            // Вид 4: живые зелёные равнины/холмы, не серо-бурая «земля»
+            if (meters > 2600) { colR = 210; colG = 214; colB = 208; }
+            else if (meters > 1700) { colR = 148; colG = 142; colB = 118; }
+            else if (meters > 1050) { colR = 110; colG = 128; colB = 72; }
+            else if (meters > 520) { colR = 86; colG = 122; colB = 58; }
+            else if (meters > 220) { colR = 72; colG = 128; colB = 52; }
+            else if (meters > 90) { colR = 78; colG = 138; colB = 56; }
+            else if (meters > 35) { colR = 92; colG = 148; colB = 62; }
+            else { colR = 108; colG = 158; colB = 68; }
+            // лёгкая вариация по координатам — разнотравье
+            var varieg = ((Math.sin(lonp * 17.3 + latp * 11.1) * 0.5 + 0.5) * 14) | 0;
+            if (meters < 1050) {
+              colR = Math.max(40, Math.min(160, colR + (varieg % 7) - 3));
+              colG = Math.max(90, Math.min(190, colG + (varieg % 11) - 4));
+              colB = Math.max(35, Math.min(100, colB + ((varieg * 3) % 9) - 4));
+            }
           } else if (meters > 2600) { colR = 186; colG = 184; colB = 176; }
           else if (meters > 1700) { colR = 132; colG = 118; colB = 102; }
           else if (meters > 1050) { colR = 118; colG = 100; colB = 78; }
@@ -1446,7 +1503,7 @@
       g.rotate(rnd() * Math.PI);
       g.beginPath();
       g.ellipse(0, 0, 14 + rnd() * 18, 8 + rnd() * 10, 0, 0, Math.PI * 2);
-      g.fillStyle = earth ? 'rgba(92, 82, 52, 0.2)' : 'rgba(90, 110, 55, 0.22)';
+      g.fillStyle = earth ? 'rgba(70, 120, 48, 0.24)' : 'rgba(90, 110, 55, 0.22)';
       g.fill();
       g.restore();
     }
@@ -1466,7 +1523,7 @@
         g.save();
         g.translate(p.x, p.y);
         g.rotate((rnd() - 0.5) * 0.8);
-        g.strokeStyle = 'rgba(160, 140, 70, 0.38)';
+        g.strokeStyle = earth ? 'rgba(140, 170, 60, 0.42)' : 'rgba(160, 140, 70, 0.38)';
         g.lineWidth = 1;
         var fw = 18 + rnd() * 22, fh = 10 + rnd() * 12;
         for (var row = 0; row < 4; row++) {
@@ -1764,14 +1821,28 @@
   useFallbackOutline();
   loopCanvas();
 
-  Promise.all([
+  function resolvePaintView() {
+    try {
+      var v = Number(localStorage.getItem('campaignMapVariant'));
+      if (v === 4 || v === 5) return v;
+    } catch (_) {}
+    return mode === 5 ? 5 : 4;
+  }
+
+  var paintBoot = (window.MapPaint && MapPaint.setView)
+    ? MapPaint.setView(resolvePaintView())
+    : Promise.resolve(false);
+
+  paintBoot.then(function () {
+    return Promise.all([
     loadDemImage(),
     window.ItalyDEM ? ItalyDEM.load() : Promise.resolve(false),
     fetchFirst(GEO_URLS).then(function (geo) {
       extractItaly(geo);
       return true;
     }).catch(function () { return false; })
-  ]).then(function (parts) {
+  ]);
+  }).then(function (parts) {
     if (parts[0] && DEM) bbox = DEM_BBOX.slice();
     applyMode();
     var note = (mode === 5 ? 'Вид 5' : 'Вид 4');

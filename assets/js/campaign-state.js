@@ -4,7 +4,7 @@
 (function (global) {
   'use strict';
 
-  var STORAGE_KEY = 'rome_campaign_v3';
+  var STORAGE_KEY = 'rome_campaign_v9';
 
   var FACTIONS = {
     rome: { id: 'rome', name: 'Рим', color: 'rgba(140, 90, 50, 0.12)', banner: '#6a3d8a', army: '#8b3a6a' },
@@ -83,13 +83,34 @@
       selectedFieldArmyId: null,
       fieldArmies: [
         {
-          id: 'field_near_rome',
+          id: 'field_rome_1',
           faction: 'rome',
           lon: 12.35,
           lat: 41.78,
+          general: { name: 'Сципион', avatar: '/images/faceOfScipio.png' },
           units: [
-            { id: 'fu_leg_1', unitId: 'legionary', name: 'Легионеры', strength: 4 },
-            { id: 'fu_vel_1', unitId: 'velites', name: 'Велиты', strength: 2 }
+            { id: 'fu_gen_r', unitId: 'general_rome', name: 'Сципион', strength: 7.5, soldiers: 40, isGeneral: true },
+            { id: 'fu_leg_1', unitId: 'legionary', name: 'Легионеры', strength: 5, soldiers: 40 },
+            { id: 'fu_leg_2', unitId: 'legionary', name: 'Легионеры', strength: 5, soldiers: 40 },
+            { id: 'fu_leg_3', unitId: 'legionary', name: 'Легионеры', strength: 5, soldiers: 40 },
+            { id: 'fu_leg_4', unitId: 'legionary', name: 'Легионеры', strength: 5, soldiers: 40 },
+            { id: 'fu_leg_5', unitId: 'legionary', name: 'Легионеры', strength: 5, soldiers: 40 },
+            { id: 'fu_vel_1', unitId: 'velites', name: 'Велиты', strength: 2, soldiers: 40 },
+            { id: 'fu_eq_1', unitId: 'equites', name: 'Конница', strength: 5, soldiers: 40 },
+            { id: 'fu_eq_2', unitId: 'equites', name: 'Конница', strength: 5, soldiers: 40 }
+          ]
+        },
+        {
+          id: 'field_carthage_1',
+          faction: 'carthage',
+          lon: 14.08,
+          lat: 41.18,
+          general: { name: 'Ганнибал', avatar: '/images/faceOfganibal.png' },
+          units: [
+            { id: 'fu_gen_c', unitId: 'general_carthage', name: 'Ганнибал', strength: 7.5, soldiers: 40, isGeneral: true },
+            { id: 'fu_pun_1', unitId: 'punic_infantry', name: 'Пехота пунийская', strength: 4, soldiers: 40 },
+            { id: 'fu_pun_2', unitId: 'punic_infantry', name: 'Пехота пунийская', strength: 4, soldiers: 40 },
+            { id: 'fu_pun_4', unitId: 'elephants', name: 'Слоны', strength: 6, soldiers: 40 }
           ]
         }
       ],
@@ -122,12 +143,54 @@
         if (!state.cities[name].garrison) state.cities[name].garrison = [];
       });
       if (!state.fieldArmies) state.fieldArmies = defaultState().fieldArmies;
+      // обновить состав полевых армий (Ганнибал + 40 солдат в отряде)
+      (state.fieldArmies || []).forEach(function (army) {
+        if (!army || !army.units) return;
+        if (army.id === 'field_carthage_1') {
+          var hasHan = army.units.some(function (u) {
+            return u.unitId === 'general_carthage' || u.isGeneral;
+          });
+          if (!hasHan) {
+            army.units.unshift({
+              id: 'fu_gen_c',
+              unitId: 'general_carthage',
+              name: 'Ганнибал',
+              strength: 7.5,
+              soldiers: 40,
+              isGeneral: true
+            });
+          }
+          var punCount = army.units.filter(function (u) { return u.unitId === 'punic_infantry'; }).length;
+          while (punCount < 2) {
+            army.units.push({
+              id: 'fu_pun_extra_' + punCount,
+              unitId: 'punic_infantry',
+              name: 'Пехота пунийская',
+              strength: 4,
+              soldiers: 40
+            });
+            punCount++;
+          }
+        }
+        army.units.forEach(function (u) {
+          if (u.soldiers == null || u.soldiers < 40) u.soldiers = 40;
+        });
+      });
       state.provinceOwners = Object.assign({}, PROVINCE_OWNERS, d.provinceOwners || {});
       state.explored = Object.assign({
         cisalpina: true, venetia: true, liguria: true, etruria: true,
         umbria: true, latium: true, campania: true, apulia: true, calabria: true
       }, d.explored || {});
       if (state.timeOfDay < 0.8) state.timeOfDay = 0.88;
+      // после боёв иногда у всех остаётся 1 — вернуть по 40
+      var allUnits = [];
+      (state.fieldArmies || []).forEach(function (army) {
+        (army.units || []).forEach(function (u) { allUnits.push(u); });
+      });
+      if (allUnits.length && allUnits.every(function (u) { return (u.soldiers == null || u.soldiers <= 1); })) {
+        allUnits.forEach(function (u) { u.soldiers = 40; });
+        save();
+      }
     } catch (_) {}
   }
 
@@ -265,6 +328,100 @@
     return best;
   }
 
+  function findNearestCityOfFaction(lon, lat, faction, maxDeg) {
+    maxDeg = maxDeg != null ? maxDeg : 2.5;
+    var best = null;
+    var bestD = 1e9;
+    CITIES.forEach(function (c) {
+      if (faction && c.faction !== faction) return;
+      var dlon = (c.lon - lon) * 0.72;
+      var dlat = c.lat - lat;
+      var d = Math.sqrt(dlon * dlon + dlat * dlat);
+      if (d < bestD) { bestD = d; best = c; }
+    });
+    if (!best || bestD > maxDeg) return null;
+    return best;
+  }
+
+  /** Город проигравшей фракции в той же провинции, что и точка боя (по ближайшему городу любой фракции). */
+  function findNearestCityInProvinceOfFaction(lon, lat, faction) {
+    var here = findNearestCity(lon, lat, 8);
+    if (!here || !here.region) return null;
+    var region = here.region;
+    var best = null;
+    var bestD = 1e9;
+    CITIES.forEach(function (c) {
+      if (c.region !== region) return;
+      if (faction && c.faction !== faction) return;
+      var dlon = (c.lon - lon) * 0.72;
+      var dlat = c.lat - lat;
+      var d = Math.sqrt(dlon * dlon + dlat * dlat);
+      if (d < bestD) { bestD = d; best = c; }
+    });
+    return best;
+  }
+
+  function armySoldierCount(army) {
+    if (!army || !army.units) return 0;
+    var n = 0;
+    army.units.forEach(function (u) {
+      n += (u.soldiers != null ? u.soldiers : 100);
+    });
+    return n;
+  }
+
+  function armyUnitCount(army) {
+    return (army && army.units) ? army.units.length : 0;
+  }
+
+  function applyArmyCasualties(army, ratio) {
+    if (!army || !army.units) return;
+    ratio = ratio == null ? 0.3 : ratio;
+    army.units.forEach(function (u) {
+      var base = u.soldiers != null ? u.soldiers : 100;
+      u.soldiers = Math.max(1, Math.floor(base * (1 - ratio)));
+    });
+    save();
+  }
+
+  /** Синхронизация солдат полевой армии после локального боя. */
+  function applyArmyBattleResult(army, unitResults) {
+    if (!army || !army.units || !unitResults) return;
+    unitResults.forEach(function (pu) {
+      var u = null;
+      var i;
+      for (i = 0; i < army.units.length; i++) {
+        if (army.units[i].id === pu.id) { u = army.units[i]; break; }
+      }
+      if (!u && pu.unitId) {
+        for (i = 0; i < army.units.length; i++) {
+          if (army.units[i].unitId === pu.unitId && army.units[i].soldiers === pu._matchHint) {
+            u = army.units[i];
+            break;
+          }
+        }
+      }
+      if (!u && pu.index != null) u = army.units[pu.index];
+      if (!u) return;
+      // беглецы с 1 чел. — оставляем отряд, но не меньше 1
+      u.soldiers = Math.max(0, Math.floor(pu.soldiers != null ? pu.soldiers : 0));
+    });
+    army.units = army.units.filter(function (u) {
+      return (u.soldiers != null ? u.soldiers : 0) > 0;
+    });
+    save();
+  }
+
+  /** Выставить всем отрядам полевой армии по 100 солдат. */
+  function restoreFieldArmiesFull() {
+    (state.fieldArmies || []).forEach(function (army) {
+      (army.units || []).forEach(function (u) {
+        u.soldiers = 40;
+      });
+    });
+    save();
+  }
+
   function getRoads() {
     var byName = {};
     CITIES.forEach(function (c) { byName[c.name] = c; });
@@ -387,11 +544,16 @@
   }
 
   var UNITS = {
-    legionary: { id: 'legionary', name: 'Легионеры', icon: '🛡️', cost: 500, strength: 5 },
-    hastati: { id: 'hastati', name: 'Гастаты', icon: '🛡️', cost: 450, strength: 4 },
-    principes: { id: 'principes', name: 'Принципы', icon: '⚔️', cost: 650, strength: 6 },
-    velites: { id: 'velites', name: 'Велиты', icon: '🏹', cost: 280, strength: 2 },
-    equites: { id: 'equites', name: 'Эквиты', icon: '🐴', cost: 800, strength: 5 }
+    legionary: { id: 'legionary', name: 'Легионеры', icon: '🛡️', avatar: '/images/legioner.png', cost: 500, strength: 5 },
+    hastati: { id: 'hastati', name: 'Гастаты', icon: '🛡️', avatar: '/images/leg.png', cost: 450, strength: 4 },
+    principes: { id: 'principes', name: 'Принципы', icon: '⚔️', avatar: '/images/leg.png', cost: 650, strength: 6 },
+    velites: { id: 'velites', name: 'Велиты', icon: '🏹', avatar: '/images/velit.png', cost: 280, strength: 2 },
+    equites: { id: 'equites', name: 'Конница', icon: '🐴', avatar: '/images/units/cavalry.svg', cost: 800, strength: 5 },
+    general_rome: { id: 'general_rome', name: 'Сципион', icon: '👑', avatar: '/images/faceOfScipio.png', cost: 0, strength: 7.5 },
+    general_carthage: { id: 'general_carthage', name: 'Ганнибал', icon: '👑', avatar: '/images/faceOfganibal.png', cost: 0, strength: 7.5 },
+    punic_infantry: { id: 'punic_infantry', name: 'Пехота пунийская', icon: '🗡️', avatar: '/images/units/punic_infantry.svg', cost: 400, strength: 4 },
+    punic_archers: { id: 'punic_archers', name: 'Лучники', icon: '🏹', avatar: '/images/units/punic_archers.svg', cost: 320, strength: 3 },
+    elephants: { id: 'elephants', name: 'Слоны', icon: '🐘', avatar: '/images/units/elephants.svg', cost: 1200, strength: 6 }
   };
 
   function getRecruitSlots(cityName) {
@@ -449,6 +611,13 @@
     formArmyFromGarrison: formArmyFromGarrison,
     updateFieldArmyPosition: updateFieldArmyPosition,
     findNearestCity: findNearestCity,
+    findNearestCityOfFaction: findNearestCityOfFaction,
+    findNearestCityInProvinceOfFaction: findNearestCityInProvinceOfFaction,
+    armySoldierCount: armySoldierCount,
+    armyUnitCount: armyUnitCount,
+    applyArmyCasualties: applyArmyCasualties,
+    applyArmyBattleResult: applyArmyBattleResult,
+    restoreFieldArmiesFull: restoreFieldArmiesFull,
     getRoads: getRoads,
     getSupplyLines: getSupplyLines,
     advanceArmies: advanceArmies,

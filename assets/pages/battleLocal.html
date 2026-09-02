@@ -1,0 +1,1411 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Бой на карте — 3D</title>
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700&family=EB+Garamond:wght@500;600&display=swap" rel="stylesheet">
+  <script src="/maps/rome/three.min.js"></script>
+  <style>
+    html, body {
+      margin: 0; width: 100%; height: 100%; overflow: hidden;
+      background: #1a3020; position: fixed; inset: 0;
+    }
+    #field {
+      display: block; position: absolute; inset: 0;
+      width: 100%; height: 100%; touch-action: none;
+    }
+    #hud {
+      position: fixed; top: 14px; left: 14px; z-index: 5;
+      padding: 10px 14px; background: rgba(8,6,3,.72); border: 1px solid rgba(201,168,76,.4);
+      color: #efe4d0; font-family: 'EB Garamond', Georgia, serif; font-size: 14px; pointer-events: none;
+      max-width: 460px;
+    }
+    #hud strong { font-family: Cinzel, serif; color: #f5e6c8; letter-spacing: .06em; }
+    #surrender {
+      position: fixed; top: 14px; right: 14px; z-index: 6;
+      font-family: Cinzel, serif; font-size: 12px; letter-spacing: .1em; text-transform: uppercase;
+      color: #f5e6c8; background: rgba(60,18,12,.92); border: 1px solid rgba(201,100,80,.65);
+      padding: 10px 18px; cursor: pointer;
+    }
+    #surrender:hover { border-color: #e0c878; color: #fff; }
+    #bottomBar {
+      position: fixed; left: 0; right: 0; bottom: 0; z-index: 5;
+      height: 110px; display: flex; gap: 10px; align-items: stretch;
+      padding: 8px 12px; box-sizing: border-box;
+      background: linear-gradient(180deg, rgba(18,12,6,.55), rgba(8,5,2,.94));
+      border-top: 1px solid rgba(201,168,76,.45);
+      pointer-events: none;
+    }
+    #mini {
+      width: 110px; height: 100%; flex-shrink: 0;
+      border: 1px solid rgba(201,168,76,.4); background: #1a3020;
+    }
+    #cards {
+      flex: 1; display: flex; gap: 6px; overflow-x: auto; align-items: center;
+    }
+    .ucard {
+      min-width: 74px; height: 88px; flex-shrink: 0; padding: 4px;
+      border: 1px solid rgba(201,168,76,.45); background: rgba(20,14,8,.9);
+      display: flex; flex-direction: column; align-items: center; justify-content: flex-end;
+      color: #e8dcc0; font-family: Cinzel, serif; font-size: 9px; text-align: center;
+      position: relative; box-sizing: border-box; gap: 2px;
+    }
+    .ucard img {
+      width: 42px; height: 42px; object-fit: cover;
+      border: 1px solid rgba(201,168,76,.4); margin-top: 14px;
+    }
+    .ucard .n { position: absolute; top: 3px; left: 0; right: 0; font-size: 12px; color: #fff; }
+    .ucard.rome { box-shadow: inset 0 0 0 1px rgba(138,42,34,.55); }
+    .ucard.sel { outline: 2px solid #3dce5a; }
+    .ucard.dead { opacity: .35; }
+    #hint { margin-top: 4px; }
+    #victoryModal {
+      display: none; position: fixed; inset: 0; z-index: 9000;
+      background: rgba(0,0,0,.72); align-items: center; justify-content: center;
+      pointer-events: auto;
+    }
+    #victoryModal.show { display: flex; }
+    #victoryModal .vm-card {
+      width: min(92vw, 420px); padding: 26px 28px 22px;
+      background: rgba(14,10,6,.97); border: 1px solid rgba(201,168,76,.6);
+      box-shadow: 0 20px 50px rgba(0,0,0,.55); text-align: center;
+      color: #efe4d0; font-family: 'EB Garamond', Georgia, serif;
+    }
+    #victoryModal h2 {
+      margin: 0 0 14px; font-family: Cinzel, serif; font-size: 28px;
+      letter-spacing: .12em; color: #f5e6c8; text-transform: uppercase;
+    }
+    #victoryModal .vm-stats { margin: 0 0 18px; font-size: 16px; line-height: 1.55; color: #d8c9a8; }
+    #victoryModal .vm-stats strong { color: #f5ead0; font-weight: 600; }
+    #victoryEnd {
+      font-family: Cinzel, serif; font-size: 12px; letter-spacing: .1em; text-transform: uppercase;
+      color: #f5e6c8; background: rgba(30,22,12,.95); border: 1px solid rgba(201,168,76,.55);
+      padding: 12px 22px; cursor: pointer;
+    }
+    #victoryEnd:hover { border-color: #e0c878; color: #fff; }
+    #camKeys {
+      position: fixed; right: 14px; bottom: 126px; z-index: 6;
+      display: grid; grid-template-columns: repeat(2, 44px); gap: 6px;
+      pointer-events: auto;
+    }
+    #camKeys button {
+      width: 44px; height: 40px; cursor: pointer;
+      font-family: Cinzel, serif; font-size: 14px; font-weight: 700;
+      color: #f5e6c8; background: rgba(16,12,8,.88);
+      border: 1px solid rgba(201,168,76,.55);
+    }
+    #camKeys button:hover { border-color: #e0c878; color: #fff; background: rgba(201,168,76,.16); }
+    #camKeys .cam-label {
+      grid-column: 1 / -1; text-align: center; font-size: 10px; letter-spacing: .08em;
+      color: #c9b48a; font-family: Cinzel, serif; text-transform: uppercase;
+      pointer-events: none;
+    }
+  </style>
+</head>
+<body>
+  <div id="hud">
+    <strong>Локальный бой · 3D</strong>
+    <div id="hint">ЛКМ — выбор · тянуть — карта · Q/E — наклон · Z/C — поворот · ПКМ — атака · колесо — зум</div>
+  </div>
+  <button type="button" id="surrender">Сдаться</button>
+  <div id="camKeys" aria-label="Камера">
+    <div class="cam-label">Камера</div>
+    <button type="button" id="camQ" title="Наклон вниз (Q)">Q</button>
+    <button type="button" id="camE" title="Наклон вверх (E)">E</button>
+    <button type="button" id="camZ" title="Поворот влево (Z)">Z</button>
+    <button type="button" id="camC" title="Поворот вправо (C)">C</button>
+  </div>
+  <canvas id="field"></canvas>
+  <div id="bottomBar">
+    <canvas id="mini" width="110" height="94"></canvas>
+    <div id="cards"></div>
+  </div>
+  <div id="victoryModal" role="dialog" aria-modal="true">
+    <div class="vm-card">
+      <h2 id="victoryTitle">Победа</h2>
+      <div class="vm-stats" id="victoryStats"></div>
+      <button type="button" id="victoryEnd">Закончить бой</button>
+    </div>
+  </div>
+  <script>
+(function () {
+  'use strict';
+  if (!window.THREE) {
+    document.getElementById('hint').textContent = 'Не загрузился Three.js';
+    return;
+  }
+
+  var canvas = document.getElementById('field');
+  var mini = document.getElementById('mini');
+  var mctx = mini.getContext('2d');
+  var cardsEl = document.getElementById('cards');
+  var hintEl = document.getElementById('hint');
+  var BAR = 110;
+  var selected = [];
+  var battleOver = false;
+  var romeStart = 0, carthStart = 0;
+  var spears3d = [];
+  var MELEE_RANGE = 3.4;
+  var STEP = 1.65;
+  var VELITE_STOP = STEP * 2;
+  var MAX_SELECT = 3;
+  var FORM_COLS = 6;
+  var FORM_ROWS = 5; // до 30 солдат в строю
+  var TILT_MIN = 0.12;
+  var TILT_MAX = 1.25;
+  var TILT_STEP = 3 * Math.PI / 180; // как на глобальной карте (~3°)
+  var YAW_STEP = 6 * Math.PI / 180;  // как на глобальной (~6°)
+
+  function parentCS() {
+    try {
+      if (window.parent && window.parent !== window && window.parent.CampaignState) {
+        return window.parent.CampaignState;
+      }
+    } catch (_) {}
+    return null;
+  }
+
+  var AVATARS = {
+    general_rome: '/images/faceOfScipio.png',
+    general_carthage: '/images/faceOfganibal.png',
+    legionary: '/images/legioner.png',
+    velites: '/images/velit.png',
+    equites: '/images/units/cavalry.svg',
+    punic_infantry: '/images/units/punic_infantry.svg',
+    punic_archers: '/images/units/punic_archers.svg',
+    elephants: '/images/units/elephants.svg'
+  };
+
+  /* ========== THREE SCENE ========== */
+  var renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: true, powerPreference: 'high-performance' });
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  renderer.outputEncoding = THREE.sRGBEncoding;
+
+  var scene = new THREE.Scene();
+  scene.background = new THREE.Color(0x8fa8b8);
+  scene.fog = new THREE.Fog(0xb0c4bc, 55, 140);
+
+  var camera = new THREE.PerspectiveCamera(42, 1, 0.15, 260);
+  var camTarget = new THREE.Vector3(0, 0.6, 0);
+  var camDist = 42;
+  var camYaw = 0.55;
+  var camPitch = 0.62;
+
+  function applyCam() {
+    camPitch = Math.max(TILT_MIN, Math.min(TILT_MAX, camPitch));
+    camDist = Math.max(2.8, Math.min(85, camDist));
+    camera.position.set(
+      camTarget.x + Math.sin(camYaw) * Math.cos(camPitch) * camDist,
+      camTarget.y + Math.sin(camPitch) * camDist,
+      camTarget.z + Math.cos(camYaw) * Math.cos(camPitch) * camDist
+    );
+    camera.lookAt(camTarget);
+  }
+
+  var hemi = new THREE.HemisphereLight(0xe8f0ff, 0x3a4a28, 0.72);
+  scene.add(hemi);
+  var sun = new THREE.DirectionalLight(0xfff4dc, 1.35);
+  sun.position.set(-32, 48, 22);
+  sun.castShadow = true;
+  sun.shadow.mapSize.set(2048, 2048);
+  sun.shadow.camera.left = -50;
+  sun.shadow.camera.right = 50;
+  sun.shadow.camera.top = 40;
+  sun.shadow.camera.bottom = -40;
+  sun.shadow.camera.near = 2;
+  sun.shadow.camera.far = 120;
+  sun.shadow.bias = -0.0008;
+  scene.add(sun);
+  scene.add(new THREE.AmbientLight(0x6a7860, 0.32));
+  var fill = new THREE.DirectionalLight(0xa8c8e8, 0.28);
+  fill.position.set(20, 18, -14);
+  scene.add(fill);
+
+  // земля
+  var groundMat = new THREE.MeshStandardMaterial({ color: 0x4a7a42, roughness: 0.92, metalness: 0.02 });
+  var ground = new THREE.Mesh(new THREE.PlaneGeometry(120, 80, 40, 28), groundMat);
+  ground.rotation.x = -Math.PI / 2;
+  ground.receiveShadow = true;
+  // лёгкий рельеф
+  var gpos = ground.geometry.attributes.position;
+  for (var gi = 0; gi < gpos.count; gi++) {
+    var gx = gpos.getX(gi), gy = gpos.getY(gi);
+    gpos.setZ(gi, Math.sin(gx * 0.12) * 0.15 + Math.cos(gy * 0.09) * 0.12);
+  }
+  ground.geometry.computeVertexNormals();
+  scene.add(ground);
+
+  // трава-пятна
+  var patchMat = new THREE.MeshLambertMaterial({ color: 0x3f6b38 });
+  for (var pi = 0; pi < 40; pi++) {
+    var p = new THREE.Mesh(new THREE.CircleGeometry(1.2 + Math.random() * 2.2, 10), patchMat);
+    p.rotation.x = -Math.PI / 2;
+    p.position.set((Math.random() - 0.5) * 90, 0.02, (Math.random() - 0.5) * 55);
+    scene.add(p);
+  }
+
+  // дальние деревья (простые конусы)
+  var trunkMat = new THREE.MeshLambertMaterial({ color: 0x4a3020 });
+  var leafMat = new THREE.MeshLambertMaterial({ color: 0x2d5a30 });
+  function addTree(x, z, s) {
+    var g = new THREE.Group();
+    var tr = new THREE.Mesh(new THREE.CylinderGeometry(0.12 * s, 0.18 * s, 1.2 * s, 6), trunkMat);
+    tr.position.y = 0.6 * s;
+    tr.castShadow = true;
+    g.add(tr);
+    var leaf = new THREE.Mesh(new THREE.ConeGeometry(0.9 * s, 2.2 * s, 7), leafMat);
+    leaf.position.y = 2.0 * s;
+    leaf.castShadow = true;
+    g.add(leaf);
+    g.position.set(x, 0, z);
+    scene.add(g);
+  }
+  for (var ti = 0; ti < 28; ti++) {
+    var side = ti % 2 === 0 ? -1 : 1;
+    addTree(side * (32 + Math.random() * 18), -28 + Math.random() * 56, 0.8 + Math.random() * 1.4);
+  }
+
+  var landPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
+  var raycaster = new THREE.Raycaster();
+  var ndc = new THREE.Vector2();
+
+  /* ========== MATERIALS / SOLDIER (Dawn of Ages–style silhouettes) ========== */
+  function mat(color, shin) {
+    return new THREE.MeshPhongMaterial({
+      color: color,
+      shininess: shin != null ? shin : 28,
+      specular: 0x444444,
+      flatShading: false
+    });
+  }
+
+  var shared = {
+    skin: mat(0xd4b090, 18),
+    romeCloth: mat(0x9a2430, 22),
+    romeBronze: mat(0xc9a24a, 55),
+    romePlume: mat(0xc42828, 12),
+    romeShield: mat(0xb81e1e, 20),
+    carthCloth: mat(0xf2eee6, 22),
+    carthBronze: mat(0x8a3a32, 48),
+    carthPlume: mat(0x2a1c14, 8),
+    carthShield: mat(0xe8e0d0, 18),
+    leather: mat(0x5a3a24, 14),
+    wood: mat(0x6a4a28, 14),
+    horse: mat(0x4a3224, 12),
+    elephant: mat(0x7a6a58, 10),
+    steel: mat(0xd8dce0, 70)
+  };
+
+  var soldierProto = {};
+
+  function cyl(rTop, rBot, h, segs, material) {
+    var m = new THREE.Mesh(new THREE.CylinderGeometry(rTop, rBot, h, segs || 8), material);
+    m.castShadow = true;
+    m.receiveShadow = true;
+    return m;
+  }
+  function sph(r, material, w, h) {
+    var m = new THREE.Mesh(new THREE.SphereGeometry(r, w || 10, h || 8), material);
+    m.castShadow = true;
+    return m;
+  }
+  function namedGroup(name) {
+    var g = new THREE.Group();
+    g.name = name;
+    return g;
+  }
+
+  function buildSoldierTemplate(faction, kind) {
+    var root = new THREE.Group();
+    var cloth = faction === 'rome' ? shared.romeCloth : shared.carthCloth;
+    var bronze = faction === 'rome' ? shared.romeBronze : shared.carthBronze;
+    var plume = faction === 'rome' ? shared.romePlume : shared.carthPlume;
+    var shieldCol = faction === 'rome' ? shared.romeShield : shared.carthShield;
+    var isCav = kind === 'cavalry';
+    var isEl = kind === 'elephant';
+    var isSk = kind === 'skirmisher' || kind === 'archer';
+    var isGen = kind === 'general';
+
+    if (isEl) {
+      var elBody = cyl(0.36, 0.4, 1.45, 10, shared.elephant);
+      elBody.rotation.z = Math.PI / 2;
+      elBody.position.set(0.05, 1.18, 0);
+      root.add(elBody);
+      function elLeg(ox, oz) {
+        var leg = cyl(0.11, 0.13, 0.95, 7, shared.elephant);
+        leg.position.set(ox, 0.48, oz);
+        root.add(leg);
+      }
+      elLeg(0.45, 0.22); elLeg(0.45, -0.22);
+      elLeg(-0.4, 0.22); elLeg(-0.4, -0.22);
+      var elHead = sph(0.32, shared.elephant, 10, 8);
+      elHead.scale.set(1.05, 0.95, 0.9);
+      elHead.position.set(0.95, 1.35, 0);
+      root.add(elHead);
+      var trunk = cyl(0.07, 0.045, 0.85, 6, shared.elephant);
+      trunk.position.set(1.28, 0.95, 0);
+      trunk.rotation.z = 0.55;
+      root.add(trunk);
+      var earL = new THREE.Mesh(new THREE.CircleGeometry(0.28, 8), shared.elephant);
+      earL.position.set(0.85, 1.4, 0.32);
+      earL.rotation.y = 0.6;
+      root.add(earL);
+      var earR = earL.clone();
+      earR.position.z = -0.32;
+      earR.rotation.y = -0.6;
+      root.add(earR);
+      var howdah = cyl(0.2, 0.22, 0.16, 8, shared.wood);
+      howdah.position.set(0.05, 1.72, 0);
+      root.add(howdah);
+      var rider = cyl(0.1, 0.12, 0.36, 8, cloth);
+      rider.position.set(0.05, 2.05, 0);
+      root.add(rider);
+      var tusk = new THREE.Mesh(new THREE.ConeGeometry(0.04, 0.35, 5), mat(0xf0e8d0, 20));
+      tusk.position.set(1.15, 1.05, 0.12);
+      tusk.rotation.z = 1.9;
+      tusk.castShadow = true;
+      root.add(tusk);
+      var tusk2 = tusk.clone();
+      tusk2.position.z = -0.12;
+      root.add(tusk2);
+      root.userData.anim = { leftLeg: null, rightLeg: null, rightArm: null };
+      root.scale.setScalar(1.15);
+      return root;
+    }
+
+    if (isCav) {
+      var horseBody = cyl(0.2, 0.22, 1.05, 8, shared.horse);
+      horseBody.rotation.z = Math.PI / 2;
+      horseBody.position.set(0.05, 0.74, 0);
+      root.add(horseBody);
+      function hLeg(ox, oz) {
+        var leg = cyl(0.05, 0.06, 0.7, 6, shared.horse);
+        leg.position.set(ox, 0.36, oz);
+        root.add(leg);
+      }
+      hLeg(0.38, 0.12); hLeg(0.38, -0.12);
+      hLeg(-0.35, 0.12); hLeg(-0.35, -0.12);
+      var neck = cyl(0.09, 0.13, 0.42, 6, shared.horse);
+      neck.position.set(0.52, 1.08, 0);
+      neck.rotation.z = -0.55;
+      root.add(neck);
+      var hHead = sph(0.14, shared.horse, 8, 6);
+      hHead.scale.set(1.4, 0.85, 0.75);
+      hHead.position.set(0.78, 1.22, 0);
+      root.add(hHead);
+      var muzzle = cyl(0.05, 0.07, 0.22, 6, shared.horse);
+      muzzle.rotation.z = Math.PI / 2;
+      muzzle.position.set(1.02, 1.14, 0);
+      root.add(muzzle);
+      var riderT = cyl(0.11, 0.13, 0.36, 8, bronze);
+      riderT.position.set(0.05, 1.22, 0);
+      root.add(riderT);
+      var riderHead = sph(0.1, shared.skin, 8, 6);
+      riderHead.position.set(0.05, 1.5, 0);
+      root.add(riderHead);
+      var helmC = new THREE.Mesh(
+        new THREE.SphereGeometry(0.11, 10, 8, 0, Math.PI * 2, 0, Math.PI * 0.55),
+        bronze
+      );
+      helmC.position.set(0.05, 1.54, 0);
+      root.add(helmC);
+      var spear = cyl(0.018, 0.018, 1.7, 5, shared.wood);
+      spear.rotation.z = Math.PI / 2.5;
+      spear.position.set(0.45, 1.35, 0.12);
+      root.add(spear);
+      root.userData.anim = { leftLeg: null, rightLeg: null, rightArm: null };
+      root.scale.setScalar(1.1);
+      return root;
+    }
+
+    function limbCyl(name, parent, ox, oy, oz, r, h, material) {
+      var g = namedGroup(name);
+      g.position.set(ox, oy, oz);
+      var m = cyl(r * 0.92, r, h, 8, material);
+      m.position.y = -h / 2;
+      g.add(m);
+      parent.add(g);
+      return g;
+    }
+
+    var hips = namedGroup('hips');
+    hips.position.y = 0.58;
+    root.add(hips);
+
+    var leftLeg = limbCyl('leftLeg', hips, -0.1, 0, 0, 0.075, 0.34, shared.leather);
+    var rightLeg = limbCyl('rightLeg', hips, 0.1, 0, 0, 0.075, 0.34, shared.leather);
+    limbCyl('leftShin', leftLeg, 0, -0.34, 0, 0.07, 0.32, bronze);
+    limbCyl('rightShin', rightLeg, 0, -0.34, 0, 0.07, 0.32, bronze);
+
+    var torsoMat = isGen ? mat(0xd4b24a, 60) : bronze;
+    var torso = cyl(0.16, 0.2, 0.48, 10, torsoMat);
+    torso.position.y = 0.92;
+    root.add(torso);
+    var pecs = sph(0.16, torsoMat, 10, 8);
+    pecs.scale.set(1.15, 0.55, 0.85);
+    pecs.position.y = 1.08;
+    root.add(pecs);
+
+    var skirt = cyl(0.22, 0.18, 0.2, 10, cloth);
+    skirt.position.y = 0.64;
+    root.add(skirt);
+
+    var leftArm = limbCyl('leftArm', root, -0.24, 1.12, 0, 0.055, 0.36, shared.skin);
+    var rightArm = limbCyl('rightArm', root, 0.24, 1.12, 0, 0.055, 0.36, shared.skin);
+
+    // крупный овальный щит (силуэт как в DoA)
+    if (!isSk) {
+      var shield = new THREE.Mesh(new THREE.SphereGeometry(0.34, 12, 10, 0, Math.PI * 2, 0, Math.PI * 0.62), shieldCol);
+      shield.scale.set(0.55, 1.15, 0.12);
+      shield.rotation.y = Math.PI / 2;
+      shield.position.set(-0.08, -0.16, 0.16);
+      shield.castShadow = true;
+      leftArm.add(shield);
+      var rim = new THREE.Mesh(new THREE.TorusGeometry(0.28, 0.025, 6, 16), bronze);
+      rim.scale.set(0.55, 1.05, 1);
+      rim.rotation.y = Math.PI / 2;
+      rim.position.copy(shield.position);
+      leftArm.add(rim);
+      leftArm.rotation.x = -0.35;
+      leftArm.rotation.z = 0.35;
+      leftArm.rotation.y = -0.25;
+    }
+
+    if (isSk) {
+      var bow = new THREE.Mesh(new THREE.TorusGeometry(0.28, 0.018, 5, 14, Math.PI * 1.15), shared.wood);
+      bow.rotation.y = Math.PI / 2;
+      bow.position.set(0.06, -0.18, 0.08);
+      rightArm.add(bow);
+      var arrow = cyl(0.012, 0.012, 0.7, 5, shared.wood);
+      arrow.rotation.z = Math.PI / 2;
+      arrow.position.set(0.12, -0.18, 0.1);
+      rightArm.add(arrow);
+      rightArm.rotation.x = -0.85;
+      leftArm.rotation.x = -0.55;
+    } else {
+      var sword = cyl(0.018, 0.028, 0.62, 6, shared.steel);
+      sword.position.set(0.02, -0.42, 0.06);
+      rightArm.add(sword);
+      var guard = cyl(0.08, 0.08, 0.04, 6, bronze);
+      guard.position.set(0.02, -0.14, 0.06);
+      rightArm.add(guard);
+      rightArm.rotation.x = -0.55;
+      rightArm.rotation.z = -0.15;
+    }
+
+    var head = sph(0.13, shared.skin, 12, 10);
+    head.position.y = 1.28;
+    root.add(head);
+    var helm = new THREE.Mesh(
+      new THREE.SphereGeometry(0.145, 12, 10, 0, Math.PI * 2, 0, Math.PI * 0.62),
+      bronze
+    );
+    helm.position.y = 1.32;
+    helm.castShadow = true;
+    root.add(helm);
+    var cheek = cyl(0.05, 0.05, 0.12, 6, bronze);
+    cheek.rotation.z = Math.PI / 2;
+    cheek.position.set(0, 1.24, 0.1);
+    root.add(cheek);
+    var crest = cyl(0.03, 0.02, 0.28, 6, plume);
+    crest.rotation.z = Math.PI / 2;
+    crest.position.set(0, 1.48, 0);
+    root.add(crest);
+    if (isGen) {
+      var crown = cyl(0.16, 0.16, 0.06, 10, mat(0xf0d060, 70));
+      crown.position.y = 1.44;
+      root.add(crown);
+    }
+
+    root.userData.anim = { leftLeg: leftLeg, rightLeg: rightLeg, rightArm: rightArm, leftArm: leftArm };
+    root.scale.setScalar(isGen ? 1.14 : 1.05);
+    return root;
+  }
+
+  function bindAnim(root) {
+    root.userData.anim = {
+      leftLeg: root.getObjectByName('leftLeg'),
+      rightLeg: root.getObjectByName('rightLeg'),
+      rightArm: root.getObjectByName('rightArm'),
+      leftArm: root.getObjectByName('leftArm')
+    };
+  }
+
+  function buildSoldier(faction, kind) {
+    var key = faction + ':' + kind;
+    if (!soldierProto[key]) soldierProto[key] = buildSoldierTemplate(faction, kind);
+    var clone = soldierProto[key].clone(true);
+    bindAnim(clone);
+    return clone;
+  }
+
+  function addBanner(unitGroup, faction) {
+    var pole = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.05, 2.4, 6), shared.wood);
+    pole.position.set(faction === 'rome' ? -1.1 : 1.1, 1.2, 0);
+    unitGroup.add(pole);
+    var flag = new THREE.Mesh(
+      new THREE.PlaneGeometry(0.9, 0.7),
+      new THREE.MeshLambertMaterial({
+        color: faction === 'rome' ? 0x8b1a1a : 0xe8e4d8,
+        side: THREE.DoubleSide
+      })
+    );
+    flag.position.set(faction === 'rome' ? -0.55 : 0.55, 2.0, 0);
+    unitGroup.add(flag);
+    var emblem = new THREE.Mesh(
+      new THREE.CircleGeometry(0.14, 10),
+      new THREE.MeshLambertMaterial({ color: faction === 'rome' ? 0xf0d060 : 0x9a3a32 })
+    );
+    emblem.position.set(faction === 'rome' ? -0.55 : 0.55, 2.05, 0.02);
+    unitGroup.add(emblem);
+  }
+
+  /* ========== UNITS / COMBAT ========== */
+  function makeUnit(id, name, faction, kind, soldiers, opts) {
+    opts = opts || {};
+    var base = soldiers != null ? soldiers : 40;
+    return {
+      id: id,
+      srcId: opts.srcId || id,
+      unitId: opts.unitId || '',
+      name: name,
+      faction: faction,
+      kind: kind,
+      avatar: opts.avatar || '',
+      soldiers: base,
+      maxSoldiers: base,
+      x: 0,
+      z: 0,
+      facing: faction === 'rome' ? 1 : -1,
+      selected: false,
+      state: 'idle',
+      targetX: 0,
+      targetZ: 0,
+      fightTarget: null,
+      walkPhase: Math.random() * Math.PI * 2,
+      fightPhase: 0,
+      throwCd: Math.random() * 0.4,
+      alive: true,
+      root: null,
+      men: [],
+      ring: null,
+      label: null
+    };
+  }
+
+  function kindFromArmyUnit(u) {
+    if (u.isGeneral || (u.unitId || '').indexOf('general') === 0) return 'general';
+    if (u.unitId === 'equites') return 'cavalry';
+    if (u.unitId === 'elephants') return 'elephant';
+    if (u.unitId === 'velites') return 'skirmisher';
+    if (u.unitId === 'punic_archers') return 'archer';
+    return 'infantry';
+  }
+
+  function isSkirmisher(u) {
+    return u && (u.kind === 'skirmisher' || u.unitId === 'velites');
+  }
+
+  function avatarFor(u, CS) {
+    if (u.avatar) return u.avatar;
+    if (CS && CS.UNITS && u.unitId && CS.UNITS[u.unitId]) return CS.UNITS[u.unitId].avatar || '';
+    return AVATARS[u.unitId] || '';
+  }
+
+  function unitsFromArmy(army, faction, fallback) {
+    var CS = parentCS();
+    if (!army || !army.units || !army.units.length) return fallback();
+    return army.units.map(function (u, i) {
+      return makeUnit(u.id || (faction + '_' + i), u.name || 'Отряд', faction, kindFromArmyUnit(u),
+        u.soldiers != null ? u.soldiers : 40,
+        { srcId: u.id, unitId: u.unitId || '', avatar: avatarFor(u, CS) });
+    });
+  }
+
+  function defaultRome() {
+    return [
+      makeUnit('rg1', 'Сципион', 'rome', 'general', 40, { unitId: 'general_rome', avatar: AVATARS.general_rome }),
+      makeUnit('rl1', 'Легионеры', 'rome', 'infantry', 40, { unitId: 'legionary', avatar: AVATARS.legionary }),
+      makeUnit('rl2', 'Легионеры', 'rome', 'infantry', 40, { unitId: 'legionary', avatar: AVATARS.legionary }),
+      makeUnit('rl3', 'Легионеры', 'rome', 'infantry', 40, { unitId: 'legionary', avatar: AVATARS.legionary }),
+      makeUnit('rl4', 'Легионеры', 'rome', 'infantry', 40, { unitId: 'legionary', avatar: AVATARS.legionary }),
+      makeUnit('rl5', 'Легионеры', 'rome', 'infantry', 40, { unitId: 'legionary', avatar: AVATARS.legionary }),
+      makeUnit('rv1', 'Велиты', 'rome', 'skirmisher', 40, { unitId: 'velites', avatar: AVATARS.velites }),
+      makeUnit('re1', 'Конница', 'rome', 'cavalry', 40, { unitId: 'equites', avatar: AVATARS.equites }),
+      makeUnit('re2', 'Конница', 'rome', 'cavalry', 40, { unitId: 'equites', avatar: AVATARS.equites })
+    ];
+  }
+
+  function defaultCarth() {
+    return [
+      makeUnit('cg1', 'Ганнибал', 'carthage', 'general', 40, { unitId: 'general_carthage', avatar: AVATARS.general_carthage }),
+      makeUnit('cp1', 'Пехота пунийская', 'carthage', 'infantry', 40, { unitId: 'punic_infantry', avatar: AVATARS.punic_infantry }),
+      makeUnit('cp2', 'Пехота пунийская', 'carthage', 'infantry', 40, { unitId: 'punic_infantry', avatar: AVATARS.punic_infantry }),
+      makeUnit('ce1', 'Слоны', 'carthage', 'elephant', 40, { unitId: 'elephants', avatar: AVATARS.elephants })
+    ];
+  }
+
+  function buildUnitVisual(u) {
+    var root = new THREE.Group();
+    root.userData.unit = u;
+    var spacing = u.kind === 'elephant' ? 1.55 : (u.kind === 'cavalry' ? 1.05 : 0.55);
+    var cols = u.kind === 'elephant' ? 3 : FORM_COLS;
+    var rows = u.kind === 'elephant' ? 2 : FORM_ROWS;
+    var maxMen = cols * rows;
+    var men = [];
+    var r, c, idx = 0;
+    for (r = 0; r < rows; r++) {
+      for (c = 0; c < cols; c++) {
+        var man = buildSoldier(u.faction, u.kind);
+        var ox = (c - (cols - 1) / 2) * spacing;
+        var oz = (r - (rows - 1) / 2) * spacing * 0.85;
+        man.position.set(ox, 0, oz);
+        man.userData.ox = ox;
+        man.userData.oz = oz;
+        man.userData.fallen = false;
+        man.userData.phase = Math.random() * 6;
+        root.add(man);
+        men.push(man);
+        idx++;
+        if (idx >= maxMen) break;
+      }
+    }
+    u.men = men;
+
+    if (u.kind === 'general') addBanner(root, u.faction);
+
+    var ring = new THREE.Mesh(
+      new THREE.RingGeometry(2.2, 2.55, 40),
+      new THREE.MeshBasicMaterial({ color: 0x3dce5a, transparent: true, opacity: 0.85, side: THREE.DoubleSide })
+    );
+    ring.rotation.x = -Math.PI / 2;
+    ring.position.y = 0.06;
+    ring.visible = false;
+    root.add(ring);
+    u.ring = ring;
+
+    // невидимый хитбокс для выбора
+    var hit = new THREE.Mesh(
+      new THREE.CylinderGeometry(2.4, 2.4, 2.2, 12),
+      new THREE.MeshBasicMaterial({ visible: false })
+    );
+    hit.position.y = 1;
+    hit.userData.unitHit = u;
+    root.add(hit);
+
+    u.root = root;
+    scene.add(root);
+    syncMenVisible(u);
+    syncUnitTransform(u);
+  }
+
+  function syncMenVisible(u) {
+    var want = Math.max(0, Math.ceil((u.soldiers / Math.max(1, u.maxSoldiers)) * u.men.length));
+    if (u.soldiers <= 0) want = 0;
+    var i;
+    for (i = 0; i < u.men.length; i++) {
+      var m = u.men[i];
+      if (i < want) {
+        m.visible = true;
+        if (m.userData.fallen) {
+          m.userData.fallen = false;
+          m.rotation.z = 0;
+          m.position.y = 0;
+        }
+      } else if (!m.userData.fallen) {
+        m.userData.fallen = true;
+        m.rotation.z = (Math.random() > 0.5 ? 1 : -1) * Math.PI / 2;
+        m.position.y = 0.08;
+      }
+    }
+  }
+
+  function syncUnitTransform(u) {
+    if (!u.root) return;
+    u.root.position.set(u.x, 0, u.z);
+    u.root.rotation.y = u.facing >= 0 ? Math.PI / 2 : -Math.PI / 2;
+    if (u.ring) u.ring.visible = !!u.selected && u.alive;
+  }
+
+  var CS0 = parentCS();
+  var rome = unitsFromArmy(CS0 && CS0.getFieldArmy && CS0.getFieldArmy('field_rome_1'), 'rome', defaultRome);
+  var carth = unitsFromArmy(CS0 && CS0.getFieldArmy && CS0.getFieldArmy('field_carthage_1'), 'carthage', defaultCarth);
+
+  function layoutStart() {
+    var i, col, row;
+    for (i = 0; i < rome.length; i++) {
+      col = i % 4;
+      row = Math.floor(i / 4);
+      rome[i].x = -16 - row * 5.2;
+      rome[i].z = (col - 1.5) * 5.2;
+      rome[i].facing = 1;
+      buildUnitVisual(rome[i]);
+    }
+    for (i = 0; i < carth.length; i++) {
+      col = i % 3;
+      row = Math.floor(i / 3);
+      carth[i].x = 16 + row * 5.2;
+      carth[i].z = (col - 1) * 5.5;
+      carth[i].facing = -1;
+      buildUnitVisual(carth[i]);
+    }
+  }
+  layoutStart();
+  romeStart = rome.reduce(function (s, u) { return s + u.soldiers; }, 0);
+  carthStart = carth.reduce(function (s, u) { return s + u.soldiers; }, 0);
+
+  function allUnits() { return rome.concat(carth); }
+
+  function unitPower(u) {
+    if (!u.alive) return 0;
+    var k = 1;
+    if (u.kind === 'cavalry') k = 1.15;
+    if (u.kind === 'elephant') k = 1.35;
+    if (u.kind === 'archer') k = 0.85;
+    if (u.kind === 'skirmisher') k = 0.75;
+    if (u.kind === 'general') k = 1.5;
+    return u.soldiers * k;
+  }
+
+  function rebuildCards() {
+    cardsEl.innerHTML = '';
+    rome.forEach(function (u) {
+      var el = document.createElement('div');
+      el.className = 'ucard rome' + (u.selected ? ' sel' : '') + (!u.alive ? ' dead' : '');
+      var img = u.avatar
+        ? '<img src="' + u.avatar + '" alt="" onerror="this.style.display=\'none\'">'
+        : '<div style="font-size:18px;margin-top:18px">⚔</div>';
+      el.innerHTML = '<div class="n">' + Math.max(0, Math.floor(u.soldiers)) + '</div>' + img + '<div>' + u.name + '</div>';
+      cardsEl.appendChild(el);
+    });
+  }
+
+  /** Сторона разбита: нет боеспособных отрядов (все мертвы или бегут). */
+  function sideDefeated(list) {
+    if (!list.length) return true;
+    return list.every(function (u) {
+      return !u.alive || u.state === 'flee' || u.state === 'dead' || u.soldiers <= 1;
+    });
+  }
+  function sideSoldiers(list) {
+    var n = 0;
+    list.forEach(function (u) { if (u.soldiers > 0) n += Math.floor(u.soldiers); });
+    return n;
+  }
+  function packUnits(list) {
+    return list.map(function (u, index) {
+      return { id: u.srcId || u.id, unitId: u.unitId, index: index, soldiers: Math.max(0, Math.floor(u.soldiers)) };
+    });
+  }
+
+  function showVictory(winner) {
+    if (battleOver) return;
+    battleOver = true;
+    // остановить бой
+    allUnits().forEach(function (u) {
+      if (u.state === 'fight' || u.state === 'ranged' || u.state === 'walk') {
+        if (u.state !== 'flee') u.state = 'idle';
+        u.fightTarget = null;
+      }
+    });
+    var romeLeftTotal = sideSoldiers(rome);
+    var carthLeftTotal = sideSoldiers(carth);
+    var romeLost = Math.max(0, romeStart - romeLeftTotal);
+    var carthLost = Math.max(0, carthStart - carthLeftTotal);
+    var playerWon = winner === 'rome';
+    document.getElementById('victoryTitle').textContent = playerWon ? 'Победа' : 'Поражение';
+    document.getElementById('victoryStats').innerHTML =
+      '<div><strong>' + (playerWon ? 'Рим одержал победу' : 'Армия Рима разбита') + '</strong></div>' +
+      '<div>Потери Рима: <strong>' + romeLost + '</strong></div>' +
+      '<div>Потери Карфагена: <strong>' + carthLost + '</strong></div>' +
+      '<div>Осталось у Рима: <strong>' + romeLeftTotal + '</strong></div>' +
+      '<div>Осталось у Карфагена: <strong>' + carthLeftTotal + '</strong></div>';
+    var modal = document.getElementById('victoryModal');
+    modal.classList.add('show');
+    modal.style.display = 'flex';
+    document.getElementById('victoryEnd').onclick = function () {
+      try {
+        window.parent.postMessage({
+          type: 'battle-local-done', surrender: false, winner: winner,
+          romeLost: romeLost, carthLost: carthLost,
+          romeLeft: romeLeftTotal, carthLeft: carthLeftTotal,
+          romeUnits: packUnits(rome), carthUnits: packUnits(carth)
+        }, '*');
+      } catch (_) {}
+    };
+  }
+
+  function checkBattleEnd() {
+    if (battleOver) return;
+    var carthDown = sideDefeated(carth);
+    var romeDown = sideDefeated(rome);
+    if (carthDown && !romeDown) showVictory('rome');
+    else if (romeDown && !carthDown) showVictory('carthage');
+    else if (carthDown && romeDown) {
+      // оба разбиты — побеждает у кого больше осталось
+      showVictory(sideSoldiers(rome) >= sideSoldiers(carth) ? 'rome' : 'carthage');
+    }
+  }
+
+  function meleeAttackersOf(def) {
+    return allUnits().filter(function (u) {
+      return u.alive && u.state === 'fight' && u.fightTarget === def;
+    });
+  }
+
+  function lockMeleePositions(attacker, defender) {
+    var others = meleeAttackersOf(defender).filter(function (u) { return u !== attacker; });
+    var slot = others.length;
+    var fromLeft = attacker.x <= defender.x;
+    var yOff = (slot === 0) ? 0 : (slot % 2 === 1 ? -1.6 * Math.ceil(slot / 2) : 1.6 * (slot / 2));
+    attacker.x = defender.x + (fromLeft ? -MELEE_RANGE : MELEE_RANGE);
+    attacker.z = defender.z + yOff;
+    attacker.facing = fromLeft ? 1 : -1;
+    if (slot === 0) {
+      defender.facing = fromLeft ? -1 : 1;
+      defender.z = attacker.z;
+    }
+    syncUnitTransform(attacker);
+    syncUnitTransform(defender);
+  }
+
+  function orderUnitAttack(u, enemy) {
+    if (!u.alive || u.state === 'flee') return;
+    u.fightTarget = enemy;
+    var dx = enemy.x - u.x;
+    var dz = enemy.z - u.z;
+    var dist = Math.hypot(dx, dz) || 1;
+    u.facing = dx >= 0 ? 1 : -1;
+    if (isSkirmisher(u)) {
+      if (dist > VELITE_STOP + 0.4) {
+        u.state = 'walk';
+        u.targetX = enemy.x - (dx / dist) * VELITE_STOP;
+        u.targetZ = enemy.z - (dz / dist) * 0.2;
+      } else u.state = 'ranged';
+      return;
+    }
+    var slot = meleeAttackersOf(enemy).length;
+    var yOff = (slot === 0) ? 0 : (slot % 2 === 1 ? -1.6 * Math.ceil(slot / 2) : 1.6 * (slot / 2));
+    u.state = 'walk';
+    u.targetX = enemy.x - (dx / dist) * MELEE_RANGE;
+    u.targetZ = enemy.z + yOff;
+  }
+
+  function startFight(a, b) {
+    if (!a.alive || !b.alive) return;
+    if (isSkirmisher(a)) { a.state = 'ranged'; a.fightTarget = b; return; }
+    if (a.state === 'fight' && a.fightTarget === b) return;
+    a.state = 'fight';
+    a.fightTarget = b;
+    lockMeleePositions(a, b);
+    if (b.state !== 'flee' && b.state !== 'dead' && !isSkirmisher(b)) {
+      if (b.state !== 'fight') b.state = 'fight';
+      if (!b.fightTarget || !b.fightTarget.alive) b.fightTarget = a;
+    }
+    hintEl.textContent = meleeAttackersOf(b).length > 1
+      ? ('Несколько отрядов бьются с «' + b.name + '»')
+      : (a.name + ' бьётся с «' + b.name + '»');
+  }
+
+  function clearCombatant(u) {
+    allUnits().forEach(function (o) {
+      if (o.fightTarget === u) {
+        o.fightTarget = null;
+        if (o.state === 'fight' || o.state === 'ranged') o.state = 'idle';
+      }
+    });
+  }
+
+  function applyMeleeDamage(attacker, defender, dt) {
+    if (!attacker.alive || !defender.alive) return;
+    if (defender.state === 'fight' && defender.fightTarget === attacker && attacker.id > defender.id) return;
+    var pa = unitPower(attacker), pb = unitPower(defender);
+    var n = Math.max(1, meleeAttackersOf(defender).length);
+    var rate = 12 * dt;
+    if (defender.state === 'fight' && defender.fightTarget === attacker && n <= 1) {
+      if (pa >= pb) {
+        defender.soldiers = Math.max(0, defender.soldiers - rate * (pa / Math.max(1, pb)));
+        attacker.soldiers = Math.max(0, attacker.soldiers - rate * 0.35);
+      } else {
+        attacker.soldiers = Math.max(0, attacker.soldiers - rate * (pb / Math.max(1, pa)));
+        defender.soldiers = Math.max(0, defender.soldiers - rate * 0.35);
+      }
+    } else {
+      defender.soldiers = Math.max(0, defender.soldiers - rate * (pa / Math.max(1, pb)) * 0.9);
+      attacker.soldiers = Math.max(0, attacker.soldiers - rate * 0.32 * (pb / Math.max(1, pa)) / n);
+    }
+    syncMenVisible(attacker);
+    syncMenVisible(defender);
+    checkFleeOrKill(attacker, defender);
+    checkFleeOrKill(defender, attacker);
+  }
+
+  function applyRangedDamage(skirm, target, dt) {
+    var pa = unitPower(skirm), pb = unitPower(target);
+    var rate = 9 * dt;
+    target.soldiers = Math.max(0, target.soldiers - rate * (pa / Math.max(1, pb)) * 0.85);
+    syncMenVisible(skirm);
+    syncMenVisible(target);
+    checkFleeOrKill(skirm, target);
+    checkFleeOrKill(target, skirm);
+  }
+
+  function spawnSpear(from, to) {
+    var mesh = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.03, 0.04, 1.1, 5),
+      shared.wood
+    );
+    mesh.position.set(from.x, 1.3, from.z);
+    scene.add(mesh);
+    spears3d.push({
+      mesh: mesh,
+      x0: from.x, y0: 1.3, z0: from.z,
+      x1: to.x, y1: 1.1, z1: to.z,
+      t: 0, dur: 0.4
+    });
+  }
+
+  function checkFleeOrKill(winner, loser) {
+    if (!loser || !loser.alive) return;
+    if (loser.soldiers > 0 && loser.soldiers <= 1) {
+      loser.soldiers = 1;
+      syncMenVisible(loser);
+      loser.state = 'flee';
+      loser.fightTarget = null;
+      loser.facing = loser.faction === 'rome' ? -1 : 1;
+      loser.targetX = loser.faction === 'rome' ? -45 : 45;
+      loser.targetZ = loser.z;
+      clearCombatant(loser);
+      if (winner && winner.alive && winner.fightTarget === loser) {
+        winner.state = 'idle';
+        winner.fightTarget = null;
+      }
+      hintEl.textContent = loser.name + ' обращён в бегство!';
+      rebuildCards();
+      checkBattleEnd();
+    } else if (loser.soldiers <= 0) {
+      loser.soldiers = 0;
+      loser.alive = false;
+      loser.state = 'dead';
+      syncMenVisible(loser);
+      if (loser.root) loser.root.visible = false;
+      clearCombatant(loser);
+      if (winner && winner.alive && winner.fightTarget === loser) {
+        winner.state = 'idle';
+        winner.fightTarget = null;
+      }
+      rebuildCards();
+      checkBattleEnd();
+    }
+  }
+
+  function animateMen(u, dt, now) {
+    var fighting = u.state === 'fight' || u.state === 'ranged';
+    var walking = u.state === 'walk' || u.state === 'flee';
+    u.men.forEach(function (m) {
+      if (!m.visible || m.userData.fallen) return;
+      var a = m.userData.anim;
+      if (!a || !a.leftLeg) return;
+      var ph = (now / 1000) * (fighting ? 9 : 7) + m.userData.phase + u.walkPhase;
+      var swing = walking ? Math.sin(ph) * 0.55 : (fighting ? Math.sin(ph * 0.35) * 0.12 : 0);
+      a.leftLeg.rotation.x = swing;
+      a.rightLeg.rotation.x = -swing;
+      if (a.rightArm) {
+        a.rightArm.rotation.x = fighting ? Math.sin(ph * 2.1) * 0.9 : -swing * 0.7;
+      }
+      if (a.leftArm) a.leftArm.rotation.x = fighting ? Math.sin(ph) * 0.15 : swing * 0.5;
+    });
+  }
+
+  function update(dt, now) {
+    var si;
+    for (si = spears3d.length - 1; si >= 0; si--) {
+      var s = spears3d[si];
+      s.t += dt;
+      var t = Math.min(1, s.t / s.dur);
+      var x = s.x0 + (s.x1 - s.x0) * t;
+      var z = s.z0 + (s.z1 - s.z0) * t;
+      var y = s.y0 + (s.y1 - s.y0) * t + Math.sin(t * Math.PI) * 1.2;
+      s.mesh.position.set(x, y, z);
+      s.mesh.lookAt(s.x1, s.y1, s.z1);
+      if (s.t >= s.dur) {
+        scene.remove(s.mesh);
+        spears3d.splice(si, 1);
+      }
+    }
+
+    allUnits().forEach(function (u) {
+      if (!u.alive && u.state !== 'flee') return;
+      animateMen(u, dt, now);
+
+      if (u.state === 'fight' && u.fightTarget && u.fightTarget.alive && !isSkirmisher(u)) {
+        var foe = u.fightTarget;
+        u.facing = foe.x >= u.x ? 1 : -1;
+        var wantX = foe.x + (u.x <= foe.x ? -MELEE_RANGE : MELEE_RANGE);
+        u.x += (wantX - u.x) * Math.min(1, dt * 3);
+        syncUnitTransform(u);
+      }
+
+      if (u.state === 'walk' || u.state === 'flee') {
+        var dx = u.targetX - u.x;
+        var dz = u.targetZ - u.z;
+        var dist = Math.hypot(dx, dz) || 1;
+        var speed = u.state === 'flee' ? 9 : (u.kind === 'cavalry' ? 7.5 : 5.2);
+        var step = speed * dt;
+        if (dist <= step) {
+          u.x = u.targetX;
+          u.z = u.targetZ;
+          if (u.state === 'flee') {
+            u.alive = false;
+            u.state = 'dead';
+            if (u.root) u.root.visible = false;
+            rebuildCards();
+            checkBattleEnd();
+          } else if (u.fightTarget && u.fightTarget.alive) {
+            if (isSkirmisher(u)) u.state = 'ranged';
+            else startFight(u, u.fightTarget);
+          } else u.state = 'idle';
+        } else {
+          u.x += dx / dist * step;
+          u.z += dz / dist * step;
+          u.facing = dx >= 0 ? 1 : -1;
+          if (u.state === 'walk' && u.fightTarget && u.fightTarget.alive) {
+            var ed = Math.hypot(u.fightTarget.x - u.x, u.fightTarget.z - u.z);
+            if (isSkirmisher(u)) {
+              if (ed <= VELITE_STOP + 0.35) {
+                u.state = 'ranged';
+                u.x = u.fightTarget.x - (u.fightTarget.x - u.x) / ed * VELITE_STOP;
+                u.z = u.fightTarget.z - (u.fightTarget.z - u.z) / ed * 0.2;
+              }
+            } else if (ed <= MELEE_RANGE + 0.45) startFight(u, u.fightTarget);
+          }
+        }
+        syncUnitTransform(u);
+      } else if (u.state === 'ranged' && u.fightTarget && u.fightTarget.alive) {
+        var tgt = u.fightTarget;
+        var rdx = tgt.x - u.x, rdz = tgt.z - u.z;
+        var rd = Math.hypot(rdx, rdz) || 1;
+        u.facing = rdx >= 0 ? 1 : -1;
+        if (rd < VELITE_STOP - 0.5) {
+          u.x -= (rdx / rd) * 2.8 * dt;
+          u.z -= (rdz / rd) * 2.8 * dt;
+        } else if (rd > VELITE_STOP + 1.2) {
+          u.x += (rdx / rd) * 2.2 * dt;
+          u.z += (rdz / rd) * 2.2 * dt;
+        }
+        u.throwCd -= dt;
+        if (u.throwCd <= 0) {
+          spawnSpear(u, tgt);
+          u.throwCd = 0.5 + Math.random() * 0.2;
+        }
+        applyRangedDamage(u, tgt, dt);
+        syncUnitTransform(u);
+      } else if (u.state === 'fight' && u.fightTarget && u.fightTarget.alive) {
+        u.fightPhase += dt;
+        applyMeleeDamage(u, u.fightTarget, dt);
+      }
+    });
+
+    carth.forEach(function (c) {
+      if (!c.alive || c.state === 'flee' || c.state === 'dead' || c.state === 'fight') return;
+      var skirms = rome.filter(function (r) {
+        return r.alive && r.state === 'ranged' && r.fightTarget === c;
+      });
+      if (!skirms.length || meleeAttackersOf(c).length) return;
+      var focus = skirms[0];
+      var dx = focus.x - c.x, dz = focus.z - c.z;
+      var d = Math.hypot(dx, dz) || 1;
+      if (d <= MELEE_RANGE) {
+        if (!isSkirmisher(c)) {
+          c.state = 'fight';
+          c.fightTarget = focus;
+          lockMeleePositions(c, focus);
+        }
+        return;
+      }
+      c.x += dx / d * 1.45 * dt;
+      c.z += dz / d * 1.45 * dt;
+      c.facing = dx >= 0 ? 1 : -1;
+      syncUnitTransform(c);
+    });
+
+    checkBattleEnd();
+  }
+
+  function drawMini() {
+    var mw = mini.width, mh = mini.height;
+    mctx.fillStyle = '#243828';
+    mctx.fillRect(0, 0, mw, mh);
+    allUnits().forEach(function (u) {
+      if (!u.alive && u.state !== 'flee') return;
+      mctx.fillStyle = u.faction === 'rome' ? '#c04040' : '#e8e4d8';
+      mctx.beginPath();
+      mctx.arc(((u.x + 40) / 80) * mw, ((u.z + 30) / 60) * mh, 3.5, 0, Math.PI * 2);
+      mctx.fill();
+    });
+  }
+
+  /* ========== INPUT ========== */
+  var pointer = { active: false, rmb: false, x: 0, y: 0, moved: false, mode: null };
+
+  function setNdc(e) {
+    var rect = canvas.getBoundingClientRect();
+    ndc.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+    ndc.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+  }
+
+  function pickGround(e) {
+    setNdc(e);
+    raycaster.setFromCamera(ndc, camera);
+    var pt = new THREE.Vector3();
+    if (raycaster.ray.intersectPlane(landPlane, pt)) return pt;
+    return null;
+  }
+
+  function pickUnit(e, list) {
+    setNdc(e);
+    raycaster.setFromCamera(ndc, camera);
+    var hits = [];
+    list.forEach(function (u) {
+      if (!u.alive || !u.root) return;
+      u.root.traverse(function (o) {
+        if (o.userData && o.userData.unitHit) hits.push(o);
+      });
+    });
+    var res = raycaster.intersectObjects(hits, false);
+    if (res.length) return res[0].object.userData.unitHit;
+    return null;
+  }
+
+  function camBasis() {
+    var forward = new THREE.Vector3(
+      Math.sin(camYaw),
+      0,
+      Math.cos(camYaw)
+    ).normalize();
+    var right = new THREE.Vector3(
+      Math.sin(camYaw + Math.PI / 2),
+      0,
+      Math.cos(camYaw + Math.PI / 2)
+    ).normalize();
+    return { forward: forward, right: right };
+  }
+
+  function panCamera(rightAmt, forwardAmt) {
+    var b = camBasis();
+    camTarget.addScaledVector(b.right, rightAmt);
+    camTarget.addScaledVector(b.forward, forwardAmt);
+    camTarget.x = Math.max(-45, Math.min(45, camTarget.x));
+    camTarget.z = Math.max(-32, Math.min(32, camTarget.z));
+  }
+
+  function wrapYaw(y) {
+    while (y > Math.PI) y -= Math.PI * 2;
+    while (y < -Math.PI) y += Math.PI * 2;
+    return y;
+  }
+
+  function syncSelectionFlags() {
+    allUnits().forEach(function (x) { x.selected = false; });
+    selected.forEach(function (u) { if (u.alive) u.selected = true; });
+    allUnits().forEach(syncUnitTransform);
+  }
+
+  function selectUnit(u, add) {
+    if (!u || !u.alive || u.faction !== 'rome') {
+      if (!add) { selected = []; syncSelectionFlags(); rebuildCards(); }
+      return;
+    }
+    if (add) {
+      var idx = selected.indexOf(u);
+      if (idx >= 0) selected.splice(idx, 1);
+      else if (selected.length < MAX_SELECT) selected.push(u);
+    } else selected = [u];
+    syncSelectionFlags();
+    hintEl.textContent = selected.length > 1
+      ? ('Выбрано: ' + selected.length + ' · ПКМ — атака · колесо — зум')
+      : ('Выбран: ' + u.name + ' · ПКМ — приказ · приблизьте колесом');
+    rebuildCards();
+    camTarget.lerp(new THREE.Vector3(u.x, 0.8, u.z), 0.35);
+  }
+
+  function orderMoveOrAttack(e) {
+    if (battleOver || !selected.length) return;
+    var enemy = pickUnit(e, carth);
+    if (enemy && enemy.alive) {
+      selected.forEach(function (u) {
+        if (u.alive && u.state !== 'flee') orderUnitAttack(u, enemy);
+      });
+      hintEl.textContent = selected.length > 1
+        ? (selected.length + ' отряда атакуют «' + enemy.name + '»')
+        : (selected[0].name + ' атакует «' + enemy.name + '»');
+      return;
+    }
+    var pt = pickGround(e);
+    if (!pt) return;
+    selected.forEach(function (u, i) {
+      if (!u.alive || u.state === 'flee') return;
+      u.state = 'walk';
+      u.fightTarget = null;
+      u.targetX = pt.x + (i - (selected.length - 1) / 2) * 2.2;
+      u.targetZ = pt.z + (i % 2) * 1.2;
+      u.facing = u.targetX >= u.x ? 1 : -1;
+    });
+    hintEl.textContent = 'Отряды идут…';
+  }
+
+  canvas.addEventListener('contextmenu', function (e) { e.preventDefault(); });
+
+  canvas.addEventListener('pointerdown', function (e) {
+    if (battleOver) return;
+    if (e.clientY > window.innerHeight - BAR) return;
+    pointer.active = true;
+    pointer.rmb = e.button === 2;
+    pointer.x = e.clientX;
+    pointer.y = e.clientY;
+    pointer.moved = false;
+    pointer.mode = null;
+    if (e.button === 0 && !e.altKey) {
+      var hit = pickUnit(e, rome);
+      // ЛКМ по отряду — выбор; по земле — перетаскивание карты
+      pointer.mode = hit ? 'select' : 'pan';
+    } else if (e.button === 0 && e.altKey) pointer.mode = 'orbit';
+    else if (e.button === 1) pointer.mode = 'orbit';
+    else if (e.button === 2) pointer.mode = 'order';
+  });
+
+  window.addEventListener('pointermove', function (e) {
+    if (!pointer.active) return;
+    var dx = e.clientX - pointer.x;
+    var dy = e.clientY - pointer.y;
+    if (dx * dx + dy * dy > 16) pointer.moved = true;
+    if (pointer.mode === 'orbit' && pointer.moved) {
+      camYaw -= dx * 0.007;
+      camPitch += dy * 0.005;
+      pointer.x = e.clientX;
+      pointer.y = e.clientY;
+      applyCam();
+    } else if (pointer.mode === 'pan' && pointer.moved) {
+      var sens = 0.06 * (camDist / 40);
+      // тянем карту за курсором: вверх → карта вверх
+      panCamera(-dx * sens, -dy * sens);
+      pointer.x = e.clientX;
+      pointer.y = e.clientY;
+      applyCam();
+    }
+  });
+
+  window.addEventListener('pointerup', function (e) {
+    if (!pointer.active && !pointer.rmb) return;
+    if (e.button === 2 || pointer.mode === 'order') {
+      if (!pointer.moved) orderMoveOrAttack(e);
+      pointer.active = false;
+      pointer.rmb = false;
+      pointer.mode = null;
+      return;
+    }
+    if (e.button === 0) {
+      if (!pointer.moved && pointer.mode === 'select') {
+        var hit = pickUnit(e, rome);
+        selectUnit(hit, !!(e.shiftKey || e.ctrlKey));
+      } else if (!pointer.moved && (pointer.mode === 'pan' || pointer.mode === 'orbit')) {
+        var hit2 = pickUnit(e, rome);
+        if (hit2) selectUnit(hit2, !!(e.shiftKey || e.ctrlKey));
+        else if (pointer.mode === 'pan') {
+          selected = [];
+          syncSelectionFlags();
+          rebuildCards();
+        }
+      }
+    }
+    pointer.active = false;
+    pointer.mode = null;
+  });
+
+  function nudgeCamTilt(dir) {
+    if (dir < 0) camPitch = Math.max(TILT_MIN, camPitch - TILT_STEP);
+    else camPitch = Math.min(TILT_MAX, camPitch + TILT_STEP);
+    applyCam();
+  }
+  function nudgeCamYaw(dir) {
+    camYaw = wrapYaw(camYaw + (dir < 0 ? -YAW_STEP : YAW_STEP));
+    applyCam();
+  }
+
+  window.addEventListener('keydown', function (e) {
+    // как на глобальной карте: Q/E — наклон, Z/C — поворот
+    if (e.code === 'KeyQ') {
+      e.preventDefault();
+      nudgeCamTilt(-1);
+      return;
+    }
+    if (e.code === 'KeyE') {
+      e.preventDefault();
+      nudgeCamTilt(1);
+      return;
+    }
+    if (e.code === 'KeyZ') {
+      e.preventDefault();
+      nudgeCamYaw(-1);
+      return;
+    }
+    if (e.code === 'KeyC') {
+      e.preventDefault();
+      nudgeCamYaw(1);
+      return;
+    }
+  });
+
+  document.getElementById('camQ').addEventListener('click', function () { nudgeCamTilt(-1); });
+  document.getElementById('camE').addEventListener('click', function () { nudgeCamTilt(1); });
+  document.getElementById('camZ').addEventListener('click', function () { nudgeCamYaw(-1); });
+  document.getElementById('camC').addEventListener('click', function () { nudgeCamYaw(1); });
+
+  canvas.addEventListener('wheel', function (e) {
+    e.preventDefault();
+    var factor = Math.exp(e.deltaY * 0.0015);
+    camDist *= factor;
+    applyCam();
+    if (camDist < 8) {
+      hintEl.textContent = 'Близкий обзор · продолжайте крутить колесо · Alt+ЛКМ — вращать';
+    }
+  }, { passive: false });
+
+  document.getElementById('surrender').addEventListener('click', function () {
+    if (battleOver) return;
+    try { window.parent.postMessage({ type: 'battle-local-done', surrender: true }, '*'); } catch (_) {}
+  });
+
+  function resize() {
+    var w = window.innerWidth;
+    var h = window.innerHeight;
+    renderer.setSize(w, h, false);
+    camera.aspect = w / Math.max(1, h);
+    camera.updateProjectionMatrix();
+    applyCam();
+  }
+  window.addEventListener('resize', resize);
+
+  var last = performance.now();
+  function frame(now) {
+    var dt = Math.min(0.05, (now - last) / 1000);
+    last = now;
+    if (!battleOver) update(dt, now);
+    drawMini();
+    applyCam();
+    renderer.render(scene, camera);
+    requestAnimationFrame(frame);
+  }
+
+  rebuildCards();
+  resize();
+  applyCam();
+  hintEl.textContent = 'ЛКМ тянуть — карта · Q/E наклон · Z/C поворот · колесо — зум · Alt+ЛКМ — облет';
+  requestAnimationFrame(frame);
+})();
+  </script>
+</body>
+</html>

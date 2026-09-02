@@ -1,1049 +1,259 @@
 <!DOCTYPE html>
-<html lang="ru">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Вид 16 — Medieval II</title>
-  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700&family=EB+Garamond:wght@500;600&display=swap" rel="stylesheet">
-  <style>
-    html, body { margin: 0; width: 100%; height: 100%; overflow: hidden; background: #2a2218; }
-    #c { display: block; width: 100%; height: 100%; cursor: grab; touch-action: none; }
-    #c.dragging { cursor: grabbing; }
-    #hud {
-      position: fixed; top: 12px; left: 12px; z-index: 20; min-width: 200px;
-      padding: 10px 14px; background: rgba(28, 20, 12, 0.82);
-      border: 1px solid rgba(176, 140, 72, 0.5); color: #efe4d0;
-      font-family: 'EB Garamond', Georgia, serif; font-size: 13px; pointer-events: none;
-      box-shadow: 0 8px 28px rgba(0, 0, 0, 0.45);
-    }
-    #hud strong { font-family: 'Cinzel', serif; color: #f0d090; letter-spacing: 0.06em; }
-    #hud .row { display: flex; justify-content: space-between; gap: 14px; font-size: 11px; margin-top: 3px; }
-    #hud span { color: #b7a078; text-transform: uppercase; letter-spacing: 0.08em; }
-    #hud b { font-family: 'Cinzel', serif; color: #f5e6c8; }
-    #status { margin-top: 6px; color: #c8b898; font-size: 12px; }
-    #hint { margin-top: 4px; color: #8a7a58; font-size: 11px; }
-    #battleModal {
-      display: none; position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%);
-      z-index: 80; width: min(92vw, 420px); padding: 22px 24px 18px;
-      background: rgba(22, 16, 10, 0.95); border: 1px solid rgba(176, 140, 72, 0.55);
-      box-shadow: 0 18px 48px rgba(0, 0, 0, 0.55); text-align: center;
-      font-family: 'EB Garamond', Georgia, serif;
-    }
-    #battleModal.show { display: block; }
-    #battleModal p { margin: 0 0 16px; font-size: 18px; line-height: 1.4; color: #f5ead0; }
-    #battleModal button {
-      font-family: 'Cinzel', serif; font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase;
-      color: #f5e6c8; background: rgba(36, 26, 14, 0.95); border: 1px solid rgba(176, 140, 72, 0.55);
-      padding: 8px 16px; cursor: pointer;
-    }
-    #battleModal button:hover { border-color: #e0c878; color: #fff; }
-  </style>
-  <script src="/maps/rome/three.min.js"></script>
-</head>
-<body>
-<canvas id="c" tabindex="0"></canvas>
-<div id="hud">
-  <strong>Вид 16 · Medieval II</strong>
-  <div id="status">Сборка пергаментной карты…</div>
-  <div id="hint">Колесо — зум · Q/E — наклон · ЛКМ — панорама / город · ПКМ — ход армии</div>
-  <div class="row"><span>Зум</span><b id="hudZoom">100%</b></div>
-  <div class="row"><span>Наклон</span><b id="hudTilt">70%</b></div>
-  <div class="row"><span>Поворот</span><b id="hudYaw">0°</b></div>
-</div>
-<div id="battleModal" role="dialog" aria-modal="true">
-  <p>Начинается бой на полях Европы</p>
-  <button type="button" id="battleModalClose">Закрыть</button>
-</div>
-<script src="/js/walk-unit-three.js"></script>
-<script src="/maps/view16/factions.js"></script>
-<script src="/js/campaign-map-bridge.js"></script>
-<script>
+<html lang="en">
+	<head>
+		<meta charset="utf-8">
+		<meta name="viewport" content="width=device-width, user-scalable=no, initial-scale=1.0">
+		<title>View 16 - Godot 4</title>
+		<style>
+html, body, #canvas {
+	margin: 0;
+	padding: 0;
+	border: 0;
+}
+
+body {
+	color: white;
+	background-color: black;
+	overflow: hidden;
+	touch-action: none;
+}
+
+#canvas {
+	display: block;
+}
+
+#canvas:focus {
+	outline: none;
+}
+
+#status, #status-splash, #status-progress {
+	position: absolute;
+	left: 0;
+	right: 0;
+}
+
+#status, #status-splash {
+	top: 0;
+	bottom: 0;
+}
+
+#status {
+	background-color: #242424;
+	display: flex;
+	flex-direction: column;
+	justify-content: center;
+	align-items: center;
+	visibility: hidden;
+}
+
+#status-splash {
+	max-height: 100%;
+	max-width: 100%;
+	margin: auto;
+}
+
+#status-progress, #status-notice {
+	display: none;
+}
+
+#status-progress {
+	bottom: 10%;
+	width: 50%;
+	margin: 0 auto;
+}
+
+#status-notice {
+	background-color: #5b3943;
+	border-radius: 0.5rem;
+	border: 1px solid #9b3943;
+	color: #e0e0e0;
+	font-family: 'Noto Sans', 'Droid Sans', Arial, sans-serif;
+	line-height: 1.3;
+	margin: 0 2rem;
+	overflow: hidden;
+	padding: 1rem;
+	text-align: center;
+	z-index: 1;
+}
+		</style>
+		<link id="-gd-engine-icon" rel="icon" type="image/png" href="index.icon.png" />
+<link rel="apple-touch-icon" href="index.apple-touch-icon.png"/>
+
+	</head>
+	<body>
+		<canvas id="canvas">
+			Your browser does not support the canvas tag.
+		</canvas>
+
+		<button type="button" id="localBattleBtn" style="
+			position:fixed;top:12px;right:12px;z-index:50;
+			font-family:Cinzel,serif;font-size:12px;letter-spacing:.08em;text-transform:uppercase;
+			color:#f5e6c8;background:rgba(16,12,8,.9);border:1px solid rgba(201,168,76,.55);
+			padding:10px 14px;cursor:pointer;">Локальный бой</button>
+
+		<div id="camPad" style="
+			position:fixed;left:12px;bottom:12px;z-index:50;display:flex;flex-direction:column;gap:6px;
+			font-family:Cinzel,serif;">
+			<div style="display:flex;gap:6px;">
+				<button type="button" data-cam="tilt-3" style="width:44px;height:36px;cursor:pointer;color:#f5e6c8;background:rgba(16,12,8,.9);border:1px solid rgba(201,168,76,.55);">Q</button>
+				<button type="button" data-cam="tilt+3" style="width:44px;height:36px;cursor:pointer;color:#f5e6c8;background:rgba(16,12,8,.9);border:1px solid rgba(201,168,76,.55);">E</button>
+			</div>
+			<div style="display:flex;gap:6px;">
+				<button type="button" data-cam="yaw-6" style="width:44px;height:36px;cursor:pointer;color:#f5e6c8;background:rgba(16,12,8,.9);border:1px solid rgba(201,168,76,.55);">Z</button>
+				<button type="button" data-cam="yaw+6" style="width:44px;height:36px;cursor:pointer;color:#f5e6c8;background:rgba(16,12,8,.9);border:1px solid rgba(201,168,76,.55);">C</button>
+			</div>
+		</div>
+
+		<script>
+		// Очередь камеры до старта Godot (parent postMessage + кнопки)
+		(function () {
+			window.__godotMsgQueue = window.__godotMsgQueue || [];
+			if (!window.__godotView16Bridge) {
+				window.__godotView16Bridge = true;
+				window.addEventListener('message', function (e) {
+					if (!e.data || typeof e.data !== 'object') return;
+					var t = e.data.type;
+					if (t === 'campaign-sync' || t === 'camera-tilt' || t === 'camera-rotate' || t === 'camera-goto') {
+						window.__godotMsgQueue.push(e.data);
+					}
+				});
+			}
+			document.getElementById('camPad').addEventListener('click', function (e) {
+				var btn = e.target.closest('[data-cam]');
+				if (!btn) return;
+				var a = btn.getAttribute('data-cam');
+				if (a === 'tilt-3') window.__godotMsgQueue.push({ type: 'camera-tilt', delta: -3 });
+				else if (a === 'tilt+3') window.__godotMsgQueue.push({ type: 'camera-tilt', delta: 3 });
+				else if (a === 'yaw-6') window.__godotMsgQueue.push({ type: 'camera-rotate', delta: -6 });
+				else if (a === 'yaw+6') window.__godotMsgQueue.push({ type: 'camera-rotate', delta: 6 });
+			});
+		})();
+		</script>
+
+		<noscript>
+			Your browser does not support JavaScript.
+		</noscript>
+
+		<div id="status">
+			<img id="status-splash" src="index.png" alt="">
+			<progress id="status-progress"></progress>
+			<div id="status-notice"></div>
+		</div>
+
+		<script src="index.js"></script>
+		<script>
+const GODOT_CONFIG = {"args":[],"canvasResizePolicy":2,"emscriptenPoolSize":8,"ensureCrossOriginIsolationHeaders":false,"executable":"index","experimentalVK":false,"fileSizes":{"index.pck":2285856,"index.wasm":39514754},"focusCanvas":true,"gdextensionLibs":[],"godotPoolSize":4};
+const GODOT_THREADS_ENABLED = false;
+const engine = new Engine(GODOT_CONFIG);
+
 (function () {
-  'use strict';
-  var PROVS = window.View16Provinces || [];
-  var FACS = window.View16Factions || {};
-  var ROADS = window.View16Roads || [];
-  var canvas = document.getElementById('c');
-  var statusEl = document.getElementById('status');
-  /* Western Europe / Mediterranean theater */
-  var BOX = [-11.5, 30.5, 32.5, 59.5];
-  var CX = 8.0, CY = 45.0, SCALE = 7.2;
-  var TILT_MIN = 0, TILT_MAX = 75, TILT_STEP = 3, YAW_STEP = 6;
-  var MIN_ZOOM = 0.22, MAX_ZOOM = 3.6, BASE_DIST = 95;
-  var camTilt = 52, camZoom = 0.85, camYaw = 0;
-  var target = { x: 0, y: 1.6, z: 0 };
-  var dragging = false, lastX = 0, lastY = 0, allowPan = true;
-  var three = { renderer: null, scene: null, camera: null, raf: 0, walker: null, land: null, units: null };
+	const statusOverlay = document.getElementById('status');
+	const statusProgress = document.getElementById('status-progress');
+	const statusNotice = document.getElementById('status-notice');
 
-  function setStatus(t) { statusEl.textContent = t; }
-  var battleModal = document.getElementById('battleModal');
-  var battleClose = document.getElementById('battleModalClose');
-  function showBattleDialog() {
-    if (battleModal) battleModal.classList.add('show');
-    setStatus('Бой начался');
-  }
-  function hideBattleDialog() {
-    if (battleModal) battleModal.classList.remove('show');
-  }
-  if (battleClose) battleClose.addEventListener('click', hideBattleDialog);
-  function wrapYaw(d) { d %= 360; return d < 0 ? d + 360 : d; }
-  function updateHud() {
-    document.getElementById('hudZoom').textContent = Math.round(camZoom * 200) + '%';
-    document.getElementById('hudTilt').textContent = Math.round((camTilt / TILT_MAX) * 100) + '%';
-    document.getElementById('hudYaw').textContent = Math.round(wrapYaw(camYaw)) + '°';
-  }
-  function xz(lon, lat) { return { x: (lon - CX) * SCALE, z: (CY - lat) * SCALE }; }
+	let initializing = true;
+	let statusMode = '';
 
-  function hash2(x, y) {
-    var n = Math.sin(x * 127.1 + y * 311.7) * 43758.5453;
-    return n - Math.floor(n);
-  }
-  function noise2(x, y) {
-    var xi = Math.floor(x), yi = Math.floor(y);
-    var xf = x - xi, yf = y - yi;
-    var u = xf * xf * (3 - 2 * xf), v = yf * yf * (3 - 2 * yf);
-    var a = hash2(xi, yi), b = hash2(xi + 1, yi);
-    var c = hash2(xi, yi + 1), d = hash2(xi + 1, yi + 1);
-    return a + (b - a) * u + (c - a) * v + (a - b - c + d) * u * v;
-  }
-  function fbm(x, y) {
-    var a = 0, amp = 0.5, f = 1, i;
-    for (i = 0; i < 5; i++) {
-      a += amp * noise2(x * f, y * f);
-      amp *= 0.5; f *= 2.05;
-    }
-    return a;
-  }
+	function setStatusMode(mode) {
+		if (statusMode === mode || !initializing) {
+			return;
+		}
+		if (mode === 'hidden') {
+			statusOverlay.remove();
+			initializing = false;
+			return;
+		}
+		statusOverlay.style.visibility = 'visible';
+		statusProgress.style.display = mode === 'progress' ? 'block' : 'none';
+		statusNotice.style.display = mode === 'notice' ? 'block' : 'none';
+		statusMode = mode;
+	}
 
-  /** Soft land presence for Western Europe / Med / Maghreb (stylized, not GIS). */
-  function landPresence(lon, lat) {
-    var p = 0;
-    function blob(cx, cy, rx, ry, w) {
-      var dx = (lon - cx) / rx, dy = (lat - cy) / ry;
-      var d = dx * dx + dy * dy;
-      if (d < 1.35) p = Math.max(p, w * Math.max(0, 1 - d));
-    }
-    /* Britain & Ireland */
-    blob(-2.2, 53.2, 4.2, 4.8, 1);
-    blob(-7.2, 53.5, 2.0, 2.8, 0.95);
-    blob(-4.0, 57.0, 2.6, 2.2, 0.9);
-    /* France / Low Countries / Germany */
-    blob(2.5, 47.0, 6.5, 5.5, 1);
-    blob(8.5, 50.5, 6.0, 4.2, 1);
-    blob(14.0, 49.0, 5.5, 4.0, 0.95);
-    /* Iberia */
-    blob(-3.5, 40.5, 6.2, 5.0, 1);
-    blob(-8.0, 39.5, 2.8, 3.2, 0.9);
-    /* Italy */
-    blob(12.0, 42.5, 3.4, 6.2, 1);
-    blob(14.5, 38.0, 2.4, 2.0, 0.95);
-    blob(9.0, 40.0, 1.6, 2.4, 0.75); /* Sardinia */
-    blob(9.0, 42.2, 1.0, 1.4, 0.7); /* Corsica */
-    /* Alps / Balkans */
-    blob(10.0, 46.5, 4.5, 2.2, 0.95);
-    blob(18.0, 44.5, 5.5, 4.0, 0.95);
-    blob(22.0, 41.0, 4.5, 3.5, 0.9);
-    /* Hungary / Poland fringe */
-    blob(19.0, 49.0, 4.0, 3.0, 0.9);
-    /* Maghreb */
-    blob(-2.0, 34.0, 9.0, 3.2, 0.95);
-    blob(-7.0, 32.5, 4.0, 2.4, 0.9);
-    /* Anatolia / Thrace fringe */
-    blob(28.0, 40.5, 4.5, 3.0, 0.95);
-    blob(26.0, 42.0, 3.0, 2.0, 0.85);
-    /* North Sea / Med carve-outs (weaken presence) */
-    if (lat > 51 && lon > 2 && lon < 8) p *= 0.55;
-    if (lat < 43.5 && lat > 40.5 && lon > 3 && lon < 10) p *= 0.35; /* Gulf of Lion-ish */
-    if (lat < 36 && lon > 10 && lon < 20) p *= 0.25; /* deep Med */
-    if (lat > 54 && lon > 0 && lon < 10) p *= 0.4;
-    var coastNoise = (fbm(lon * 0.55, lat * 0.55) - 0.5) * 0.22;
-    return Math.max(0, Math.min(1, p + coastNoise));
-  }
+	function setStatusNotice(text) {
+		while (statusNotice.lastChild) {
+			statusNotice.removeChild(statusNotice.lastChild);
+		}
+		const lines = text.split('\n');
+		lines.forEach((line) => {
+			statusNotice.appendChild(document.createTextNode(line));
+			statusNotice.appendChild(document.createElement('br'));
+		});
+	}
 
-  function metersAt(lon, lat) {
-    var land = landPresence(lon, lat);
-    if (land < 0.28) return 0;
-    var base = 40 + land * 220;
-    var hills = fbm(lon * 0.35 + 2.1, lat * 0.35 - 1.4);
-    var relief = Math.pow(Math.max(0, hills - 0.28), 1.35) * 980;
-    /* Alpine / Pyrenees / Atlas / Highlands ridges */
-    var alpine = Math.exp(-Math.pow((lat - 46.2) / 1.6, 2) - Math.pow((lon - 9.5) / 4.5, 2)) * 1400;
-    var pyr = Math.exp(-Math.pow((lat - 42.7) / 1.1, 2) - Math.pow((lon + 0.5) / 3.2, 2)) * 1100;
-    var atlas = Math.exp(-Math.pow((lat - 32.5) / 1.4, 2) - Math.pow((lon + 4) / 5, 2)) * 900;
-    var highlands = Math.exp(-Math.pow((lat - 56.8) / 1.5, 2) - Math.pow((lon + 4.2) / 2.2, 2)) * 700;
-    var apenn = Math.exp(-Math.pow((lon - 12.5) / 1.4, 2) - Math.pow((lat - 42) / 4.5, 2)) * 650;
-    var m = base + relief + alpine + pyr + atlas + highlands + apenn;
-    m *= 0.55 + land * 0.55;
-    return m;
-  }
+	function displayFailureNotice(err) {
+		console.error(err);
+		if (err instanceof Error) {
+			setStatusNotice(err.message);
+		} else if (typeof err === 'string') {
+			setStatusNotice(err);
+		} else {
+			setStatusNotice('An unknown error occured');
+		}
+		setStatusMode('notice');
+		initializing = false;
+	}
 
-  function worldH(lon, lat) {
-    var m = metersAt(lon, lat);
-    if (!(m > 8)) return 0.04;
-    return 0.18 + m / 3200 * 16;
-  }
+	const missing = Engine.getMissingFeatures({
+		threads: GODOT_THREADS_ENABLED,
+	});
 
-  function distProv(lon, lat, p) {
-    var dlon = (lon - p.lon) * 0.72, dlat = lat - p.lat;
-    return dlon * dlon + dlat * dlat;
-  }
-  function twoNearest(lon, lat) {
-    var a = -1, b = -1, da = 1e9, db = 1e9, i, d;
-    for (i = 0; i < PROVS.length; i++) {
-      d = distProv(lon, lat, PROVS[i]);
-      if (d < da) { db = da; b = a; da = d; a = i; }
-      else if (d < db) { db = d; b = i; }
-    }
-    return { a: a, b: b, da: Math.sqrt(da), db: Math.sqrt(db) };
-  }
-  function lerp(a, b, t) { return a + (b - a) * t; }
-  function lerp3(c0, c1, t) {
-    t = t < 0 ? 0 : t > 1 ? 1 : t;
-    return [lerp(c0[0], c1[0], t), lerp(c0[1], c1[1], t), lerp(c0[2], c1[2], t)];
-  }
-
-  /** Parchment / illuminated-map terrain palette. */
-  function parchmentRGB(m, land) {
-    if (!(m > 8) || land < 0.28) {
-      return lerp3([92, 118, 128], [58, 86, 98], Math.max(0, Math.min(1, (0.28 - land) * 2)));
-    }
-    if (m < 120) return lerp3([198, 178, 132], [186, 168, 118], m / 120);
-    if (m < 320) return lerp3([186, 168, 118], [158, 148, 96], (m - 120) / 200);
-    if (m < 700) return lerp3([158, 148, 96], [138, 128, 92], (m - 320) / 380);
-    if (m < 1200) return lerp3([138, 128, 92], [168, 158, 138], (m - 700) / 500);
-    return lerp3([168, 158, 138], [220, 214, 200], Math.min(1, (m - 1200) / 900));
-  }
-
-  function paintTexture(tw, th) {
-    var c = document.createElement('canvas');
-    c.width = tw; c.height = th;
-    var g = c.getContext('2d');
-    var img = g.createImageData(tw, th);
-    var px = img.data;
-    var x, y, lon, lat, m, i4, nn, fac, col, tcol, wash, shade, land, grain;
-    var dlon = (BOX[2] - BOX[0]) / tw, dlat = (BOX[3] - BOX[1]) / th;
-    var elev = new Float32Array(tw * th);
-    for (y = 0; y < th; y++) {
-      lat = BOX[3] - y / Math.max(1, th - 1) * (BOX[3] - BOX[1]);
-      for (x = 0; x < tw; x++) {
-        lon = BOX[0] + x / Math.max(1, tw - 1) * (BOX[2] - BOX[0]);
-        i4 = (y * tw + x) * 4;
-        land = landPresence(lon, lat);
-        m = metersAt(lon, lat);
-        elev[y * tw + x] = m;
-        tcol = parchmentRGB(m, land);
-        shade = 1;
-        if (m > 8) {
-          var mx = metersAt(lon + dlon, lat);
-          var my = metersAt(lon, lat - dlat);
-          var nx = m - mx, ny = m - my;
-          var nlen = Math.sqrt(nx * nx + ny * ny + 180 * 180) || 1;
-          shade = Math.max(0.72, Math.min(1.28, (nx * 0.4 + 180) / nlen * 1.4));
-        }
-        col = [tcol[0] * shade, tcol[1] * shade, tcol[2] * shade];
-        grain = (hash2(x * 0.37, y * 0.41) - 0.5) * 14;
-        col[0] += grain; col[1] += grain * 0.9; col[2] += grain * 0.7;
-        if (m > 20 && land > 0.35) {
-          nn = twoNearest(lon, lat);
-          if (nn.a >= 0) {
-            fac = FACS[PROVS[nn.a].faction] || FACS.rebels;
-            wash = m < 900 ? 0.16 : 0.08;
-            col[0] = col[0] * (1 - wash) + fac.fill[0] * wash;
-            col[1] = col[1] * (1 - wash) + fac.fill[1] * wash;
-            col[2] = col[2] * (1 - wash) + fac.fill[2] * wash;
-            if (nn.b >= 0 && Math.abs(nn.db - nn.da) < 0.55) {
-              var edge = 1 - Math.min(1, Math.abs(nn.db - nn.da) / 0.55);
-              if (edge > 0.4) {
-                var k = (edge - 0.4) / 0.6 * 0.18;
-                col[0] = col[0] * (1 - k) + 72 * k;
-                col[1] = col[1] * (1 - k) + 52 * k;
-                col[2] = col[2] * (1 - k) + 36 * k;
-              }
-            }
-          }
-        }
-        /* parchment vignette */
-        var u = x / tw - 0.5, v = y / th - 0.5;
-        var vig = 1 - Math.min(0.22, (u * u + v * v) * 0.55);
-        col[0] *= vig; col[1] *= vig; col[2] *= vig;
-        px[i4] = col[0] < 0 ? 0 : col[0] > 255 ? 255 : col[0];
-        px[i4 + 1] = col[1] < 0 ? 0 : col[1] > 255 ? 255 : col[1];
-        px[i4 + 2] = col[2] < 0 ? 0 : col[2] > 255 ? 255 : col[2];
-        px[i4 + 3] = 255;
-      }
-    }
-    /* Coast ink line */
-    var ix, iy, seaN;
-    function el(x0, y0) {
-      if (x0 < 0 || y0 < 0 || x0 >= tw || y0 >= th) return 0;
-      return elev[y0 * tw + x0];
-    }
-    for (iy = 1; iy < th - 1; iy++) {
-      for (ix = 1; ix < tw - 1; ix++) {
-        m = elev[iy * tw + ix];
-        seaN = (el(ix - 1, iy) <= 8 ? 1 : 0) + (el(ix + 1, iy) <= 8 ? 1 : 0)
-          + (el(ix, iy - 1) <= 8 ? 1 : 0) + (el(ix, iy + 1) <= 8 ? 1 : 0);
-        i4 = (iy * tw + ix) * 4;
-        if (m > 8 && seaN > 0) {
-          var tt = seaN >= 2 ? 0.55 : 0.28;
-          px[i4] = px[i4] * (1 - tt) + 92 * tt;
-          px[i4 + 1] = px[i4 + 1] * (1 - tt) + 72 * tt;
-          px[i4 + 2] = px[i4 + 2] * (1 - tt) + 48 * tt;
-        }
-      }
-    }
-    g.putImageData(img, 0, 0);
-    return c;
-  }
-
-  function hexColor(hex, fallback) {
-    if (!hex || typeof hex !== 'string') return fallback || 0x888888;
-    var h = hex.replace('#', '');
-    if (h.length === 3) h = h[0] + h[0] + h[1] + h[1] + h[2] + h[2];
-    var n = parseInt(h, 16);
-    return isNaN(n) ? (fallback || 0x888888) : n;
-  }
-
-  function buildProceduralMesh(cols, rows) {
-    cols = cols || 220;
-    rows = rows || 200;
-    var positions = [], uvs = [], indices = [];
-    var xi, yi, lon, lat, p, h, i0;
-    for (yi = 0; yi <= rows; yi++) {
-      lat = BOX[3] - (yi / rows) * (BOX[3] - BOX[1]);
-      for (xi = 0; xi <= cols; xi++) {
-        lon = BOX[0] + (xi / cols) * (BOX[2] - BOX[0]);
-        p = xz(lon, lat);
-        h = worldH(lon, lat);
-        if (metersAt(lon, lat) <= 8) h = -0.15;
-        positions.push(p.x, h, p.z);
-        uvs.push(xi / cols, 1 - yi / rows);
-      }
-    }
-    var stride = cols + 1;
-    for (yi = 0; yi < rows; yi++) {
-      for (xi = 0; xi < cols; xi++) {
-        i0 = yi * stride + xi;
-        indices.push(i0, i0 + stride, i0 + 1);
-        indices.push(i0 + 1, i0 + stride, i0 + stride + 1);
-      }
-    }
-    return { positions: positions, uvs: uvs, indices: indices };
-  }
-
-  function applyCam() {
-    if (!three.camera) return;
-    var dist = BASE_DIST / camZoom;
-    var a = camTilt * Math.PI / 180;
-    var yaw = camYaw * Math.PI / 180;
-    three.camera.position.set(
-      target.x + Math.sin(yaw) * dist * Math.cos(a),
-      target.y + Math.max(6, dist * Math.sin(a)),
-      target.z + Math.cos(yaw) * dist * Math.cos(a)
-    );
-    three.camera.lookAt(target.x, target.y, target.z);
-    updateHud();
-  }
-
-  var cityMarks = [];
-  var selectedCityId = null;
-  var cityRay = new THREE.Raycaster();
-  var cityNdc = new THREE.Vector2();
-
-  function flagSymbolCanvas(factionId, banner) {
-    var c = document.createElement('canvas');
-    c.width = 64; c.height = 80;
-    var g = c.getContext('2d');
-    g.fillStyle = banner || '#6a3d8a';
-    g.fillRect(0, 0, 64, 80);
-    g.strokeStyle = 'rgba(245,230,200,0.65)';
-    g.lineWidth = 2;
-    g.strokeRect(1, 1, 62, 78);
-    g.fillStyle = '#f5ead0';
-    g.strokeStyle = '#f5ead0';
-    g.lineWidth = 1.6;
-    g.font = 'bold 22px Cinzel, serif';
-    g.textAlign = 'center';
-    g.textBaseline = 'middle';
-    var glyph = {
-      england: '†', france: '⚜', hre: '✱', venice: '◆', milan: '▣',
-      papal: '✝', sicily: '◐', spain: '◇', moors: '☪', byzantium: '☦',
-      scotland: '✕', rebels: 'X'
-    };
-    g.fillText(glyph[factionId] || '•', 32, 40);
-    return c;
-  }
-
-  function addCity(scene, prov) {
-    if (prov.hidden || !prov.city) return null;
-    var p = xz(prov.lon, prov.lat);
-    var y = worldH(prov.lon, prov.lat);
-    var s = (prov.capital ? 1.35 : 1) * 2.35;
-    var fac = FACS[prov.faction] || FACS.rebels;
-    var root = new THREE.Group();
-    root.position.set(p.x, y, p.z);
-    root.userData.isCity = true;
-    root.userData.prov = prov;
-
-    var stone = new THREE.MeshPhongMaterial({ color: 0xd4c4a0, shininess: 6 });
-    var darkStone = new THREE.MeshPhongMaterial({ color: 0xa89878, shininess: 4 });
-    var roof = new THREE.MeshPhongMaterial({ color: hexColor(fac.banner, 0xa84828), shininess: 10 });
-    var wood = new THREE.MeshPhongMaterial({ color: 0x6a4a28, shininess: 3 });
-
-    var wallH = 0.5 * s, wallT = 0.14 * s, half = 1.05 * s;
-    function wallSeg(dx, dz, sx, sz) {
-      var m = new THREE.Mesh(new THREE.BoxGeometry(sx, wallH, sz), stone);
-      m.position.set(dx, wallH / 2, dz);
-      m.castShadow = true;
-      m.receiveShadow = true;
-      root.add(m);
-    }
-    wallSeg(0, -half, half * 2 + wallT, wallT);
-    wallSeg(0, half, half * 2 + wallT, wallT);
-    wallSeg(-half, 0, wallT, half * 2 - wallT);
-    wallSeg(half, 0, wallT, half * 2 - wallT);
-
-    var gate = new THREE.Mesh(new THREE.BoxGeometry(0.5 * s, 0.42 * s, wallT * 1.2), wood);
-    gate.position.set(0, 0.22 * s, half);
-    root.add(gate);
-
-    function tower(tx, tz) {
-      var tw = 0.34 * s, th = 0.88 * s;
-      var t = new THREE.Mesh(new THREE.BoxGeometry(tw, th, tw), darkStone);
-      t.position.set(tx, th / 2, tz);
-      t.castShadow = true;
-      root.add(t);
-      var cap = new THREE.Mesh(new THREE.ConeGeometry(tw * 0.72, 0.3 * s, 4), roof);
-      cap.rotation.y = Math.PI / 4;
-      cap.position.set(tx, th + 0.1 * s, tz);
-      root.add(cap);
-    }
-    tower(-half, -half); tower(half, -half); tower(-half, half); tower(half, half);
-
-    var keep = new THREE.Mesh(new THREE.BoxGeometry(0.7 * s, 0.55 * s, 0.55 * s), stone);
-    keep.position.set(0, 0.35 * s, -0.1 * s);
-    keep.castShadow = true;
-    root.add(keep);
-    var keepRoof = new THREE.Mesh(new THREE.ConeGeometry(0.55 * s, 0.32 * s, 4), roof);
-    keepRoof.rotation.y = Math.PI / 4;
-    keepRoof.position.set(0, 0.72 * s, -0.1 * s);
-    root.add(keepRoof);
-
-    var ring = new THREE.Mesh(
-      new THREE.RingGeometry(half + 0.1 * s, half + 0.32 * s, 40),
-      new THREE.MeshBasicMaterial({
-        color: 0xd4a820, transparent: true, opacity: 0.9,
-        side: THREE.DoubleSide, depthWrite: false
-      })
-    );
-    ring.rotation.x = -Math.PI / 2;
-    ring.position.y = 0.05;
-    ring.visible = false;
-    root.add(ring);
-
-    var glow = new THREE.Mesh(
-      new THREE.BoxGeometry(half * 2 + 0.1 * s, 0.05 * s, half * 2 + 0.1 * s),
-      new THREE.MeshBasicMaterial({ color: 0xc9a84a, transparent: true, opacity: 0.3, depthWrite: false })
-    );
-    glow.position.y = 0.03;
-    glow.visible = false;
-    root.add(glow);
-
-    var poleH = (prov.capital ? 3.8 : 3.1) * s;
-    var pole = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.04 * s, 0.05 * s, poleH, 6),
-      new THREE.MeshPhongMaterial({ color: 0xc9b070 })
-    );
-    pole.position.set(half + 0.3 * s, poleH / 2, 0);
-    root.add(pole);
-
-    var flagCanvas = flagSymbolCanvas(prov.faction, fac.banner);
-    var flagTex = new THREE.Texture(flagCanvas);
-    flagTex.needsUpdate = true;
-    var flagW = 1.15 * s, flagH = 1.45 * s;
-    var flag = new THREE.Mesh(
-      new THREE.PlaneGeometry(flagW, flagH),
-      new THREE.MeshBasicMaterial({ map: flagTex, transparent: true, side: THREE.DoubleSide })
-    );
-    flag.position.set(half + 0.3 * s + flagW / 2 + 0.02, poleH - flagH / 2 - 0.05 * s, 0);
-    root.add(flag);
-    var flagBack = flag.clone();
-    flagBack.rotation.y = Math.PI;
-    root.add(flagBack);
-
-    var hit = new THREE.Mesh(
-      new THREE.CylinderGeometry(half + 0.55 * s, half + 0.55 * s, 1.8 * s, 12),
-      new THREE.MeshBasicMaterial({ visible: false })
-    );
-    hit.position.y = 0.8 * s;
-    hit.userData.isCityHit = true;
-    root.add(hit);
-    scene.add(root);
-
-    var lc = document.createElement('canvas');
-    lc.width = 280; lc.height = 64;
-    var lg = lc.getContext('2d');
-    lg.fillStyle = 'rgba(28, 18, 10, 0.72)';
-    lg.fillRect(0, 12, 280, 40);
-    lg.fillStyle = fac.banner;
-    lg.fillRect(0, 12, 10, 40);
-    lg.strokeStyle = 'rgba(230, 200, 120, 0.7)';
-    lg.strokeRect(1, 13, 278, 38);
-    lg.fillStyle = '#fff4dc';
-    lg.font = 'bold 24px Cinzel, Georgia, serif';
-    lg.textAlign = 'center';
-    lg.textBaseline = 'middle';
-    lg.fillText((prov.cityRu || prov.city).toUpperCase(), 145, 32);
-    var tex = new THREE.Texture(lc);
-    tex.needsUpdate = true;
-    var spr = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthTest: false }));
-    spr.scale.set(prov.capital ? 14 : 11, prov.capital ? 3.2 : 2.6, 1);
-    spr.position.set(p.x, y + (prov.capital ? 7.2 : 5.6), p.z);
-    scene.add(spr);
-
-    var mark = {
-      id: prov.id,
-      prov: prov,
-      root: root,
-      ring: ring,
-      glow: glow,
-      hit: hit,
-      label: spr,
-      campaignName: prov.city
-    };
-    cityMarks.push(mark);
-    return mark;
-  }
-
-  function setCitySelected(mark) {
-    selectedCityId = mark ? mark.id : null;
-    cityMarks.forEach(function (m) {
-      var on = mark && m.id === mark.id;
-      m.ring.visible = !!on;
-      m.glow.visible = !!on;
-    });
-  }
-
-  function pickCity(e) {
-    if (!three.camera || !cityMarks.length) return null;
-    var rect = canvas.getBoundingClientRect();
-    cityNdc.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
-    cityNdc.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
-    cityRay.setFromCamera(cityNdc, three.camera);
-    var hits = [];
-    cityMarks.forEach(function (m) {
-      var h = cityRay.intersectObject(m.hit, false);
-      if (h && h.length) hits.push({ mark: m, dist: h[0].distance });
-    });
-    if (!hits.length) return null;
-    hits.sort(function (a, b) { return a.dist - b.dist; });
-    return hits[0].mark;
-  }
-
-  function openCityPanel(mark) {
-    if (!mark) return;
-    setCitySelected(mark);
-    var prov = mark.prov;
-    setStatus('Город: ' + (prov.cityRu || prov.city));
-    var faction = (window.CampaignMapBridge && CampaignMapBridge.factionToCampaign)
-      ? CampaignMapBridge.factionToCampaign(prov.faction)
-      : prov.faction;
-    try {
-      window.parent.postMessage({
-        type: 'city-select',
-        city: {
-          name: mark.campaignName,
-          ru: prov.cityRu || prov.city,
-          lon: prov.lon,
-          lat: prov.lat,
-          faction: faction,
-          capital: !!prov.capital
-        },
-        tab: 'settlement'
-      }, '*');
-    } catch (_) {}
-  }
-
-  function closeCityPanel() {
-    setCitySelected(null);
-    try {
-      window.parent.postMessage({ type: 'city-deselect' }, '*');
-    } catch (_) {}
-  }
-
-  function buildScene() {
-    cityMarks = [];
-    var w = Math.max(1, window.innerWidth), h = Math.max(1, window.innerHeight);
-    var renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: true });
-    renderer.setPixelRatio(Math.min(2, window.devicePixelRatio || 1));
-    renderer.setSize(w, h, false);
-    renderer.setClearColor(0x2a2218, 1);
-    renderer.shadowMap.enabled = true;
-    if (THREE.PCFSoftShadowMap) renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-
-    var scene = new THREE.Scene();
-    scene.fog = new THREE.Fog(0x4a3c28, 120, 420);
-    var camera = new THREE.PerspectiveCamera(42, w / h, 0.4, 2200);
-    scene.add(new THREE.HemisphereLight(0xf0e4c8, 0x3a3020, 0.55));
-    var sun = new THREE.DirectionalLight(0xfff0d0, 1.15);
-    sun.position.set(-50, 70, 40);
-    sun.castShadow = true;
-    sun.shadow.mapSize.set(2048, 2048);
-    sun.shadow.camera.left = -160;
-    sun.shadow.camera.right = 160;
-    sun.shadow.camera.top = 160;
-    sun.shadow.camera.bottom = -160;
-    sun.shadow.camera.near = 4;
-    sun.shadow.camera.far = 420;
-    scene.add(sun);
-    scene.add(new THREE.AmbientLight(0x8a7858, 0.32));
-
-    /* Deep parchment sea plane */
-    var sea = new THREE.Mesh(
-      new THREE.PlaneGeometry(900, 900),
-      new THREE.MeshPhongMaterial({
-        color: 0x3a5862, shininess: 18, specular: 0x223038,
-        transparent: true, opacity: 0.96
-      })
-    );
-    sea.rotation.x = -Math.PI / 2;
-    sea.position.y = -0.2;
-    sea.receiveShadow = true;
-    scene.add(sea);
-
-    setStatus('Рисуем пергамент…');
-    var meshData = buildProceduralMesh(240, 210);
-    var geo = new THREE.BufferGeometry();
-    geo.setAttribute('position', new THREE.Float32BufferAttribute(meshData.positions, 3));
-    geo.setAttribute('uv', new THREE.Float32BufferAttribute(meshData.uvs, 2));
-    geo.setIndex(meshData.indices);
-    geo.computeVertexNormals();
-    var tex = new THREE.Texture(paintTexture(1536, 1280));
-    tex.needsUpdate = true;
-    tex.generateMipmaps = true;
-    tex.minFilter = THREE.LinearMipmapLinearFilter || THREE.LinearFilter;
-    tex.magFilter = THREE.LinearFilter;
-    var land = new THREE.Mesh(geo, new THREE.MeshPhongMaterial({
-      map: tex, shininess: 3, specular: 0x1a1810
-    }));
-    land.receiveShadow = true;
-    land.castShadow = true;
-    land.name = 'europeLand';
-    scene.add(land);
-
-    /* Sparse stylized trees */
-    var treeMat = new THREE.MeshLambertMaterial({ color: 0x3a5028 });
-    var trunkMat = new THREE.MeshLambertMaterial({ color: 0x5a4030 });
-    var coneGeo = new THREE.ConeGeometry(0.55, 1.3, 6);
-    var trunkGeo = new THREE.CylinderGeometry(0.08, 0.11, 0.3, 5);
-    var planted = 0, tries = 0, lon, lat, p;
-    while (planted < 220 && tries < 8000) {
-      tries++;
-      lon = BOX[0] + Math.random() * (BOX[2] - BOX[0]);
-      lat = BOX[1] + Math.random() * (BOX[3] - BOX[1]);
-      var tm = metersAt(lon, lat);
-      if (tm < 90 || tm > 850) continue;
-      var tg = new THREE.Group();
-      var trunk = new THREE.Mesh(trunkGeo, trunkMat);
-      trunk.position.y = 0.12;
-      tg.add(trunk);
-      var crown = new THREE.Mesh(coneGeo, treeMat);
-      crown.position.y = 0.58;
-      crown.castShadow = true;
-      tg.add(crown);
-      p = xz(lon, lat);
-      tg.position.set(p.x, worldH(lon, lat), p.z);
-      tg.scale.setScalar(1.5 + Math.random() * 1.2);
-      scene.add(tg);
-      planted++;
-    }
-
-    function roadCellCost(lon, lat, prevLon, prevLat) {
-      var m = metersAt(lon, lat);
-      if (!(m > 14)) return 8000;
-      if (m > 1600) return 4500;
-      var cost = 1;
-      if (m < 200) cost += 0.2;
-      else if (m < 500) cost += 0.9;
-      else if (m < 900) cost += 2.5;
-      else cost += 6 + (m - 900) / 80;
-      if (prevLon != null) {
-        cost += Math.abs(m - metersAt(prevLon, prevLat)) / 40;
-      }
-      return cost;
-    }
-
-    function chaikinRoad(pts, iterations) {
-      var cur = pts, it, next, i, a, b;
-      for (it = 0; it < iterations; it++) {
-        if (cur.length < 2) break;
-        next = [cur[0]];
-        for (i = 0; i < cur.length - 1; i++) {
-          a = cur[i]; b = cur[i + 1];
-          next.push({ lon: a.lon * 0.75 + b.lon * 0.25, lat: a.lat * 0.75 + b.lat * 0.25 });
-          next.push({ lon: a.lon * 0.25 + b.lon * 0.75, lat: a.lat * 0.25 + b.lat * 0.75 });
-        }
-        next.push(cur[cur.length - 1]);
-        cur = next;
-      }
-      return cur;
-    }
-
-    function buildValleyRoad(a, b) {
-      var steps = 28;
-      var pts = [{ lon: a.lon, lat: a.lat }];
-      var dx = b.lon - a.lon, dy = b.lat - a.lat;
-      var len = Math.sqrt(dx * dx + dy * dy) || 1;
-      var px = -dy / len, py = dx / len;
-      var i, t, lon0, lat0, maxOff, k, off, lonR, latR, c, best, prevLatOff = 0;
-      for (i = 1; i < steps; i++) {
-        t = i / steps;
-        lon0 = a.lon + dx * t;
-        lat0 = a.lat + dy * t;
-        maxOff = (0.2 + len * 0.12) * Math.sin(Math.PI * t);
-        if (maxOff < 0.06) maxOff = 0.06;
-        best = { lon: lon0, lat: lat0, cost: 1e12, latOff: 0 };
-        for (k = -8; k <= 8; k++) {
-          off = (k / 8) * maxOff;
-          lonR = lon0 + px * off;
-          latR = lat0 + py * off;
-          c = roadCellCost(lonR, latR, pts[pts.length - 1].lon, pts[pts.length - 1].lat);
-          c += Math.abs(off - prevLatOff) * 1.8;
-          if (c < best.cost) best = { lon: lonR, lat: latR, cost: c, latOff: off };
-        }
-        pts.push({ lon: best.lon, lat: best.lat });
-        prevLatOff = best.latOff;
-      }
-      pts.push({ lon: b.lon, lat: b.lat });
-      return chaikinRoad(pts, 2);
-    }
-
-    function addRoadMesh(lonLatPts) {
-      var world = [];
-      var i, pp, lonR, latR;
-      for (i = 0; i < lonLatPts.length; i++) {
-        lonR = lonLatPts[i].lon;
-        latR = lonLatPts[i].lat;
-        if (!(metersAt(lonR, latR) > 10)) continue;
-        pp = xz(lonR, latR);
-        world.push(new THREE.Vector3(pp.x, worldH(lonR, latR) + 0.12, pp.z));
-      }
-      if (world.length < 2) return;
-      var curve = new THREE.CatmullRomCurve3(world);
-      curve.tension = 0.35;
-      var segs = Math.max(20, Math.min(80, world.length * 3));
-      var tube = new THREE.Mesh(
-        new THREE.TubeGeometry(curve, segs, 0.18, 5, false),
-        new THREE.MeshPhongMaterial({ color: 0x6a4a28, shininess: 4 })
-      );
-      scene.add(tube);
-      var ink = new THREE.Mesh(
-        new THREE.TubeGeometry(curve, segs, 0.08, 4, false),
-        new THREE.MeshBasicMaterial({ color: 0xc9a06a })
-      );
-      ink.position.y = 0.02;
-      scene.add(ink);
-    }
-
-    var byCity = {};
-    PROVS.forEach(function (pr) { if (pr.city) byCity[pr.city] = pr; });
-    ROADS.forEach(function (pair) {
-      var a = byCity[pair[0]], b = byCity[pair[1]];
-      if (!a || !b) return;
-      addRoadMesh(buildValleyRoad(a, b));
-    });
-
-    PROVS.forEach(function (pr) { addCity(scene, pr); });
-
-    if (window.CampaignMapBridge && CampaignMapBridge.addResourceMeshesThree) {
-      CampaignMapBridge.addResourceMeshesThree(
-        THREE, scene, CampaignMapBridge.getResources(),
-        function (lon0, lat0) { return xz(lon0, lat0); },
-        function (lon0, lat0) { return worldH(lon0, lat0); },
-        2.0
-      );
-    }
-
-    three.renderer = renderer;
-    three.scene = scene;
-    three.camera = camera;
-    three.land = land;
-
-    function handleCityClick(e) {
-      var mark = pickCity(e);
-      if (!mark) {
-        closeCityPanel();
-        return false;
-      }
-      openCityPanel(mark);
-      return true;
-    }
-
-    var fieldArmyId = 'field_near_rome';
-    try {
-      var CS0 = window.parent && window.parent.CampaignState;
-      if (CS0 && CS0.state.fieldArmies && CS0.state.fieldArmies[0]) {
-        fieldArmyId = CS0.state.fieldArmies[0].id;
-      }
-    } catch (_) {}
-
-    function worldToLonLat(x, z) {
-      return { lon: x / SCALE + CX, lat: CY - z / SCALE };
-    }
-
-    function pickLonLatFromEvent(e) {
-      if (!three.camera || !three.land) return null;
-      var rect = canvas.getBoundingClientRect();
-      var ndc = new THREE.Vector2(
-        ((e.clientX - rect.left) / rect.width) * 2 - 1,
-        -((e.clientY - rect.top) / rect.height) * 2 + 1
-      );
-      var ray = new THREE.Raycaster();
-      ray.setFromCamera(ndc, three.camera);
-      var hits = ray.intersectObject(three.land, false);
-      if (!hits || !hits.length) return null;
-      return worldToLonLat(hits[0].point.x, hits[0].point.z);
-    }
-
-    function hidePlayerArmy() {
-      if (!three.units || !three.units.player) return;
-      three.units.player.setSelected(false);
-      three.units.player.root.visible = false;
-    }
-
-    function showPlayerArmyAt(lon0, lat0, armyId) {
-      if (!three.units || !three.units.player) return;
-      var pp = xz(lon0, lat0);
-      three.units.player.root.visible = true;
-      three.units.player.root.position.set(pp.x, worldH(lon0, lat0) + 0.1, pp.z);
-      if (three.units.player.setArmyId) three.units.player.setArmyId(armyId);
-      three.units.player.setSelected(true);
-    }
-
-    if (window.WalkUnitThree && WalkUnitThree.mountPair) {
-      var armyStart = xz(12.0, 42.5);
-      try {
-        var CS1 = window.parent && window.parent.CampaignState;
-        var fa = CS1 && CS1.getFieldArmy && CS1.getFieldArmy(fieldArmyId);
-        if (fa) armyStart = xz(fa.lon, fa.lat);
-      } catch (_) {}
-      three.units = WalkUnitThree.mountPair({
-        THREE: THREE,
-        scene: scene,
-        camera: camera,
-        canvas: canvas,
-        land: land,
-        hover: 0.1,
-        scale: 2.6,
-        speed: 11,
-        combatStop: 2.2,
-        armyId: fieldArmyId,
-        playerStart: armyStart,
-        npcStart: xz(11.5, 44.0),
-        getHeight: function (x, z) {
-          return worldH(x / SCALE + CX, CY - z / SCALE);
-        },
-        canWalk: function (x, z) {
-          var lon0 = x / SCALE + CX;
-          var lat0 = CY - z / SCALE;
-          var raw = metersAt(lon0, lat0);
-          if (!(raw > 14)) return 'Сюда нельзя: море';
-          if (raw > 1300) return 'Сюда нельзя: высокие горы';
-          return true;
-        },
-        setPanEnabled: function (on) { allowPan = on; },
-        onMapClick: handleCityClick,
-        beforeRmbMove: function (e) {
-          try {
-            var CUI = window.parent && window.parent.CampaignUI;
-            if (!CUI || !CUI.getSelectedGarrisonIds || !CUI.getSelectedGarrisonIds().length) return false;
-            var ll = pickLonLatFromEvent(e);
-            if (!ll) return false;
-            var dep = CUI.tryDeployGarrison(ll.lon, ll.lat);
-            if (!dep || !dep.army) return false;
-            fieldArmyId = dep.army.id;
-            showPlayerArmyAt(dep.army.lon, dep.army.lat, dep.army.id);
-            three.units.player.setSelected(true);
-            try {
-              window.parent.postMessage({ type: 'army-select', armyId: dep.army.id }, '*');
-            } catch (_) {}
-            setStatus('Армия вышла · ЛКМ — выбрать · ПКМ — идти');
-            return true;
-          } catch (_) { return false; }
-        },
-        resolveEnterCity: function (e) {
-          var mark = pickCity(e);
-          if (!mark || !mark.campaignName) return null;
-          return mark.campaignName;
-        },
-        onSelect: function (on) {
-          try {
-            if (on) {
-              var aid = three.units.player.getArmyId && three.units.player.getArmyId();
-              if (!aid) {
-                var CS = window.parent && window.parent.CampaignState;
-                if (CS && CS.state.selectedFieldArmyId) aid = CS.state.selectedFieldArmyId;
-                else if (CS && CS.state.fieldArmies && CS.state.fieldArmies.length) {
-                  aid = CS.state.fieldArmies[CS.state.fieldArmies.length - 1].id;
-                } else aid = fieldArmyId;
-              }
-              if (aid) window.parent.postMessage({ type: 'army-select', armyId: aid }, '*');
-            }
-          } catch (_) {}
-        },
-        onArrive: function (meta, player) {
-          if (meta && meta.combat) return;
-          try {
-            var CS = window.parent && window.parent.CampaignState;
-            if (!CS || !player) return;
-            var ll = worldToLonLat(player.root.position.x, player.root.position.z);
-            var aid = (player.getArmyId && player.getArmyId()) || fieldArmyId;
-            if (meta && meta.enterCity && CS.mergeFieldArmyIntoCity(aid, meta.enterCity)) {
-              fieldArmyId = null;
-              hidePlayerArmy();
-              if (player.setArmyId) player.setArmyId(null);
-              var city = CS.getCity(meta.enterCity);
-              window.parent.postMessage({
-                type: 'army-merged',
-                city: meta.enterCity,
-                cityRu: city ? city.ru : meta.enterCity
-              }, '*');
-              setStatus('Армия вошла в ' + (city ? (city.ru || city.name) : meta.enterCity));
-              return;
-            }
-            if (CS.updateFieldArmyPosition) {
-              CS.updateFieldArmyPosition(aid, ll.lon, ll.lat);
-            }
-            if (player.root) player.root.visible = true;
-          } catch (_) {}
-        },
-        follow: function (x, y, z) {
-          target.x += (x - target.x) * 0.06;
-          target.y += (y - target.y) * 0.06;
-          target.z += (z - target.z) * 0.06;
-        },
-        onBattle: showBattleDialog,
-        onStatus: setStatus
-      });
-      three.walker = three.units.player;
-    }
-
-    /* Center on Northern Italy / Alps for a readable TW-style start */
-    var start = xz(8.5, 46.0);
-    target.x = start.x;
-    target.z = start.z;
-    applyCam();
-  }
-
-  function loop() {
-    if (!three.renderer) return;
-    var now = performance.now();
-    var dt = Math.min(0.05, (now - (loop.last || now)) / 1000);
-    loop.last = now;
-    if (three.units) three.units.tick(dt);
-    else if (three.walker) three.walker.tick(dt);
-    cityMarks.forEach(function (m) {
-      if (m.ring.visible) m.ring.rotation.z += dt * 0.65;
-    });
-    applyCam();
-    three.renderer.render(three.scene, three.camera);
-    three.raf = requestAnimationFrame(loop);
-  }
-
-  function onResize() {
-    if (!three.renderer || !three.camera) return;
-    var w = Math.max(1, window.innerWidth), h = Math.max(1, window.innerHeight);
-    three.camera.aspect = w / h;
-    three.camera.updateProjectionMatrix();
-    three.renderer.setSize(w, h, false);
-  }
-
-  function reportCamera() {
-    try {
-      window.parent.postMessage({
-        type: 'camera-state',
-        center: { lon: CX + target.x / SCALE, lat: CY - target.z / SCALE },
-        viewQuad: [
-          { lon: BOX[0], lat: BOX[3] }, { lon: BOX[2], lat: BOX[3] },
-          { lon: BOX[2], lat: BOX[1] }, { lon: BOX[0], lat: BOX[1] }
-        ]
-      }, '*');
-    } catch (_) {}
-  }
-
-  var cityClick = { x: 0, y: 0, moved: false, onCity: false, pending: false };
-  canvas.addEventListener('mousedown', function (e) {
-    if (e.button !== 0) return;
-    cityClick.x = e.clientX;
-    cityClick.y = e.clientY;
-    cityClick.moved = false;
-    cityClick.pending = true;
-    cityClick.onCity = !!pickCity(e);
-    if (cityClick.onCity) {
-      allowPan = false;
-      return;
-    }
-    if (!allowPan) return;
-    dragging = true; lastX = e.clientX; lastY = e.clientY;
-    canvas.classList.add('dragging');
-  });
-  window.addEventListener('mousemove', function (e) {
-    if (cityClick.pending) {
-      var cdx = e.clientX - cityClick.x, cdy = e.clientY - cityClick.y;
-      if (cdx * cdx + cdy * cdy > 36) cityClick.moved = true;
-    }
-    if (!dragging || !allowPan) return;
-    var dx = e.clientX - lastX, dy = e.clientY - lastY;
-    lastX = e.clientX; lastY = e.clientY;
-    var yaw = camYaw * Math.PI / 180;
-    var k = 0.08 / camZoom;
-    target.x -= (Math.cos(yaw) * dx + Math.sin(yaw) * dy) * k;
-    target.z -= (-Math.sin(yaw) * dx + Math.cos(yaw) * dy) * k;
-  });
-  window.addEventListener('mouseup', function (e) {
-    dragging = false;
-    canvas.classList.remove('dragging');
-    if (cityClick.pending && !cityClick.moved) {
-      var mark = pickCity(e);
-      if (mark) openCityPanel(mark);
-      else closeCityPanel();
-    }
-    cityClick.onCity = false;
-    cityClick.pending = false;
-    allowPan = true;
-  });
-  canvas.addEventListener('wheel', function (e) {
-    e.preventDefault();
-    camZoom = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, camZoom * (e.deltaY < 0 ? 1.1 : 1 / 1.1)));
-    applyCam();
-  }, { passive: false });
-  window.addEventListener('keydown', function (e) {
-    if (e.code === 'KeyQ') { e.preventDefault(); camTilt = Math.max(TILT_MIN, camTilt - TILT_STEP); }
-    else if (e.code === 'KeyE') { e.preventDefault(); camTilt = Math.min(TILT_MAX, camTilt + TILT_STEP); }
-    else if (e.code === 'KeyZ') { e.preventDefault(); camYaw = wrapYaw(camYaw - YAW_STEP); }
-    else if (e.code === 'KeyC') { e.preventDefault(); camYaw = wrapYaw(camYaw + YAW_STEP); }
-  });
-  window.addEventListener('message', function (e) {
-    if (!e.data) return;
-    if (e.data.type === 'camera-tilt') {
-      if (typeof e.data.delta === 'number') camTilt = Math.max(TILT_MIN, Math.min(TILT_MAX, camTilt + e.data.delta));
-    }
-    if (e.data.type === 'camera-rotate') {
-      if (typeof e.data.delta === 'number') camYaw = wrapYaw(camYaw + e.data.delta);
-    }
-    if (e.data.type === 'camera-state-request') reportCamera();
-  });
-  window.addEventListener('resize', onResize);
-
-  if (typeof THREE === 'undefined') {
-    setStatus('Three.js не загрузился');
-    return;
-  }
-  buildScene();
-  loop();
-  setStatus('Клик по городу · армия · карта');
-  reportCamera();
-})();
-</script>
-</body>
+	if (missing.length !== 0) {
+		if (GODOT_CONFIG['serviceWorker'] && GODOT_CONFIG['ensureCrossOriginIsolationHeaders'] && 'serviceWorker' in navigator) {
+			// There's a chance that installing the service worker would fix the issue
+			Promise.race([
+				navigator.serviceWorker.getRegistration().then((registration) => {
+					if (registration != null) {
+						return Promise.reject(new Error('Service worker already exists.'));
+					}
+					return registration;
+				}).then(() => engine.installServiceWorker()),
+				// For some reason, `getRegistration()` can stall
+				new Promise((resolve) => {
+					setTimeout(() => resolve(), 2000);
+				}),
+			]).catch((err) => {
+				console.error('Error while registering service worker:', err);
+			}).then(() => {
+				window.location.reload();
+			});
+		} else {
+			// Display the message as usual
+			const missingMsg = 'Error\nThe following features required to run Godot projects on the Web are missing:\n';
+			displayFailureNotice(missingMsg + missing.join('\n'));
+		}
+	} else {
+		setStatusMode('progress');
+		engine.startGame({
+			'onProgress': function (current, total) {
+				if (current > 0 && total > 0) {
+					statusProgress.value = current;
+					statusProgress.max = total;
+				} else {
+					statusProgress.removeAttribute('value');
+					statusProgress.removeAttribute('max');
+				}
+			},
+		}).then(() => {
+			setStatusMode('hidden');
+		}, displayFailureNotice);
+	}
+}());
+		</script>
+		<script src="/js/battle-system.js"></script>
+		<script src="/js/battle-map-hook.js"></script>
+		<script>
+		(function () {
+			var btn = document.getElementById('localBattleBtn');
+			if (!btn) return;
+			btn.addEventListener('click', function () {
+				if (window.BattleMapHook) BattleMapHook.showBattleDialog();
+				else if (window.BattleSystem) BattleSystem.showBattleDialog();
+				else {
+					try { window.parent.postMessage({ type: 'battle-open-local' }, '*'); } catch (_) {}
+				}
+			});
+		})();
+		</script>
+	</body>
 </html>
+

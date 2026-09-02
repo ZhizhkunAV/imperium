@@ -165,11 +165,35 @@
       return String(r);
     }
 
+    /** Ближайшая проходимая точка около (x,z), предпочтительно ближе к from. */
+    function snapWalkableNear(x, z, fromX, fromZ) {
+      if (!walkBlock(x, z)) return { x: x, z: z };
+      var best = null;
+      var bestScore = 1e9;
+      var rad, a, nx, nz, dGoal, dFrom, score;
+      for (rad = 0.35; rad <= 4.2; rad += 0.35) {
+        for (a = 0; a < 16; a++) {
+          nx = x + Math.cos((a / 16) * Math.PI * 2) * rad;
+          nz = z + Math.sin((a / 16) * Math.PI * 2) * rad;
+          if (walkBlock(nx, nz)) continue;
+          dGoal = Math.hypot(nx - x, nz - z);
+          dFrom = Math.hypot(nx - fromX, nz - fromZ);
+          score = dGoal * 2 + dFrom * 0.15;
+          if (score < bestScore) {
+            bestScore = score;
+            best = { x: nx, z: nz };
+          }
+        }
+        if (best && rad >= 1.2) break;
+      }
+      return best;
+    }
+
     function lastWalkableToward(x0, z0, x1, z1) {
       var dx = x1 - x0, dz = z1 - z0;
       var dist = Math.sqrt(dx * dx + dz * dz);
       if (dist < 0.04) return walkBlock(x1, z1) ? null : { x: x1, z: z1 };
-      var steps = Math.max(6, Math.ceil(dist / 0.32));
+      var steps = Math.max(8, Math.ceil(dist / 0.22));
       var last = { x: x0, z: z0 };
       var i, x, z;
       for (i = 1; i <= steps; i++) {
@@ -179,6 +203,131 @@
         last = { x: x, z: z };
       }
       return last;
+    }
+
+    /** Сетка A*: обход моря/гор, когда прямой луч закрыт. */
+    function findWalkPath(x0, z0, x1, z1) {
+      var goal = snapWalkableNear(x1, z1, x0, z0);
+      if (!goal) return null;
+      x1 = goal.x;
+      z1 = goal.z;
+
+      var straight = lastWalkableToward(x0, z0, x1, z1);
+      if (straight && Math.hypot(straight.x - x1, straight.z - z1) < 0.55) {
+        return [{ x: x1, z: z1 }];
+      }
+
+      var distEst = Math.hypot(x1 - x0, z1 - z0) || 1;
+      var cell = Math.max(0.65, Math.min(2.6, distEst / 70));
+      var maxN = 9000;
+      var ix0 = Math.round(x0 / cell);
+      var iz0 = Math.round(z0 / cell);
+      var ix1 = Math.round(x1 / cell);
+      var iz1 = Math.round(z1 / cell);
+      var key = function (ix, iz) { return ix + ':' + iz; };
+      var came = Object.create(null);
+      var gScore = Object.create(null);
+      var startK = key(ix0, iz0);
+      gScore[startK] = 0;
+      came[startK] = null;
+      // open: [ix, iz, f]
+      var open = [[ix0, iz0, Math.hypot(ix0 - ix1, iz0 - iz1)]];
+      var dirs = [
+        [1, 0, 1], [-1, 0, 1], [0, 1, 1], [0, -1, 1],
+        [1, 1, 1.42], [1, -1, 1.42], [-1, 1, 1.42], [-1, -1, 1.42]
+      ];
+      var found = false;
+      var endIx = ix1, endIz = iz1;
+      var bestDist = Math.hypot(ix0 - ix1, iz0 - iz1);
+      var bestIx = ix0, bestIz = iz0;
+      var expanded = 0;
+
+      while (open.length && expanded < maxN) {
+        // взять узел с мин f
+        var bi = 0, bj;
+        for (bj = 1; bj < open.length; bj++) {
+          if (open[bj][2] < open[bi][2]) bi = bj;
+        }
+        var cur = open.splice(bi, 1)[0];
+        var cix = cur[0], ciz = cur[1];
+        expanded++;
+        var dGoal = Math.hypot(cix - ix1, ciz - iz1);
+        if (dGoal < bestDist) {
+          bestDist = dGoal;
+          bestIx = cix;
+          bestIz = ciz;
+        }
+        var wx = cix * cell, wz = ciz * cell;
+        if ((cix === ix1 && ciz === iz1) || Math.hypot(wx - x1, wz - z1) < cell * 1.15) {
+          found = true;
+          endIx = cix;
+          endIz = ciz;
+          break;
+        }
+        var ck = key(cix, ciz);
+        var cg = gScore[ck];
+        var di;
+        for (di = 0; di < dirs.length; di++) {
+          var nix = cix + dirs[di][0];
+          var niz = ciz + dirs[di][1];
+          var cost = dirs[di][2];
+          var nx = nix * cell;
+          var nz = niz * cell;
+          if (walkBlock(nx, nz)) continue;
+          if (dirs[di][0] && dirs[di][1]) {
+            if (walkBlock(cix * cell + dirs[di][0] * cell, ciz * cell)) continue;
+            if (walkBlock(cix * cell, ciz * cell + dirs[di][1] * cell)) continue;
+          }
+          var nk = key(nix, niz);
+          var ng = cg + cost;
+          if (gScore[nk] != null && ng >= gScore[nk]) continue;
+          gScore[nk] = ng;
+          came[nk] = { ix: cix, iz: ciz };
+          var f = ng + Math.hypot(nix - ix1, niz - iz1);
+          open.push([nix, niz, f]);
+        }
+      }
+
+      if (!found) {
+        endIx = bestIx;
+        endIz = bestIz;
+        if (endIx === ix0 && endIz === iz0) {
+          return straight ? [straight] : null;
+        }
+      }
+
+      var chain = [];
+      var node = { ix: endIx, iz: endIz };
+      var guard = 0;
+      while (node && guard++ < maxN) {
+        chain.push({ x: node.ix * cell, z: node.iz * cell });
+        var prev = came[key(node.ix, node.iz)];
+        if (!prev) break;
+        node = prev;
+      }
+      chain.reverse();
+      if (chain.length && Math.hypot(chain[0].x - x0, chain[0].z - z0) < cell * 0.9) {
+        chain.shift();
+      }
+      if (found) chain.push({ x: x1, z: z1 });
+      if (chain.length > 2) {
+        var slim = [chain[0]];
+        var si;
+        for (si = 1; si < chain.length - 1; si++) {
+          var a = slim[slim.length - 1];
+          var b = chain[si];
+          var c = chain[si + 1];
+          var abx = b.x - a.x, abz = b.z - a.z;
+          var bcx = c.x - b.x, bcz = c.z - b.z;
+          var cross = Math.abs(abx * bcz - abz * bcx);
+          if (cross > cell * 0.2 || Math.hypot(b.x - a.x, b.z - a.z) > cell * 2.8) {
+            slim.push(b);
+          }
+        }
+        slim.push(chain[chain.length - 1]);
+        chain = slim;
+      }
+      return chain.length ? chain : (straight ? [straight] : null);
     }
 
     var parts = buildBody(THREE, scale, opts.style);
@@ -195,9 +344,12 @@
     var selected = false;
     var walking = false;
     var goal = null;
+    var path = null;
+    var pathIdx = 0;
     var arriveMeta = null;
     var walkT = 0;
     var pointer = { down: false, rmb: false, x: 0, y: 0, moved: false, onUnit: false };
+    var finalTarget = null;
 
     function groundY(x, z) {
       if (land) {
@@ -248,18 +400,17 @@
     }
 
     function moveTo(x, z, meta) {
-      var block = walkBlock(x, z);
-      if (block) {
-        onStatus(block);
-        return false;
-      }
-      var clipped = lastWalkableToward(root.position.x, root.position.z, x, z);
-      if (!clipped) {
+      var waypoints = findWalkPath(root.position.x, root.position.z, x, z);
+      if (!waypoints || !waypoints.length) {
         onStatus('Путь закрыт: вода или высокие горы');
         return false;
       }
-      goal = clipped;
-      arriveMeta = (Math.abs(clipped.x - x) < 0.45 && Math.abs(clipped.z - z) < 0.45) ? (meta || null) : null;
+      path = waypoints;
+      pathIdx = 0;
+      goal = path[0];
+      finalTarget = { x: x, z: z };
+      var last = path[path.length - 1];
+      arriveMeta = (Math.hypot(last.x - x, last.z - z) < 0.8) ? (meta || null) : null;
       walking = true;
       return true;
     }
@@ -329,7 +480,8 @@
       setPanEnabled(true);
       if (pointer.moved) return;
       if (pointer.onUnit) return;
-      // ЛКМ по карте больше не двигает армию
+      // ЛКМ по карте / чужой армии (города, осмотр Карфагена)
+      if (onMapClick) onMapClick(e);
     }
 
     if (manageInput) {
@@ -350,30 +502,61 @@
         if (dist <= step || dist < 0.12) {
           root.position.x = goal.x;
           root.position.z = goal.z;
-          walking = false;
-          goal = null;
-          walkT = 0;
-          parts.leftLeg.rotation.x = 0;
-          parts.rightLeg.rotation.x = 0;
-          parts.leftArm.rotation.x = 0;
-          parts.rightArm.rotation.x = 0;
-          var meta = arriveMeta;
-          arriveMeta = null;
-          onStatus('Армия на месте · ПКМ по карте — новый приказ');
-          onArrive(meta);
-        } else {
-          var nx = root.position.x + dx / dist * step;
-          var nz = root.position.z + dz / dist * step;
-          if (walkBlock(nx, nz)) {
+          pathIdx++;
+          if (path && pathIdx < path.length) {
+            goal = path[pathIdx];
+          } else {
             walking = false;
             goal = null;
+            path = null;
+            pathIdx = 0;
             walkT = 0;
             parts.leftLeg.rotation.x = 0;
             parts.rightLeg.rotation.x = 0;
             parts.leftArm.rotation.x = 0;
             parts.rightArm.rotation.x = 0;
+            var meta = arriveMeta;
             arriveMeta = null;
-            onStatus('Путь закрыт: вода или высокие горы');
+            finalTarget = null;
+            onStatus('Армия на месте · ПКМ по карте — новый приказ');
+            onArrive(meta);
+          }
+        } else {
+          var nx = root.position.x + dx / dist * step;
+          var nz = root.position.z + dz / dist * step;
+          if (walkBlock(nx, nz)) {
+            // микро-сдвиг: попробовать обойти локально или пересчитать путь
+            var detour = snapWalkableNear(nx, nz, root.position.x, root.position.z);
+            if (detour && !walkBlock(detour.x, detour.z) &&
+                Math.hypot(detour.x - root.position.x, detour.z - root.position.z) > 0.05) {
+              goal = detour;
+            } else if (finalTarget) {
+              var replanned = findWalkPath(root.position.x, root.position.z, finalTarget.x, finalTarget.z);
+              if (replanned && replanned.length) {
+                path = replanned;
+                pathIdx = 0;
+                goal = path[0];
+              } else {
+                walking = false;
+                goal = null;
+                path = null;
+                pathIdx = 0;
+                walkT = 0;
+                parts.leftLeg.rotation.x = 0;
+                parts.rightLeg.rotation.x = 0;
+                parts.leftArm.rotation.x = 0;
+                parts.rightArm.rotation.x = 0;
+                arriveMeta = null;
+                finalTarget = null;
+                onStatus('Путь закрыт: вода или высокие горы');
+              }
+            } else {
+              walking = false;
+              goal = null;
+              path = null;
+              arriveMeta = null;
+              onStatus('Путь закрыт: вода или высокие горы');
+            }
           } else {
             root.position.x = nx;
             root.position.z = nz;
@@ -422,6 +605,7 @@
 
   function mountPair(opts) {
     var stop = opts.combatStop != null ? opts.combatStop : 2.0;
+    var lastNpcClick = 0;
     var npc = mount({
       THREE: opts.THREE,
       scene: opts.scene,
@@ -456,13 +640,31 @@
       follow: opts.follow,
       setPanEnabled: opts.setPanEnabled,
       onStatus: opts.onStatus,
-      onMapClick: opts.onMapClick,
+      onMapClick: function (e) {
+        if (npc.pick(e)) {
+          var now = Date.now();
+          if (now - lastNpcClick < 420) {
+            if (opts.onNpcInspect) opts.onNpcInspect();
+            else if (global.BattleSystem && BattleSystem.inspectCarthageArmy) BattleSystem.inspectCarthageArmy();
+            lastNpcClick = 0;
+            return true;
+          }
+          lastNpcClick = now;
+          if (opts.onStatus) opts.onStatus('Армия Карфагена · двойной клик — состав');
+          return true;
+        }
+        if (opts.onMapClick) return opts.onMapClick(e);
+        return false;
+      },
       onSelect: opts.onSelect,
       beforeRmbMove: opts.beforeRmbMove,
       armyId: opts.armyId,
       resolveEnterCity: opts.resolveEnterCity,
       onArrive: function (meta) {
-        if (meta && meta.combat && opts.onBattle) opts.onBattle();
+        if (meta && meta.combat) {
+          if (opts.onBattle) opts.onBattle();
+          else if (global.BattleSystem) BattleSystem.showBattleDialog();
+        }
         if (opts.onArrive) opts.onArrive(meta, player);
       },
       pickTarget: function (e) {

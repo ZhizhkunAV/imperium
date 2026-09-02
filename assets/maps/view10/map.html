@@ -13,7 +13,7 @@
     }
     #stage canvas { display: block; width: 100%; height: 100%; }
     #camHud {
-      position: fixed; top: 12px; left: 12px; z-index: 40;
+      position: fixed; top: 12px; left: 160px; z-index: 40;
       display: flex; flex-direction: column; gap: 3px; min-width: 118px;
       font-size: 12px; letter-spacing: 0.06em;
       color: #d8c9a4; background: rgba(8, 6, 3, 0.55);
@@ -27,15 +27,16 @@
       display: flex; flex-direction: column; gap: 6px; min-width: 168px;
     }
     body.embedded #engineBar { display: none; }
-    #engineBar button, #resetBtn {
+    #engineBar button, #resetWrap button {
       font-family: 'Cinzel', serif; font-size: 11px; letter-spacing: 0.08em;
       text-transform: uppercase; color: #f5e6c8; background: rgba(16, 12, 8, 0.88);
       border: 1px solid rgba(201, 168, 76, 0.5); padding: 8px 10px; cursor: pointer;
     }
-    #engineBar button:hover, #resetBtn:hover { border-color: #e0c878; color: #fff; }
+    #engineBar button:hover, #resetWrap button:hover { border-color: #e0c878; color: #fff; }
     #engineBar button.active { background: rgba(201, 168, 76, 0.22); border-color: #e0c878; color: #fff; }
     #resetWrap {
       position: fixed; top: 12px; left: 12px; z-index: 40;
+      display: flex; flex-direction: column; gap: 6px;
     }
     #status {
       position: fixed; left: 12px; bottom: 12px; z-index: 40; font-size: 13px; color: #c9b48a;
@@ -58,11 +59,14 @@
     #battleModal button:hover { border-color: #e0c878; color: #fff; }
   </style>
   <script src="/maps/rome/three.min.js"></script>
-  <script src="/js/italy-dem.js"></script>
+  <script src="/js/map-paint.js?v=20260831editor2"></script>
+  <script src="/js/italy-dem.js?v=20260831paint"></script>
   <script src="/js/walk-unit-three.js"></script>
+<script src="/js/battle-system.js"></script>
+  <script src="/js/battle-map-hook.js"></script>
   <script src="/js/walk-unit-babylon.js"></script>
-  <script src="/js/walk-unit-phaser.js"></script>
-  <script src="/maps/view14/provinces.js"></script>
+  <script src="/js/walk-unit-phaser.js?v=20260826size"></script>
+  <script src="/js/italy-provinces.js"></script>
   <script src="/js/campaign-map-bridge.js"></script>
 </head>
 <body>
@@ -74,6 +78,7 @@
   </div>
   <div id="resetWrap">
     <button type="button" id="resetBtn">Сброс</button>
+    <button type="button" id="localBattleBtn">Локальный бой</button>
   </div>
   <div id="camHud">
     <span>Зум <b id="hudZoom">115%</b></span>
@@ -131,8 +136,8 @@
   var italyRings = FALLBACK.slice();
   var provinceFeatures = [];
   var current = { name: '', three: null, babylon: null, phaser: null, raf: 0 };
-  var TILT_MIN = 0, TILT_MAX = 75, TILT_DEFAULT = 60, TILT_STEP = 3;
-  var YAW_STEP = 6, BABYLON_BASE_ALPHA = Math.PI * 0.42;
+  var TILT_MIN = 0, TILT_MAX = 75, TILT_DEFAULT = 52, TILT_STEP = 3;
+  var YAW_STEP = 6, BABYLON_BASE_ALPHA = Math.PI / 2; // как Three yaw=0: камера с юга, Италия «ногами» вниз
   var MIN_ZOOM = 0.28, MAX_ZOOM = 4.2, BASE_DIST = 95;
   var camTilt = TILT_DEFAULT;
   var camZoom = 1.15;
@@ -141,14 +146,76 @@
   function setStatus(t) { statusEl.textContent = t; }
   var battleModal = document.getElementById('battleModal');
   var battleClose = document.getElementById('battleModalClose');
+  var __battleBind = null;
+  function battleMapCtx() {
+    var ctx = {
+      getPair: function () {
+        if (current.phaser && current.phaser.units) return current.phaser.units;
+        if (current.three && current.three.units) return current.three.units;
+        if (typeof three !== 'undefined' && three && three.units) return three.units;
+        return null;
+      },
+      xz: typeof xz === 'function' ? xz : null,
+      worldH: typeof heightAt === 'function' ? heightAt : (typeof worldH === 'function' ? worldH : null),
+      SCALE: typeof SCALE !== 'undefined' ? SCALE : null,
+      CX: typeof CX !== 'undefined' ? CX : null,
+      CY: typeof CY !== 'undefined' ? CY : null,
+      hover: 0.08,
+      onStatus: typeof setStatus === 'function' ? setStatus : function () {}
+    };
+    // Phaser: координаты в model-space карты, не Three SCALE
+    if (current.name === 'phaser' && current.phaser) {
+      var pack = current.phaser;
+      ctx.hover = 0.04;
+      ctx.SCALE = null;
+      ctx.xz = function (lon, lat) {
+        var box = [6.4, 36.2, 18.9, 47.4];
+        var lonSpan = box[2] - box[0], latSpan = box[3] - box[1];
+        var mapW = (pack.mapHalfW || 2.2) * 2;
+        var mapD = (pack.mapHalfD || 2.0) * 2;
+        return {
+          x: ((lon - box[0]) / lonSpan - 0.5) * mapW,
+          z: ((lat - box[1]) / latSpan - 0.5) * mapD
+        };
+      };
+      ctx.worldToLonLat = function (x, z) {
+        var box = [6.4, 36.2, 18.9, 47.4];
+        var lonSpan = box[2] - box[0], latSpan = box[3] - box[1];
+        var mapW = (pack.mapHalfW || 2.2) * 2;
+        var mapD = (pack.mapHalfD || 2.0) * 2;
+        return {
+          lon: box[0] + (x / mapW + 0.5) * lonSpan,
+          lat: box[1] + (z / mapD + 0.5) * latSpan
+        };
+      };
+      ctx.getHeight = function (x, z) {
+        var ll = ctx.worldToLonLat(x, z);
+        var m = (window.ItalyDEM && ItalyDEM.ready()) ? (ItalyDEM.meters(ll.lon, ll.lat) || 0) : 0;
+        if (!(m > 2)) return 0;
+        var t = Math.min(1, Math.max(0, m / 3400));
+        return 0.01 + Math.pow(t, 1.2) * 0.5;
+      };
+    }
+    return ctx;
+  }
   function showBattleDialog() {
+    if (window.BattleSystem) {
+      __battleBind = BattleSystem.bindMap(battleMapCtx());
+      BattleSystem.openContact(battleMapCtx());
+      return;
+    }
     if (battleModal) battleModal.classList.add('show');
-    setStatus('Бой начался');
   }
   function hideBattleDialog() {
     if (battleModal) battleModal.classList.remove('show');
   }
   if (battleClose) battleClose.addEventListener('click', hideBattleDialog);
+  window.addEventListener('message', function (e) {
+    if (e.data && e.data.type === 'battle-local-done' && window.BattleSystem) {
+      BattleSystem.bindMap(battleMapCtx());
+      BattleSystem.finishLocalBattle(e.data);
+    }
+  });
   function xz(lon, lat) { return { x: (lon - CX) * SCALE, z: (CY - lat) * SCALE }; }
   function wrapYaw(deg) {
     deg = deg % 360;
@@ -183,20 +250,64 @@
     var pack = current.babylon;
     if (!pack || !pack.camera) return;
     var cam = pack.camera;
-    cam.alpha = BABYLON_BASE_ALPHA + camYaw * Math.PI / 180;
+    // alpha: PI/2 = камера на +Z (юг); yaw крутит как на Three
+    cam.alpha = BABYLON_BASE_ALPHA - camYaw * Math.PI / 180;
     cam.beta = Math.max(0.08, Math.PI / 2 - camTilt * Math.PI / 180);
     cam.radius = BASE_DIST / camZoom;
     cam.lowerRadiusLimit = BASE_DIST / MAX_ZOOM;
     cam.upperRadiusLimit = BASE_DIST / MIN_ZOOM;
     cam.lowerBetaLimit = Math.PI / 2 - TILT_MAX * Math.PI / 180;
     cam.upperBetaLimit = Math.PI / 2 - TILT_MIN * Math.PI / 180 + 0.02;
+    cam.inertialAlphaOffset = 0;
+    cam.inertialBetaOffset = 0;
+    cam.inertialRadiusOffset = 0;
+  }
+  /**
+   * Phaser Mesh (плоскость XY лицом к камере).
+   * Наклон 0% ≈ взгляд к горизонту; 100% ≈ почти сверху.
+   * Зум = дистанция камеры.
+   */
+  var PHASER_FOV = 48;
+  var PHASER_NEAR = 1.35;
+  var PHASER_FAR = 90;
+  var PHASER_MIN_DIST = 3.8;
+  var PHASER_MAX_DIST = 14;
+  function phaserTiltRad(tiltDeg) {
+    var t = Math.max(TILT_MIN, Math.min(TILT_MAX, tiltDeg));
+    var u = t / Math.max(1, TILT_MAX);
+    // 0% → взгляд к горизонту (~1.38 rad ≈ 79°), 100% → почти сверху (~0.12)
+    return 0.12 + (1 - u) * 1.26;
+  }
+  function phaserZoomClamp(z, tiltDeg) {
+    // до 300% сверху; у горизонта чуть меньше, чтобы меш не рвался
+    var tip = phaserTiltRad(tiltDeg == null ? camTilt : tiltDeg);
+    var tipU = Math.min(1, tip / 1.35);
+    var maxZ = 3.0 - tipU * 0.85; // 300% … ~215% у горизонта
+    var minZ = 0.48;
+    return Math.max(minZ, Math.min(maxZ, z));
+  }
+  function phaserFitScale(rotX, rotZ, dist, viewW, viewH, halfW, halfD) {
+    var fov = PHASER_FOV * Math.PI / 180;
+    var visH = 2 * Math.tan(fov * 0.5) * Math.max(0.8, dist);
+    var visW = visH * (viewW / Math.max(1, viewH));
+    var tip = Math.abs(rotX);
+    var c = Math.cos(tip), s = Math.sin(tip);
+    var extY = halfD * Math.max(0.22, Math.abs(c)) + 0.18 * Math.abs(s);
+    var extX = halfW;
+    var cz = Math.abs(Math.cos(rotZ)), sz = Math.abs(Math.sin(rotZ));
+    var projW = extX * cz + extY * sz;
+    var projH = extX * sz + extY * cz;
+    var yawK = 1 + 0.28 * Math.min(1, sz);
+    var tipK = 1 + 0.35 * Math.min(1, tip / 1.25);
+    var need = Math.max(visW / Math.max(0.2, 2 * projW), visH / Math.max(0.2, 2 * projH));
+    return need * yawK * tipK;
   }
   function applyPhaserCam() {
     var pack = current.phaser;
     if (!pack || !pack.game) return;
     stage.style.perspective = 'none';
     stage.style.perspectiveOrigin = 'center center';
-    stage.style.background = '#163c4c';
+    stage.style.background = '#4a8fa0';
     var canvas = stage.querySelector('canvas');
     if (canvas) {
       canvas.style.transform = 'none';
@@ -209,70 +320,107 @@
         sc.cameras.main.setZoom(1);
         sc.cameras.main.setScroll(0, 0);
         sc.cameras.main.setRotation(0);
-        sc.cameras.main.setBackgroundColor('#163c4c');
-      }
-      if (pack.flatMap) {
-        var base = pack.flatBaseScale || pack.flatMap.scaleX || 1;
-        var sy = Math.max(0.38, Math.cos(Math.min(72, camTilt) * Math.PI / 180));
-        pack.flatMap.setScale(base, base * sy);
-        return;
+        sc.cameras.main.setBackgroundColor('#4a8fa0');
       }
       var w = sc && sc.scale ? Math.max(1, sc.scale.width) : window.innerWidth || 1024;
       var h = sc && sc.scale ? Math.max(1, sc.scale.height) : window.innerHeight || 768;
-      // зум только дистанцией; modelScale константа — карта всегда заполняет кадр (нет синей шторки)
-      var z = Math.max(0.92, Math.min(1.7, camZoom));
-      var dist = Math.max(4.35, Math.min(6.9, (pack.baseZ || 5.8) / Math.pow(z, 0.4)));
-      var s = pack.baseScale || 1.62;
+      camZoom = phaserZoomClamp(camZoom, camTilt);
+      var z = camZoom;
+      var tip = phaserTiltRad(camTilt);
+      var rotX = -tip;
+      var rotZ = camYaw * Math.PI / 180;
+      var refDist = pack.baseZ || 5.8;
+      // зум = только дистанция камеры (scale меша не «плывёт» с зумом)
+      var dist = Math.max(PHASER_MIN_DIST, Math.min(PHASER_MAX_DIST, refDist / Math.max(0.35, z)));
+      // при низком наклоне держим камеру чуть дальше
+      dist = Math.max(dist, PHASER_MIN_DIST + tip * 0.55);
+      var halfW = pack.mapHalfW || 2.2;
+      var halfD = pack.mapHalfD || 2.0;
+      // fit всегда от refDist — иначе при зуме меш скачет размером
+      var fit = phaserFitScale(rotX, rotZ, refDist, w, h, halfW, halfD);
+      var horizonPad = 0.48 + 0.38 * (camTilt / Math.max(1, TILT_MAX));
+      var sScale = fit * horizonPad;
+      pack._lastScale = sScale;
+      pack._lastDist = dist;
+      // жёсткий лимит пана: иначе меш уезжает в near-plane → зелёные плоскости
+      var panLim = Math.max(halfW, halfD) * (0.42 + 0.18 * (camTilt / Math.max(1, TILT_MAX)));
+      panLim *= Math.min(1.15, Math.max(0.55, refDist / dist));
+      pack.panX = Math.max(-panLim, Math.min(panLim, pack.panX || 0));
+      pack.panY = Math.max(-panLim, Math.min(panLim, pack.panY || 0));
       var meshes = pack.meshes && pack.meshes.length ? pack.meshes : (pack.terrain ? [pack.terrain] : []);
       var i, mesh;
+      var needPersp = pack._perspW !== w || pack._perspH !== h;
+      pack._perspW = w;
+      pack._perspH = h;
       for (i = 0; i < meshes.length; i++) {
         mesh = meshes[i];
         if (!mesh || !mesh.modelRotation) continue;
-        mesh.setPosition(w / 2, h * 0.52);
+        mesh.setPosition(w / 2, h / 2);
         if (typeof mesh.setSize === 'function') mesh.setSize(w, h);
         else { mesh.width = w; mesh.height = h; }
-        if (typeof mesh.setPerspective === 'function') mesh.setPerspective(w, h, 44, 0.6, 220);
+        // setPerspective только при ресайзе — каждый кадр при панорамировании ломает UV/клиппинг
+        if (needPersp && typeof mesh.setPerspective === 'function') {
+          mesh.setPerspective(w, h, PHASER_FOV, PHASER_NEAR, PHASER_FAR);
+        }
         if (mesh.viewPosition) {
           mesh.viewPosition.x = 0;
-          mesh.viewPosition.y = 0.02;
+          mesh.viewPosition.y = 0;
           mesh.viewPosition.z = dist;
         }
-        if (mesh.dirtyCache) mesh.dirtyCache[10] = 1;
-        mesh.modelRotation.x = Math.max(0.22, Math.min(0.78, camTilt * Math.PI / 180));
-        mesh.modelRotation.y = camYaw * Math.PI / 180;
-        mesh.modelRotation.z = 0;
-        mesh.modelPosition.x = pack.panX || 0;
-        mesh.modelPosition.y = 0;
-        mesh.modelPosition.z = pack.panZ || 0;
-        if (mesh.modelScale) {
-          mesh.modelScale.x = s;
-          mesh.modelScale.y = s;
-          mesh.modelScale.z = s;
+        if (mesh.dirtyCache) {
+          mesh.dirtyCache[10] = 1;
+          mesh.dirtyCache[9] = -1;
         }
+        mesh.modelRotation.x = rotX;
+        mesh.modelRotation.y = 0;
+        mesh.modelRotation.z = rotZ;
+        mesh.modelPosition.x = pack.panX || 0;
+        // лёгкий сдвиг вниз к горизонту, без затягивания в камеру
+        mesh.modelPosition.y = (pack.panY || 0) - tip * 0.28;
+        mesh.modelPosition.z = 0;
+        if (mesh.modelScale) {
+          mesh.modelScale.x = sScale;
+          mesh.modelScale.y = sScale;
+          mesh.modelScale.z = sScale;
+        }
+        mesh.hideCCW = false;
+        mesh.ignoreDirtyCache = true;
         if (typeof mesh.preUpdate === 'function') mesh.preUpdate();
+        mesh.ignoreDirtyCache = false;
       }
       if (pack.syncProps) pack.syncProps();
+      updateCamHud();
     } catch (_) {}
   }
   function applyCam() {
+
     updateCamHud();
     if (current.name === 'three') applyThreeCam();
     else if (current.name === 'babylon') applyBabylonCam();
     else if (current.name === 'phaser') applyPhaserCam();
   }
   function nudgeTilt(d) {
-    camTilt = Math.max(TILT_MIN, Math.min(TILT_MAX, camTilt + d));
+    var step = d;
+    if (current.name === 'phaser') {
+      // инверсия относительно старого бага: Q → к горизонту, E → сверху
+      // parent шлёт Q=-3, E=+3; для Phaser оставляем как Three: Q уменьшает %
+      if (Math.abs(d) <= TILT_STEP) step = d < 0 ? -5 : 5;
+    }
+    camTilt = Math.max(TILT_MIN, Math.min(TILT_MAX, camTilt + step));
+    if (current.name === 'phaser') camZoom = phaserZoomClamp(camZoom, camTilt);
     applyCam();
   }
   function nudgeYaw(d) {
-    camYaw = wrapYaw(camYaw + d);
+    var step = d;
+    if (current.name === 'phaser' && Math.abs(d) <= YAW_STEP) step = d < 0 ? -8 : 8;
+    camYaw = wrapYaw(camYaw + step);
     applyCam();
   }
   function nudgeZoom(factor) {
-    // Phaser: мягкий зум дистанцией — без шторки и без гигантских полигонов
-    var minZ = (current.name === 'phaser') ? 0.92 : MIN_ZOOM;
-    var maxZ = (current.name === 'phaser') ? 1.7 : MAX_ZOOM;
+    var minZ = (current.name === 'phaser') ? 0.48 : MIN_ZOOM;
+    var maxZ = (current.name === 'phaser') ? phaserZoomClamp(99, camTilt) : MAX_ZOOM;
     camZoom = Math.max(minZ, Math.min(maxZ, camZoom * factor));
+    if (current.name === 'phaser') camZoom = phaserZoomClamp(camZoom, camTilt);
     applyCam();
   }
   function pointInRing(lon, lat, ring) {
@@ -292,189 +440,414 @@
     return false;
   }
 
-  /** Концептуальная высота Альп (1…25) по ТЗ + пики-валенты + микрорельеф. */
-  function alpineBandZ(lon, lat) {
-    var z = 0;
-    // Высокие Альпы
-    if (lat > 45.0 && lat < 47.0 && lon > 6.0 && lon < 13.5) z = 25;
-    // Пеннинские / центральные
-    else if (lat > 43.0 && lat < 45.0 && lon > 9.0 && lon < 13.0) z = 15;
-    // Приморские Альпы
-    else if (lat > 43.0 && lat < 44.0 && lon > 7.0 && lon < 9.0) z = 12;
-    // Долина По / равнины севера (по смыслу ТЗ; lat<43+lon<13 иначе сплющит весь юг)
-    else if (lat >= 44.15 && lat <= 45.35 && lon >= 7.4 && lon <= 12.4) z = 1;
-    else return 0;
-
-    // Валентные вершины: (45.5,9.5), (45.5,11.0), (45.0,7.5)
-    var peaks = [[9.5, 45.5], [11.0, 45.5], [7.5, 45.0]];
-    var pi, dlon, dlat, d2, boost;
-    for (pi = 0; pi < peaks.length; pi++) {
-      dlon = (lon - peaks[pi][0]) / 0.55;
-      dlat = (lat - peaks[pi][1]) / 0.4;
-      d2 = dlon * dlon + dlat * dlat;
-      if (d2 < 1) {
-        boost = (1 - d2) * (1 - d2);
-        z = Math.max(z, z * 0.72 + 25 * boost + z * (1 - boost) * 0.28);
-      }
-    }
-    // зубчатый микрорельеф хребтов (не плоская «полка»)
-    if (z >= 12) {
-      var ridge =
-        Math.sin(lon * 9.3 + lat * 4.1) * 0.5 +
-        Math.sin(lon * 17.7 - lat * 11.2) * 0.35 +
-        Math.cos(lon * 5.4 + lat * 8.8) * 0.25;
-      var keep = Math.max(0, ridge);
-      if (z >= 20) z = z * (0.78 + keep * 0.32) + keep * 3.2;
-      else z = z * (0.86 + keep * 0.22) + keep * 1.6;
-    }
-    // лёгкий спуск к югу внутри альпийской зоны
-    if (z > 1 && lat < 45.2) z *= 0.82 + Math.max(0, (lat - 44.0) / 1.2) * 0.18;
-    return Math.max(1, Math.min(28, z));
-  }
-
-  /** Миры: DEM + альпийский слой. Z≈25 → ~22 world Y. */
+  /** Мягкий RTW-рельеф: равнины почти плоские, горы низкие и без шпилей. */
   function heightAt(lon, lat) {
-    var demM = 0;
+    var m = 0;
     if (window.ItalyDEM && ItalyDEM.ready()) {
-      demM = ItalyDEM.meters(lon, lat) || 0;
-      if (!(demM > 8) && !inItaly(lon, lat)) return 0;
+      m = ItalyDEM.meters(lon, lat) || 0;
+      if (!(m > 8) && !inItaly(lon, lat)) return 0;
     } else if (!inItaly(lon, lat)) {
       return 0;
     }
-
-    var az = alpineBandZ(lon, lat);
-    if (az > 0) {
-      // база от концептуальной высоты + деталь DEM
-      var base = 0.35 + (az / 25) * 21.5;
-      var demBoost = demM > 8 ? Math.pow(Math.min(1, demM / 3200), 0.55) * 4.8 : 0;
-      // равнины По остаются низкими
-      if (az <= 2) return 0.25 + demBoost * 0.15;
-      return base + demBoost;
+    if (!(m > 8)) {
+      if (inItaly(lon, lat)) return 0.08;
+      return 0;
     }
-
-    if (demM > 8) return 0.2 + demM / 4800 * 16.2;
-    var h = 0.4;
-    var ax = 9.0, ay = 44.4, bx = 16.4, by = 39.0;
-    var dx = bx - ax, dy = by - ay, l2 = dx * dx + dy * dy;
-    var t = Math.max(0, Math.min(1, ((lon - ax) * dx + (lat - ay) * dy) / l2));
-    var px = ax + dx * t, py = ay + dy * t;
-    var d = Math.sqrt((lon - px) * (lon - px) + (lat - py) * (lat - py));
-    if (d < 1.15) h = Math.max(h, 0.4 + 4.2 * (1 - d / 1.15));
-    return h;
+    // сильное сжатие высоких зон — Альпы читаются, но не режут кадр
+    var t = Math.min(1, m / 3600);
+    var y = 0.12 + Math.pow(t, 1.35) * 4.6;
+    return Math.min(5.2, y);
   }
 
-  function alpineColorRGB(z, demM) {
-    // Высоты по шкале ТЗ / смешанной DEM
-    var h = z > 0 ? z : (demM > 8 ? demM / 120 : 1);
-    if (h > 20) {
-      // Stein-Granit → снег
-      var t = Math.min(1, (h - 20) / 8);
-      return [
-        Math.round(168 + t * 72),
-        Math.round(166 + t * 70),
-        Math.round(158 + t * 78)
-      ];
+  /** Более объёмный рельеф для Babylon 3D (карта иначе выглядит плоской). */
+  function heightAtBabylon(lon, lat) {
+    var m = 0;
+    if (window.ItalyDEM && ItalyDEM.ready()) {
+      m = ItalyDEM.meters(lon, lat) || 0;
+      if (!(m > 8) && !inItaly(lon, lat)) return 0;
+    } else if (!inItaly(lon, lat)) {
+      return 0;
     }
-    if (h > 15) {
-      // плотный горный лес dunkelgrün
-      var t2 = (h - 15) / 5;
-      return [
-        Math.round(42 + t2 * 28),
-        Math.round(72 + t2 * 18),
-        Math.round(38 + t2 * 12)
-      ];
+    if (!(m > 8)) {
+      if (inItaly(lon, lat)) return 0.12;
+      return 0;
     }
-    if (h > 10) {
-      // Buntwald dunkelgrün + braun
-      var t3 = (h - 10) / 5;
-      return [
-        Math.round(78 + t3 * 20),
-        Math.round(86 - t3 * 10),
-        Math.round(48 + t3 * 6)
-      ];
-    }
-    if (h > 1) {
-      // dunkelbeige равнина
-      var t4 = (h - 1) / 9;
-      return [
-        Math.round(168 - t4 * 40),
-        Math.round(148 - t4 * 28),
-        Math.round(98 - t4 * 18)
-      ];
-    }
-    // olive-green суша
-    return [139, 168, 136];
+    var t = Math.min(1, m / 3000);
+    return Math.min(16.5, 0.28 + Math.pow(t, 1.12) * 15.2);
   }
 
-  /** Текстура суши с альпийской палитрой Total War. */
-  function paintAlpineGeo(w, h, box, seaHex) {
+  /** Сгладить высоты меша (убирает игольчатые пики DEM). */
+  function smoothMeshHeights(positions, cols, rows, passes) {
+    if (!positions || !positions.length || !(cols > 1) || !(rows > 1)) return;
+    passes = passes || 2;
+    var stride = cols + 1;
+    var n = stride * (rows + 1);
+    var i, p, x, z, idx, sum, w, dx, dz, nx, nz, nidx;
+    for (p = 0; p < passes; p++) {
+      var next = new Float32Array(n);
+      for (z = 0; z <= rows; z++) {
+        for (x = 0; x <= cols; x++) {
+          idx = z * stride + x;
+          sum = positions[idx * 3 + 1];
+          w = 1;
+          for (dz = -1; dz <= 1; dz++) {
+            for (dx = -1; dx <= 1; dx++) {
+              if (!dx && !dz) continue;
+              nx = x + dx;
+              nz = z + dz;
+              if (nx < 0 || nz < 0 || nx > cols || nz > rows) continue;
+              nidx = nz * stride + nx;
+              sum += positions[nidx * 3 + 1];
+              w++;
+            }
+          }
+          next[idx] = sum / w;
+        }
+      }
+      for (i = 0; i < n; i++) positions[i * 3 + 1] = next[i];
+    }
+  }
+
+  function demM(lon, lat) {
+    if (!(window.ItalyDEM && ItalyDEM.ready())) return inItaly(lon, lat) ? 120 : 0;
+    var m = ItalyDEM.meters(lon, lat);
+    return m == null ? 0 : m;
+  }
+
+  function isLandCell(lon, lat) {
+    return demM(lon, lat) > 8 || inItaly(lon, lat);
+  }
+
+  function lonLatToWorld(lon, lat, lift) {
+    var p = xz(lon, lat);
+    return new THREE.Vector3(p.x, heightAt(lon, lat) + (lift == null ? 0.12 : lift), p.z);
+  }
+
+  function addTubeStrip(scene, pts, color, radius, opacity) {
+    if (!pts || pts.length < 2) return;
+    var curve = new THREE.CatmullRomCurve3(pts);
+    var geo = new THREE.TubeGeometry(curve, Math.max(8, pts.length * 2), radius || 0.22, 5, false);
+    var mat = new THREE.MeshBasicMaterial({
+      color: color, transparent: true, opacity: opacity == null ? 0.92 : opacity, depthWrite: false
+    });
+    var mesh = new THREE.Mesh(geo, mat);
+    mesh.renderOrder = 4;
+    scene.add(mesh);
+  }
+
+  /** Границы провинций кампании — как на виде 13. */
+  function addCampaignBorders(scene) {
+    var PROVS = window.View14Provinces || [];
+    var FACS = window.View14Factions || {};
+    var box = (window.ItalyDEM && ItalyDEM.bbox) ? ItalyDEM.bbox.slice() : [6.4, 36.2, 18.9, 47.4];
+    var seeds = [];
+    PROVS.forEach(function (pr) {
+      if (pr.hidden || !pr.city) return;
+      seeds.push({ lon: pr.lon, lat: pr.lat, faction: pr.faction });
+    });
+    if (seeds.length < 2) return;
+
+    function nearestTwo(lon, lat) {
+      var a = -1, b = -1, da = 1e9, db = 1e9, s, d, dlon, dlat;
+      for (s = 0; s < seeds.length; s++) {
+        dlon = (lon - seeds[s].lon) * 0.72;
+        dlat = lat - seeds[s].lat;
+        d = dlon * dlon + dlat * dlat;
+        if (d < da) { db = da; b = a; da = d; a = s; }
+        else if (d < db) { db = d; b = s; }
+      }
+      return { a: a, b: b, da: Math.sqrt(da), db: Math.sqrt(db) };
+    }
+
+    function chaikin(pts, iterations) {
+      var cur = pts, it, next, i, a, b;
+      for (it = 0; it < iterations; it++) {
+        if (cur.length < 2) break;
+        next = [cur[0]];
+        for (i = 0; i < cur.length - 1; i++) {
+          a = cur[i]; b = cur[i + 1];
+          next.push({ lon: a.lon * 0.75 + b.lon * 0.25, lat: a.lat * 0.75 + b.lat * 0.25 });
+          next.push({ lon: a.lon * 0.25 + b.lon * 0.75, lat: a.lat * 0.25 + b.lat * 0.75 });
+        }
+        next.push(cur[cur.length - 1]);
+        cur = next;
+      }
+      return cur;
+    }
+
+    function sampleBisector(sa, sb) {
+      var A = seeds[sa], B = seeds[sb];
+      var midLon = (A.lon + B.lon) * 0.5, midLat = (A.lat + B.lat) * 0.5;
+      var dx = (B.lon - A.lon) * 0.72, dy = B.lat - A.lat;
+      var len = Math.sqrt(dx * dx + dy * dy) || 1;
+      var px = (-dy / len) / 0.72, py = dx / len;
+      var maxT = Math.max(2.0, len * 2.6), dt = 0.05;
+      var raw = [], t, lon, lat, nn, lo, hi;
+      for (t = -maxT; t <= maxT; t += dt) {
+        lon = midLon + px * t;
+        lat = midLat + py * t;
+        if (lon < box[0] - 0.15 || lon > box[2] + 0.15 || lat < box[1] - 0.15 || lat > box[3] + 0.15) continue;
+        if (!isLandCell(lon, lat) || demM(lon, lat) > 1600) {
+          if (raw.length && raw[raw.length - 1] !== null) raw.push(null);
+          continue;
+        }
+        nn = nearestTwo(lon, lat);
+        lo = Math.min(nn.a, nn.b); hi = Math.max(nn.a, nn.b);
+        if (lo !== Math.min(sa, sb) || hi !== Math.max(sa, sb) || Math.abs(nn.db - nn.da) > 0.12) {
+          if (raw.length && raw[raw.length - 1] !== null) raw.push(null);
+          continue;
+        }
+        raw.push({ lon: lon, lat: lat });
+      }
+      var segs = [], cur = [];
+      raw.forEach(function (p) {
+        if (!p) { if (cur.length >= 4) segs.push(cur); cur = []; }
+        else cur.push(p);
+      });
+      if (cur.length >= 4) segs.push(cur);
+      return segs;
+    }
+
+    function refine(seg) {
+      if (seg.length < 3) return [];
+      var thinned = [seg[0]], i, prev = seg[0], dlon, dlat, d;
+      for (i = 1; i < seg.length; i++) {
+        dlon = (seg[i].lon - prev.lon) * 0.72;
+        dlat = seg[i].lat - prev.lat;
+        d = Math.sqrt(dlon * dlon + dlat * dlat);
+        if (d >= 0.08 || i === seg.length - 1) {
+          thinned.push(seg[i]);
+          prev = seg[i];
+        }
+      }
+      if (thinned.length < 3) return [];
+      var smooth = chaikin(thinned, 2);
+      var world = [];
+      for (i = 0; i < smooth.length; i++) {
+        if (!isLandCell(smooth[i].lon, smooth[i].lat)) continue;
+        world.push({ lon: smooth[i].lon, lat: smooth[i].lat });
+      }
+      if (world.length < 3) return [];
+      var dense = [], j, t, lon, lat;
+      for (i = 0; i < world.length - 1; i++) {
+        dense.push(lonLatToWorld(world[i].lon, world[i].lat, 0.16));
+        for (j = 1; j <= 2; j++) {
+          t = j / 3;
+          lon = world[i].lon + (world[i + 1].lon - world[i].lon) * t;
+          lat = world[i].lat + (world[i + 1].lat - world[i].lat) * t;
+          if (!isLandCell(lon, lat)) continue;
+          dense.push(lonLatToWorld(lon, lat, 0.16));
+        }
+      }
+      dense.push(lonLatToWorld(world[world.length - 1].lon, world[world.length - 1].lat, 0.16));
+      return dense.length >= 3 ? dense : [];
+    }
+
+    function factionHex(fid) {
+      var f = FACS[fid];
+      if (f && f.border) return new THREE.Color(f.border).getHex();
+      if (fid === 'carthage') return 0xf2efe6;
+      if (fid === 'greek') return 0xd4a830;
+      return 0xc42828;
+    }
+
+    var i, j, segs, si, pts, same, colA, colB;
+    for (i = 0; i < seeds.length; i++) {
+      for (j = i + 1; j < seeds.length; j++) {
+        segs = sampleBisector(i, j);
+        same = seeds[i].faction === seeds[j].faction;
+        colA = factionHex(seeds[i].faction);
+        colB = factionHex(seeds[j].faction);
+        for (si = 0; si < segs.length; si++) {
+          pts = refine(segs[si]);
+          if (pts.length < 3) continue;
+          if (same) addTubeStrip(scene, pts, colA, 0.32, 0.9);
+          else {
+            addTubeStrip(scene, pts, colA, 0.14, 0.92);
+            addTubeStrip(scene, pts.map(function (v, idx) {
+              var n = pts[Math.min(pts.length - 1, idx + 1)] || v;
+              var dx = n.x - v.x, dz = n.z - v.z;
+              var len = Math.sqrt(dx * dx + dz * dz) || 1;
+              return new THREE.Vector3(v.x - dz / len * 0.26, v.y, v.z + dx / len * 0.26);
+            }), colB, 0.14, 0.92);
+          }
+        }
+      }
+    }
+  }
+
+  /** Границы провинций для Babylon — те же полосы, что addCampaignBorders. */
+  function addCampaignBordersBabylon(scene) {
+    var PROVS = window.View14Provinces || [];
+    var FACS = window.View14Factions || {};
+    var box = (window.ItalyDEM && ItalyDEM.bbox) ? ItalyDEM.bbox.slice() : [6.4, 36.2, 18.9, 47.4];
+    var seeds = [];
+    PROVS.forEach(function (pr) {
+      if (pr.hidden || !pr.city) return;
+      seeds.push({ lon: pr.lon, lat: pr.lat, faction: pr.faction });
+    });
+    if (seeds.length < 2) return;
+
+    function nearestTwo(lon, lat) {
+      var a = -1, b = -1, da = 1e9, db = 1e9, s, d, dlon, dlat;
+      for (s = 0; s < seeds.length; s++) {
+        dlon = (lon - seeds[s].lon) * 0.72;
+        dlat = lat - seeds[s].lat;
+        d = dlon * dlon + dlat * dlat;
+        if (d < da) { db = da; b = a; da = d; a = s; }
+        else if (d < db) { db = d; b = s; }
+      }
+      return { a: a, b: b, da: Math.sqrt(da), db: Math.sqrt(db) };
+    }
+    function chaikin(pts, iterations) {
+      var cur = pts, it, next, i, a, b;
+      for (it = 0; it < iterations; it++) {
+        if (cur.length < 2) break;
+        next = [cur[0]];
+        for (i = 0; i < cur.length - 1; i++) {
+          a = cur[i]; b = cur[i + 1];
+          next.push({ lon: a.lon * 0.75 + b.lon * 0.25, lat: a.lat * 0.75 + b.lat * 0.25 });
+          next.push({ lon: a.lon * 0.25 + b.lon * 0.75, lat: a.lat * 0.25 + b.lat * 0.75 });
+        }
+        next.push(cur[cur.length - 1]);
+        cur = next;
+      }
+      return cur;
+    }
+    function toV3(lon, lat, lift) {
+      var p = xz(lon, lat);
+      return new BABYLON.Vector3(p.x, heightAtBabylon(lon, lat) + (lift == null ? 0.14 : lift), p.z);
+    }
+    function sampleBisector(sa, sb) {
+      var A = seeds[sa], B = seeds[sb];
+      var midLon = (A.lon + B.lon) * 0.5, midLat = (A.lat + B.lat) * 0.5;
+      var dx = (B.lon - A.lon) * 0.72, dy = B.lat - A.lat;
+      var len = Math.sqrt(dx * dx + dy * dy) || 1;
+      var px = (-dy / len) / 0.72, py = dx / len;
+      var maxT = Math.max(2.2, len * 2.8), dt = 0.04;
+      var raw = [], t, lon, lat, nn, lo, hi;
+      for (t = -maxT; t <= maxT; t += dt) {
+        lon = midLon + px * t;
+        lat = midLat + py * t;
+        if (lon < box[0] - 0.15 || lon > box[2] + 0.15 || lat < box[1] - 0.15 || lat > box[3] + 0.15) continue;
+        if (!isLandCell(lon, lat) || demM(lon, lat) > 1600) {
+          if (raw.length && raw[raw.length - 1] !== null) raw.push(null);
+          continue;
+        }
+        nn = nearestTwo(lon, lat);
+        lo = Math.min(nn.a, nn.b); hi = Math.max(nn.a, nn.b);
+        if (lo !== Math.min(sa, sb) || hi !== Math.max(sa, sb) || Math.abs(nn.db - nn.da) > 0.16) {
+          if (raw.length && raw[raw.length - 1] !== null) raw.push(null);
+          continue;
+        }
+        raw.push({ lon: lon, lat: lat });
+      }
+      var segs = [], cur = [];
+      raw.forEach(function (p) {
+        if (!p) { if (cur.length >= 4) segs.push(cur); cur = []; }
+        else cur.push(p);
+      });
+      if (cur.length >= 4) segs.push(cur);
+      return segs;
+    }
+    function refine(seg) {
+      if (seg.length < 3) return [];
+      var thinned = [seg[0]], i, prev = seg[0], dlon, dlat, d;
+      for (i = 1; i < seg.length; i++) {
+        dlon = (seg[i].lon - prev.lon) * 0.72;
+        dlat = seg[i].lat - prev.lat;
+        d = Math.sqrt(dlon * dlon + dlat * dlat);
+        if (d >= 0.07 || i === seg.length - 1) {
+          thinned.push(seg[i]);
+          prev = seg[i];
+        }
+      }
+      if (thinned.length < 3) return [];
+      var smooth = chaikin(thinned, 3);
+      var world = [];
+      for (i = 0; i < smooth.length; i++) {
+        if (!isLandCell(smooth[i].lon, smooth[i].lat)) continue;
+        world.push(smooth[i]);
+      }
+      if (world.length < 3) return [];
+      var dense = [], j, t, lon, lat;
+      for (i = 0; i < world.length - 1; i++) {
+        dense.push(toV3(world[i].lon, world[i].lat, 0.14));
+        for (j = 1; j <= 2; j++) {
+          t = j / 3;
+          lon = world[i].lon + (world[i + 1].lon - world[i].lon) * t;
+          lat = world[i].lat + (world[i + 1].lat - world[i].lat) * t;
+          if (!isLandCell(lon, lat)) continue;
+          dense.push(toV3(lon, lat, 0.14));
+        }
+      }
+      dense.push(toV3(world[world.length - 1].lon, world[world.length - 1].lat, 0.14));
+      return dense.length >= 3 ? dense : [];
+    }
+    function factionColor(fid) {
+      var f = FACS[fid];
+      var hex = (f && f.border) ? f.border : (fid === 'carthage' ? '#f2efe6' : (fid === 'greek' ? '#d4a830' : '#c42828'));
+      return BABYLON.Color3.FromHexString(hex.length === 7 ? hex : '#c42828');
+    }
+    function addTube(pts, color, radius) {
+      if (!pts || pts.length < 3) return;
+      var tube = BABYLON.MeshBuilder.CreateTube('provBorder', {
+        path: pts,
+        radius: radius || 0.28,
+        tessellation: 6,
+        cap: BABYLON.Mesh.CAP_ALL
+      }, scene);
+      var mat = new BABYLON.StandardMaterial('bordMat', scene);
+      mat.diffuseColor = color;
+      mat.emissiveColor = color.scale(0.35);
+      mat.specularColor = new BABYLON.Color3(0.05, 0.05, 0.05);
+      mat.disableLighting = false;
+      tube.material = mat;
+      tube.isPickable = false;
+      tube.renderingGroupId = 1;
+    }
+    var i, j, segs, si, pts, same, colA, colB;
+    for (i = 0; i < seeds.length; i++) {
+      for (j = i + 1; j < seeds.length; j++) {
+        segs = sampleBisector(i, j);
+        same = seeds[i].faction === seeds[j].faction;
+        colA = factionColor(seeds[i].faction);
+        colB = factionColor(seeds[j].faction);
+        for (si = 0; si < segs.length; si++) {
+          pts = refine(segs[si]);
+          if (pts.length < 3) continue;
+          if (same) addTube(pts, colA, 0.3);
+          else {
+            addTube(pts, colA, 0.18);
+            addTube(pts.map(function (v, idx) {
+              var n = pts[Math.min(pts.length - 1, idx + 1)] || v;
+              var dx = n.x - v.x, dz = n.z - v.z;
+              var len = Math.sqrt(dx * dx + dz * dz) || 1;
+              return new BABYLON.Vector3(v.x - dz / len * 0.28, v.y, v.z + dx / len * 0.28);
+            }), colB, 0.18);
+          }
+        }
+      }
+    }
+  }
+
+  /** Текстура суши по DEM (как вид 13 / Rome Total War). */
+  function paintLandGeo(w, h, box, seaHex) {
     box = box || [6.4, 36.2, 18.9, 47.4];
+    if (window.ItalyDEM && ItalyDEM.ready() && ItalyDEM.paintGeo) {
+      return ItalyDEM.paintGeo(w, h, box, { sea: seaHex || '#1a5568' });
+    }
     var c = document.createElement('canvas');
     c.width = w;
     c.height = h;
     var g = c.getContext('2d');
-    g.fillStyle = seaHex || '#1a4e60';
+    g.fillStyle = seaHex || '#1a5568';
     g.fillRect(0, 0, w, h);
-    var img = g.getImageData(0, 0, w, h);
-    var px = img.data;
-    var elev = new Float32Array(w * h);
-    var i, x, y, lon, lat, demM, az, col, shade, mx, my, nx, ny, nlen;
-    for (y = 0; y < h; y++) {
-      lat = box[3] - y / Math.max(1, h - 1) * (box[3] - box[1]);
-      for (x = 0; x < w; x++) {
-        lon = box[0] + x / Math.max(1, w - 1) * (box[2] - box[0]);
-        demM = (window.ItalyDEM && ItalyDEM.ready()) ? (ItalyDEM.meters(lon, lat) || 0) : 0;
-        az = alpineBandZ(lon, lat);
-        if (demM > 6 || az > 0 || inItaly(lon, lat)) {
-          elev[y * w + x] = az > 0 ? az * 120 : demM;
-        } else {
-          elev[y * w + x] = 0;
-        }
-      }
-    }
-    for (y = 0; y < h; y++) {
-      lat = box[3] - y / Math.max(1, h - 1) * (box[3] - box[1]);
-      for (x = 0; x < w; x++) {
-        lon = box[0] + x / Math.max(1, w - 1) * (box[2] - box[0]);
-        i = (y * w + x) * 4;
-        demM = elev[y * w + x];
-        if (!(demM > 4)) {
-          px[i] = 26; px[i + 1] = 78; px[i + 2] = 96; px[i + 3] = 255;
-          continue;
-        }
-        az = alpineBandZ(lon, lat);
-        col = alpineColorRGB(az, demM);
-        // лёгкая база olive #8ba888
-        if (az <= 0 && demM < 400) {
-          col = [
-            Math.round(col[0] * 0.45 + 139 * 0.55),
-            Math.round(col[1] * 0.45 + 168 * 0.55),
-            Math.round(col[2] * 0.45 + 136 * 0.55)
-          ];
-        }
-        mx = x + 1 < w ? elev[y * w + x + 1] : demM;
-        my = y + 1 < h ? elev[(y + 1) * w + x] : demM;
-        nx = demM - mx;
-        ny = demM - my;
-        nlen = Math.sqrt(nx * nx + ny * ny + 120 * 120) || 1;
-        // мягкий свет с юга (~45°)
-        shade = Math.max(0.58, Math.min(1.35, (nx * 0.35 + ny * 0.55 + 120) / nlen * 1.42));
-        // снежные шапки
-        if (az > 20 || demM > 2400) {
-          var snow = Math.min(1, ((az > 20 ? az : demM / 120) - 20) / 6);
-          col[0] = Math.round(col[0] * (1 - snow) + 236 * snow);
-          col[1] = Math.round(col[1] * (1 - snow) + 238 * snow);
-          col[2] = Math.round(col[2] * (1 - snow) + 242 * snow);
-          shade = Math.max(shade, 1.05);
-        }
-        px[i] = Math.max(0, Math.min(255, col[0] * shade));
-        px[i + 1] = Math.max(0, Math.min(255, col[1] * shade));
-        px[i + 2] = Math.max(0, Math.min(255, col[2] * shade));
-        px[i + 3] = 255;
-      }
-    }
-    g.putImageData(img, 0, 0);
     return c;
+  }
+  // совместимость со старыми вызовами
+  function paintAlpineGeo(w, h, box, seaHex) {
+    return paintLandGeo(w, h, box, seaHex);
   }
 
   function onLand(lon, lat) {
@@ -549,28 +922,30 @@
     var positions = [];
     var uvs = [];
     var indices = [];
+    var cols = 400, rows = 460;
     if (window.ItalyDEM && ItalyDEM.ready() && ItalyDEM.buildHeightMesh) {
       var meshData = ItalyDEM.buildHeightMesh({
         box: box,
-        cols: 360,
-        rows: 420,
+        cols: cols,
+        rows: rows,
         sea: 8,
-        coastY: 0.04,
+        coastY: 0.05,
         toXZ: xz,
-        height: function (lon, lat, m) { return heightAt(lon, lat); }
+        height: function (lon, lat, m) { return heightAtBabylon(lon, lat); }
       });
+      smoothMeshHeights(meshData.positions, cols, rows, 1);
       positions = meshData.positions;
       uvs = meshData.uvs;
       indices = meshData.indices;
     } else {
-      var cols = 220, rows = 260, i, j, lon, lat, on, p, a, b, cIdx, d;
+      var i, j, lon, lat, on, p, a, b, cIdx, d;
       for (j = 0; j <= rows; j++) {
         for (i = 0; i <= cols; i++) {
           lon = box[0] + (box[2] - box[0]) * i / cols;
           lat = box[3] - (box[3] - box[1]) * j / rows;
           on = onLand(lon, lat);
           p = xz(lon, lat);
-          positions.push(p.x, on ? heightAt(lon, lat) : 0, p.z);
+          positions.push(p.x, on ? heightAtBabylon(lon, lat) : 0, p.z);
           uvs.push(i / cols, 1 - j / rows);
         }
       }
@@ -594,23 +969,23 @@
     vd.normals = normals;
     vd.applyToMesh(mesh, true);
     var mat = new BABYLON.StandardMaterial('land', scene);
-    mat.specularColor = new BABYLON.Color3(0.18, 0.18, 0.16);
-    mat.specularPower = 24;
-    // светло-серый Piedmont / Kalkstein для высоких зон
-    mat.emissiveColor = new BABYLON.Color3(0.1, 0.11, 0.1);
+    mat.specularColor = new BABYLON.Color3(0.08, 0.08, 0.07);
+    mat.specularPower = 16;
+    mat.emissiveColor = new BABYLON.Color3(0.18, 0.2, 0.16);
+    mat.ambientColor = new BABYLON.Color3(0.55, 0.58, 0.5);
     mat.backFaceCulling = false;
-    var geoCanvas = paintAlpineGeo(2048, 2048, box, '#1a4e60');
+    var geoCanvas = paintAlpineGeo(2048, 2048, box, '#1a5568');
     if (geoCanvas) {
       var dyn = new BABYLON.DynamicTexture('italyGeo', { width: geoCanvas.width, height: geoCanvas.height }, scene, false);
       dyn.getContext().drawImage(geoCanvas, 0, 0);
       dyn.update();
       dyn.wrapU = BABYLON.Texture.CLAMP_ADDRESSMODE;
       dyn.wrapV = BABYLON.Texture.CLAMP_ADDRESSMODE;
-      dyn.vScale = -1;
-      dyn.vOffset = 1;
       mat.diffuseTexture = dyn;
+      mat.emissiveTexture = dyn;
+      mat.useEmissiveAsIllumination = true;
     } else {
-      mat.diffuseColor = new BABYLON.Color3(0.42, 0.5, 0.32);
+      mat.diffuseColor = new BABYLON.Color3(0.48, 0.56, 0.36);
     }
     mesh.material = mat;
     mesh.receiveShadows = true;
@@ -817,13 +1192,14 @@
     if (window.ItalyDEM && ItalyDEM.ready() && ItalyDEM.buildHeightMesh) {
       meshData = ItalyDEM.buildHeightMesh({
         box: box,
-        cols: 420,
-        rows: 480,
+        cols: 360,
+        rows: 400,
         sea: 8,
         coastY: 0.04,
         toXZ: xz,
         height: function (lon, lat, m) { return heightAt(lon, lat); }
       });
+      smoothMeshHeights(meshData.positions, 360, 400, 3);
     } else {
       meshData = { positions: [], uvs: [], indices: [] };
       var cols = 220, rows = 260, i, j, lon, lat, on, p, a, b, cIdx, d, n;
@@ -847,22 +1223,23 @@
           meshData.indices.push(a, cIdx, b, b, cIdx, d);
         }
       }
+      smoothMeshHeights(meshData.positions, cols, rows, 3);
     }
     var landGeo = new THREE.BufferGeometry();
     landGeo.setAttribute('position', new THREE.Float32BufferAttribute(meshData.positions, 3));
     landGeo.setAttribute('uv', new THREE.Float32BufferAttribute(meshData.uvs, 2));
     landGeo.setIndex(meshData.indices);
     landGeo.computeVertexNormals();
-    var geoCanvas = paintAlpineGeo(2048, 2048, box, '#1a4e60');
+    var geoCanvas = paintLandGeo(1536, 1536, box, '#1a5568');
     var tex = new THREE.Texture(geoCanvas);
     tex.needsUpdate = true;
     tex.generateMipmaps = true;
     tex.minFilter = THREE.LinearMipmapLinearFilter || THREE.LinearFilter;
     tex.magFilter = THREE.LinearFilter;
-    var landMat = new THREE.MeshStandardMaterial({
+    var landMat = new THREE.MeshPhongMaterial({
       map: tex,
-      roughness: 0.9,
-      metalness: 0.03
+      shininess: 4,
+      specular: 0x11110c
     });
     var landMesh = new THREE.Mesh(landGeo, landMat);
     landMesh.receiveShadow = true;
@@ -870,30 +1247,7 @@
     landMesh.name = 'italyLand';
     scene.add(landMesh);
 
-    // обводка снежных пиков (тонкий snow-cap слой на самых высоких вершинах)
-    (function addSnowCaps() {
-      var peakLon = [9.5, 11.0, 7.5, 10.2, 12.1];
-      var peakLat = [45.5, 45.5, 45.0, 46.1, 45.8];
-      var snowMat = new THREE.MeshStandardMaterial({
-        color: 0xf2f4f6,
-        roughness: 0.72,
-        metalness: 0.02,
-        emissive: 0x1a1e22,
-        emissiveIntensity: 0.08
-      });
-      var k, pl, pt, hy;
-      for (k = 0; k < peakLon.length; k++) {
-        pl = peakLon[k];
-        pt = peakLat[k];
-        if (!onLand(pl, pt) && !(window.ItalyDEM && ItalyDEM.ready() && ItalyDEM.meters(pl, pt) > 200)) continue;
-        hy = heightAt(pl, pt);
-        var cap = new THREE.Mesh(new THREE.ConeGeometry(1.35 + k * 0.15, 2.4, 7), snowMat);
-        var pp = xz(pl, pt);
-        cap.position.set(pp.x, hy + 0.9, pp.z);
-        cap.castShadow = true;
-        scene.add(cap);
-      }
-    })();
+    addCampaignBorders(scene);
 
     var cityMarks = [];
     var cityRay = new THREE.Raycaster();
@@ -1127,7 +1481,7 @@
     }
 
     if (window.WalkUnitThree && WalkUnitThree.mountPair) {
-      var fieldArmyId = 'field_near_rome';
+      var fieldArmyId = 'field_rome_1';
       var armyStart = rome;
       try {
         var CS0 = Bridge && Bridge.parentCS ? Bridge.parentCS() : (window.parent && window.parent.CampaignState);
@@ -1185,7 +1539,16 @@
           t.y += (y - t.y) * 0.06;
           t.z += (z - t.z) * 0.06;
         },
-        onBattle: showBattleDialog,
+        onBattle: function () {
+          if (window.BattleMapHook) {
+            BattleMapHook.showBattleDialog({
+              getPair: function () { return units; },
+              getHeight: function (x, z) { return heightAt(x / SCALE + CX, CY - z / SCALE); },
+              SCALE: SCALE, CX: CX, CY: CY, hover: 0.5, onStatus: setStatus
+            });
+          } else showBattleDialog();
+        },
+        onNpcInspect: function () { if (window.BattleSystem) BattleSystem.inspectCarthageArmy(); },
         onStatus: setStatus
       });
       walker = units.player;
@@ -1241,7 +1604,18 @@
       var c = centroids();
       var dx = c.bc.x - c.rc.x, dz = c.bc.z - c.rc.z;
       var distG = Math.sqrt(dx * dx + dz * dz);
-      if (distG < 14) fighting = true;
+      if (distG < 14) {
+        if (!fighting) {
+          if (window.BattleMapHook) {
+            BattleMapHook.showBattleDialog({
+              getPair: function () { return units; },
+              getHeight: function (x, z) { return heightAt(x / SCALE + CX, CY - z / SCALE); },
+              SCALE: SCALE, CX: CX, CY: CY, hover: 0.5, onStatus: setStatus
+            });
+          } else showBattleDialog();
+        }
+        fighting = true;
+      }
       if (!fighting) {
         var nx = dx / (distG || 1), nz = dz / (distG || 1);
         var sp = 0.09;
@@ -1263,7 +1637,7 @@
     resetArmies();
     applyCam();
     tick();
-    setStatus('Three.js 3D · клик солдата, затем карта · колесо — зум · Q/E — наклон');
+    setStatus('Three.js 3D · провинции · DEM-рельеф · колесо — зум · Q/E — наклон');
   }
 
   function loadScript(src) {
@@ -1308,51 +1682,69 @@
     var pack = makeCanvas();
     var engineB = new BABYLON.Engine(pack.el, true, { preserveDrawingBuffer: true, stencil: true });
     var scene = new BABYLON.Scene(engineB);
-    scene.clearColor = new BABYLON.Color4(0.1, 0.3, 0.38, 1);
+    // Babylon по умолчанию LH — зеркалит карту относительно Three; включаем RH
+    scene.useRightHandedSystem = true;
+    scene.clearColor = new BABYLON.Color4(0.12, 0.35, 0.42, 1);
     scene.fogMode = BABYLON.Scene.FOGMODE_LINEAR;
-    scene.fogStart = 90;
-    scene.fogEnd = 560;
-    scene.fogColor = new BABYLON.Color3(0.42, 0.6, 0.66);
+    scene.fogStart = 200;
+    scene.fogEnd = 780;
+    scene.fogColor = new BABYLON.Color3(0.55, 0.72, 0.78);
 
-    var camera = new BABYLON.ArcRotateCamera('cam', Math.PI * 0.42, Math.PI / 5.5, BASE_DIST / camZoom, new BABYLON.Vector3(0, 1.2, 2), scene);
+    // старт с заметным 3D-ракурсом (не сверху)
+    camTilt = 48;
+    camZoom = 1.05;
+    camYaw = 0;
+
+    var camera = new BABYLON.ArcRotateCamera('cam', BABYLON_BASE_ALPHA, Math.PI / 2 - camTilt * Math.PI / 180, BASE_DIST / camZoom, new BABYLON.Vector3(0, 2.5, 4), scene);
     camera.attachControl(pack.el, true);
     camera.panningSensibility = 80;
     camera.pinchPrecision = 80;
     camera.minZ = 0.2;
     camera.maxZ = 2500;
+    camera.angularSensibilityX = 0;
+    camera.angularSensibilityY = 0;
+    camera.wheelPrecision = 200;
     if (camera.inputs && camera.inputs.attached && camera.inputs.attached.mousewheel) {
       camera.inputs.remove(camera.inputs.attached.mousewheel);
     }
+    if (camera.inputs && camera.inputs.attached && camera.inputs.attached.keyboard) {
+      camera.inputs.remove(camera.inputs.attached.keyboard);
+    }
     applyBabylonCam();
 
-    var light = new BABYLON.DirectionalLight('sun', new BABYLON.Vector3(0.15, -1, 0.85), scene);
-    light.position = new BABYLON.Vector3(20, 140, 120);
-    light.intensity = 1.15;
-    light.diffuse = new BABYLON.Color3(1.0, 0.96, 0.88);
-    var hemi = new BABYLON.HemisphericLight('hemi', new BABYLON.Vector3(0, 1, 0.2), scene);
-    hemi.intensity = 0.58;
-    hemi.diffuse = new BABYLON.Color3(0.88, 0.9, 0.86);
-    hemi.groundColor = new BABYLON.Color3(0.28, 0.3, 0.26);
+    var light = new BABYLON.DirectionalLight('sun', new BABYLON.Vector3(-0.35, -1, 0.45), scene);
+    light.position = new BABYLON.Vector3(40, 160, -40);
+    light.intensity = 1.65;
+    light.diffuse = new BABYLON.Color3(1.0, 0.97, 0.9);
+    var hemi = new BABYLON.HemisphericLight('hemi', new BABYLON.Vector3(0, 1, 0.15), scene);
+    hemi.intensity = 0.95;
+    hemi.diffuse = new BABYLON.Color3(0.95, 0.96, 0.92);
+    hemi.groundColor = new BABYLON.Color3(0.35, 0.38, 0.32);
+    var fill = new BABYLON.DirectionalLight('fill', new BABYLON.Vector3(0.6, -0.4, -0.5), scene);
+    fill.intensity = 0.35;
+    fill.diffuse = new BABYLON.Color3(0.75, 0.82, 0.9);
     var shadow = new BABYLON.ShadowGenerator(2048, light);
     shadow.useBlurExponentialShadowMap = true;
-    scene.ambientColor = new BABYLON.Color3(0.3, 0.32, 0.3);
+    shadow.setDarkness(0.25);
+    scene.ambientColor = new BABYLON.Color3(0.45, 0.48, 0.44);
+    scene.environmentIntensity = 0.35;
 
+    // без тёмного skybox — он затемнял карту
     try {
-      var env = BABYLON.CubeTexture.CreateFromPrefilteredData('https://assets.babylonjs.com/environments/environmentSpecular.env', scene);
-      scene.environmentTexture = env;
-      scene.createDefaultSkybox(env, true, 1800, 0.22);
+      if (scene.environmentTexture) scene.environmentTexture = null;
     } catch (_) {}
 
     var ground = buildBabylonItaly(scene);
     ground.receiveShadows = true;
     ground.isPickable = true;
+    addCampaignBordersBabylon(scene);
 
     var BridgeB = window.CampaignMapBridge;
     var cityMeshesB = [];
     var citiesB = (BridgeB && BridgeB.getCities()) ? BridgeB.getCities() : [];
     citiesB.forEach(function (city) {
       var p = xz(city.lon, city.lat);
-      var y = heightAt(city.lon, city.lat);
+      var y = heightAtBabylon(city.lon, city.lat);
       var box = BABYLON.MeshBuilder.CreateBox('city_' + city.name, {
         width: city.capital ? 1.5 : 1.15,
         height: city.capital ? 1.35 : 1.0,
@@ -1428,7 +1820,7 @@
       tm = (window.ItalyDEM && ItalyDEM.ready()) ? ItalyDEM.meters(tlon, tlat) : 0;
       if (tm < 90 || tm > 1050) continue;
       tp = xz(tlon, tlat);
-      hy = heightAt(tlon, tlat);
+      hy = heightAtBabylon(tlon, tlat);
       var trunk = BABYLON.MeshBuilder.CreateCylinder('tr' + planted, { height: 0.5, diameter: 0.18, tessellation: 5 }, scene);
       trunk.material = trunkMatB;
       trunk.position.set(tp.x, hy + 0.25, tp.z);
@@ -1444,26 +1836,14 @@
 
     var pipeline = new BABYLON.DefaultRenderingPipeline('bloom', true, scene, [camera]);
     pipeline.bloomEnabled = true;
-    pipeline.bloomThreshold = 0.85;
-    pipeline.bloomWeight = 0.12;
+    pipeline.bloomThreshold = 0.9;
+    pipeline.bloomWeight = 0.08;
     pipeline.bloomKernel = 24;
     pipeline.fxaaEnabled = true;
-
-    var reds = [];
-    var blues = [];
-    function makeSphere(color, pos) {
-      var s = BABYLON.MeshBuilder.CreateSphere('u', { diameter: 1.05 }, scene);
-      var m = new BABYLON.StandardMaterial('um', scene);
-      m.diffuseColor = color;
-      m.emissiveColor = color.scale(0.18);
-      s.material = m;
-      s.position = pos.clone();
-      s.position.y = 0.85;
-      shadow.addShadowCaster(s);
-      return { mesh: s, home: pos.clone(), stopped: false };
+    if (pipeline.imageProcessing) {
+      pipeline.imageProcessing.contrast = 1.08;
+      pipeline.imageProcessing.exposure = 1.15;
     }
-    redStarts().forEach(function (s) { reds.push(makeSphere(new BABYLON.Color3(0.62, 0.18, 0.18), new BABYLON.Vector3(s.x, 0, s.z))); });
-    blueStarts().forEach(function (s) { blues.push(makeSphere(new BABYLON.Color3(0.16, 0.28, 0.62), new BABYLON.Vector3(s.x, 0, s.z))); });
 
     var romeB = xz(12.5, 41.9);
     var walkerB = null;
@@ -1478,7 +1858,7 @@
         speed: 6,
         start: { x: romeB.x, z: romeB.z },
         getHeight: function (x, z) {
-          return heightAt(x / SCALE + CX, CY - z / SCALE);
+          return heightAtBabylon(x / SCALE + CX, CY - z / SCALE);
         },
         follow: function (x, y, z) {
           var t = camera.getTarget();
@@ -1492,60 +1872,12 @@
       });
     }
 
-    var exploded = false;
-    function explode(at) {
-      if (exploded) return;
-      exploded = true;
-      var ps = new BABYLON.ParticleSystem('boom', 450, scene);
-      ps.particleTexture = new BABYLON.Texture(flareDataUrl(), scene);
-      ps.emitter = at;
-      ps.minEmitBox = new BABYLON.Vector3(-0.4, 0, -0.4);
-      ps.maxEmitBox = new BABYLON.Vector3(0.4, 1, 0.4);
-      ps.color1 = new BABYLON.Color4(1, 0.85, 0.3, 1);
-      ps.color2 = new BABYLON.Color4(0.9, 0.2, 0.05, 1);
-      ps.colorDead = new BABYLON.Color4(0.2, 0.05, 0, 0);
-      ps.minSize = 0.3; ps.maxSize = 1.4;
-      ps.minLifeTime = 0.25; ps.maxLifeTime = 0.7;
-      ps.emitRate = 600;
-      ps.gravity = new BABYLON.Vector3(0, -6, 0);
-      ps.direction1 = new BABYLON.Vector3(-3, 6, -3);
-      ps.direction2 = new BABYLON.Vector3(3, 8, 3);
-      ps.minEmitPower = 4; ps.maxEmitPower = 9;
-      ps.targetStopDuration = 0.35;
-      ps.disposeOnStop = true;
-      ps.start();
-    }
-
-    var fighting = false;
     function resetArmies() {
-      fighting = false;
-      exploded = false;
-      reds.forEach(function (u) { u.stopped = false; u.mesh.position.x = u.home.x; u.mesh.position.z = u.home.z; });
-      blues.forEach(function (u) { u.stopped = false; u.mesh.position.x = u.home.x; u.mesh.position.z = u.home.z; });
-      setStatus('Babylon.js 3D · Bloom / Fog / вода · Сброс армий');
+      setStatus('Babylon.js 3D · провинции · Q/E наклон · Z/C поворот');
     }
-    function groupCenter(list) {
-      var x = 0, z = 0;
-      list.forEach(function (u) { x += u.mesh.position.x; z += u.mesh.position.z; });
-      return { x: x / list.length, z: z / list.length };
-    }
-    scene.onBeforeRenderObservable.add(function () {
-      if (current.name !== 'babylon') return;
-      var rc = groupCenter(reds), bc = groupCenter(blues);
-      var dx = bc.x - rc.x, dz = bc.z - rc.z;
-      var distG = Math.sqrt(dx * dx + dz * dz);
-      if (distG < 5) {
-        if (!fighting) explode(new BABYLON.Vector3((rc.x + bc.x) / 2, 3, (rc.z + bc.z) / 2));
-        fighting = true;
-      }
-      if (!fighting) {
-        var nx = dx / (distG || 1), nz = dz / (distG || 1), sp = 0.04;
-        reds.forEach(function (u) { u.mesh.position.x += nx * sp; u.mesh.position.z += nz * sp; });
-        blues.forEach(function (u) { u.mesh.position.x -= nx * sp; u.mesh.position.z -= nz * sp; });
-      }
-    });
     engineB.runRenderLoop(function () {
       if (current.name !== 'babylon') return;
+      applyBabylonCam();
       scene.render();
     });
 
@@ -1553,7 +1885,7 @@
     current.name = 'babylon';
     resetArmies();
     applyCam();
-    setStatus('Babylon.js 3D · клик солдата, затем карта · колесо — зум · Q/E — наклон');
+    setStatus('Babylon.js 3D · провинции · Q/E наклон · Z/C поворот');
   }
 
   /* ========== PHASER ========== */
@@ -1570,9 +1902,11 @@
     if (typeof Phaser === 'undefined') { setStatus('Phaser не загрузился'); return; }
 
     var bbox = (window.ItalyDEM && ItalyDEM.bbox) ? ItalyDEM.bbox.slice() : [6.4, 36.2, 18.9, 47.4];
-    // чуть уже по широте — меньше «стены» Альп и лишнего моря в кадре
-    bbox[1] = Math.max(bbox[1], 36.6);
-    bbox[3] = Math.min(bbox[3], 46.35);
+    // кадр ближе к суше — меньше пустого моря снизу/по краям
+    bbox[0] = Math.max(bbox[0], 7.2);
+    bbox[1] = Math.max(bbox[1], 37.4);
+    bbox[2] = Math.min(bbox[2], 18.4);
+    bbox[3] = Math.min(bbox[3], 46.2);
     var lonSpan = bbox[2] - bbox[0];
     var latSpan = bbox[3] - bbox[1];
     var mapW = 4 * (lonSpan / latSpan); // ×2 к прежнему размеру
@@ -1586,40 +1920,72 @@
     function lonLatToModel(lon, lat) {
       return {
         x: ((lon - bbox[0]) / lonSpan - 0.5) * mapW,
-        z: ((bbox[3] - lat) / latSpan - 0.5) * mapD
+        z: ((lat - bbox[1]) / latSpan - 0.5) * mapD
       };
     }
-    function elevY(m, lat, lon) {
-      // Phaser: альпийский рельеф по ТЗ (без прежнего squash севера)
-      if (lon != null && lat != null) {
-        var az = alpineBandZ(lon, lat);
-        if (az > 0) {
-          if (az <= 2) return 0.004;
-          // зубцы смотрят на юг: чуть сильнее подъём к северу кадра
-          var southFace = 0.92 + 0.08 * Math.max(0, Math.min(1, (lat - 44.5) / 1.5));
-          return (0.01 + (az / 25) * 0.095) * southFace;
+    function smoothstep01(a, b, x) {
+      var t = (x - a) / ((b - a) || 1);
+      if (t <= 0) return 0;
+      if (t >= 1) return 1;
+      return t * t * (3 - 2 * t);
+    }
+    /** RTW: равнины почти плоские, Альпы/Апеннины — высокие с «шапками». */
+    function elevY(m) {
+      m = m == null ? 0 : m;
+      if (m <= 2) return 0;
+      var beach = smoothstep01(2, 90, m) * 0.01;
+      var plains = smoothstep01(60, 350, m) * 0.035;
+      var foothills = Math.pow(smoothstep01(280, 1100, m), 1.05) * 0.18;
+      var peaks = Math.pow(smoothstep01(900, 3400, m), 1.55) * 0.72;
+      return beach + plains + foothills + peaks;
+    }
+    function blurHeightField(arr, cols, rows, passes) {
+      if (!arr || !arr.length) return;
+      passes = passes || 2;
+      var stride = cols + 1;
+      var n = stride * (rows + 1);
+      var p, i, j, idx, sum, w, di, dj, ni, nj;
+      for (p = 0; p < passes; p++) {
+        var next = new Float32Array(n);
+        for (j = 0; j <= rows; j++) {
+          for (i = 0; i <= cols; i++) {
+            idx = j * stride + i;
+            sum = arr[idx];
+            w = 1;
+            for (dj = -1; dj <= 1; dj++) {
+              for (di = -1; di <= 1; di++) {
+                if (!di && !dj) continue;
+                ni = i + di;
+                nj = j + dj;
+                if (ni < 0 || nj < 0 || ni > cols || nj > rows) continue;
+                sum += arr[nj * stride + ni];
+                w++;
+              }
+            }
+            next[idx] = sum / w;
+          }
         }
+        for (idx = 0; idx < n; idx++) arr[idx] = next[idx];
       }
-      if (!(m > 6)) return -0.005;
-      var t = Math.min(1, Math.max(0, m / 3800));
-      return 0.006 + Math.pow(t, 0.48) * 0.055;
     }
     function heightXZ(x, z) {
       var lon = bbox[0] + (x / mapW + 0.5) * lonSpan;
-      var lat = bbox[3] - (z / mapD + 0.5) * latSpan;
+      var lat = bbox[1] + (z / mapD + 0.5) * latSpan;
       var m = (window.ItalyDEM && ItalyDEM.ready()) ? ItalyDEM.meters(lon, lat) : 0;
       return elevY(m || 0, lat, lon);
     }
     function projectModel(x, y, z) {
+      // y=elev, z=planeY → vertex (x, z, y)
       var mesh = current.phaser && current.phaser.terrain;
       if (!mesh || !mesh.transformMatrix) return { x: 0, y: 0, scale: 1 };
       try {
         if (typeof mesh.preUpdate === 'function') mesh.preUpdate();
       } catch (_) {}
       var m = mesh.transformMatrix.val;
-      var tx = x * m[0] + y * m[4] + z * m[8] + m[12];
-      var ty = x * m[1] + y * m[5] + z * m[9] + m[13];
-      var tw = x * m[3] + y * m[7] + z * m[11] + m[15];
+      var vx = x, vy = z, vz = y;
+      var tx = vx * m[0] + vy * m[4] + vz * m[8] + m[12];
+      var ty = vx * m[1] + vy * m[5] + vz * m[9] + m[13];
+      var tw = vx * m[3] + vy * m[7] + vz * m[11] + m[15];
       if (Math.abs(tw) < 1e-8) tw = 1e-8;
       return {
         x: mesh.x + (tx / tw) * mesh.width,
@@ -1628,75 +1994,195 @@
       };
     }
     function paintPhaserTex(tw, th) {
-      var c = paintAlpineGeo(tw, th, bbox, '#163c4c');
-      var ctx = c.getContext('2d');
-      function toUV(lon, lat) {
-        return {
-          x: (lon - bbox[0]) / lonSpan * tw,
-          y: (bbox[3] - lat) / latSpan * th
-        };
+      if (window.ItalyDEM && ItalyDEM.ready() && ItalyDEM.paintGeo) {
+        return ItalyDEM.paintGeo(tw, th, bbox, { sea: '#4a8fa0', style: 'rtw' });
       }
-      // зубчатые альпийские гребни (dunkelgrün/braun), вершины смотрят на юг
-      ctx.save();
-      var ridgeLons = [7.5, 8.4, 9.5, 10.4, 11.0, 11.8, 12.4];
-      var ri, lonR, latBase, uv0, uva, uvb, azR;
-      for (ri = 0; ri < ridgeLons.length; ri++) {
-        lonR = ridgeLons[ri];
-        latBase = 45.15 + (ri % 3) * 0.22;
-        azR = alpineBandZ(lonR, latBase);
-        if (azR < 12) continue;
-        uv0 = toUV(lonR, latBase);
-        uva = toUV(lonR - 0.22, latBase + 0.55);
-        uvb = toUV(lonR + 0.22, latBase + 0.55);
-        ctx.beginPath();
-        ctx.moveTo(uva.x, uva.y);
-        ctx.lineTo(uv0.x, uv0.y + 6);
-        ctx.lineTo(uvb.x, uvb.y);
-        ctx.closePath();
-        ctx.fillStyle = azR > 20 ? 'rgba(220,224,228,0.42)' : 'rgba(48,72,40,0.38)';
-        ctx.fill();
-        ctx.strokeStyle = 'rgba(72,52,32,0.28)';
-        ctx.lineWidth = 1;
-        ctx.stroke();
-      }
-      ctx.restore();
-      ctx.lineJoin = 'round';
-      var pi, i, ring, p0, p;
-      for (pi = 0; pi < provinces.length; pi++) {
-        ctx.beginPath();
-        for (var rix = 0; rix < provinces[pi].rings.length; rix++) {
-          ring = provinces[pi].rings[rix];
-          if (!ring || ring.length < 3) continue;
-          p0 = toUV(ring[0][0], ring[0][1]);
-          ctx.moveTo(p0.x, p0.y);
-          for (i = 1; i < ring.length; i++) {
-            p = toUV(ring[i][0], ring[i][1]);
-            ctx.lineTo(p.x, p.y);
-          }
-          ctx.closePath();
+      return paintLandGeo(tw, th, bbox, '#4a8fa0');
+    }
+    function factionBannerRgb(faction) {
+      if (faction === 'greek') return [106, 61, 138];
+      if (faction === 'carthage') return [154, 58, 50];
+      return [196, 96, 110]; // рим — розово-красный как в RTW
+    }
+    function cityMarkerStats(city) {
+      var Bridge = window.CampaignMapBridge;
+      var CS = Bridge && Bridge.parentCS ? Bridge.parentCS() : null;
+      var income = 180 + Math.abs(Math.round((city.lon || 0) * 17 + (city.lat || 0) * 11)) % 220;
+      var happy = 1;
+      var growth = true;
+      if (CS) {
+        var cs = CS.getCityState ? CS.getCityState(city.name) : null;
+        if (cs) {
+          income = 120 + (cs.influence || 50) * 3 + (cs.buildings ? cs.buildings.length * 40 : 0);
+          happy = (cs.influence || 50) >= 55 ? 1 : ((cs.influence || 50) >= 35 ? 0 : -1);
+          growth = !!(cs.queue && cs.queue.length) || (cs.buildings && cs.buildings.length < 4);
         }
-        ctx.strokeStyle = 'rgba(42, 28, 14, 0.42)';
-        ctx.lineWidth = 1.25;
-        ctx.stroke();
       }
+      if (city.capital) income = Math.round(income * 1.35);
+      return { income: income, happy: happy, growth: growth };
+    }
+    /** Маркер города в духе Rome TW: постройки + знамя + табличка. */
+    function makeRtwCityCanvas(city) {
+      var st = cityMarkerStats(city);
+      var name = (city.ru || city.name || 'Город').toString();
+      var c = document.createElement('canvas');
+      c.width = 168;
+      c.height = 200;
+      var g = c.getContext('2d');
+      var br = factionBannerRgb(city.faction);
+      var cx = 84;
+
+      // тень
+      g.fillStyle = 'rgba(0,0,0,0.28)';
+      g.beginPath();
+      g.ellipse(cx, 118, 48, 10, 0, 0, Math.PI * 2);
+      g.fill();
+
+      // основание
+      g.fillStyle = '#c8c2b0';
+      g.fillRect(cx - 42, 96, 84, 14);
+      g.strokeStyle = 'rgba(60,50,40,0.35)';
+      g.strokeRect(cx - 42, 96, 84, 14);
+      g.fillStyle = '#8a9a58';
+      g.fillRect(cx - 46, 108, 92, 6);
+
+      function house(hx, hy, hw, hh, roofH) {
+        g.fillStyle = '#e8dfc8';
+        g.fillRect(hx, hy, hw, hh);
+        g.strokeStyle = 'rgba(80,60,40,0.35)';
+        g.strokeRect(hx, hy, hw, hh);
+        g.fillStyle = '#c45a38';
+        g.beginPath();
+        g.moveTo(hx - 2, hy);
+        g.lineTo(hx + hw / 2, hy - roofH);
+        g.lineTo(hx + hw + 2, hy);
+        g.closePath();
+        g.fill();
+        g.fillStyle = 'rgba(40,30,20,0.35)';
+        g.fillRect(hx + hw * 0.35, hy + hh * 0.35, hw * 0.28, hh * 0.5);
+      }
+      house(cx - 36, 72, 28, 26, 14);
+      house(cx - 2, 68, 32, 30, 16);
+      house(cx + 18, 78, 22, 20, 11);
+      // центр побольше (столица / ядро)
+      g.fillStyle = '#efe6d2';
+      g.fillRect(cx - 14, 58, 26, 22);
+      g.fillStyle = '#b84830';
+      g.beginPath();
+      g.moveTo(cx - 16, 58);
+      g.lineTo(cx - 1, 42);
+      g.lineTo(cx + 14, 58);
+      g.closePath();
+      g.fill();
+
+      // древко + знамя
+      g.fillStyle = '#a89058';
+      g.fillRect(cx + 22, 8, 5, 92);
+      g.fillStyle = 'rgb(' + br[0] + ',' + br[1] + ',' + br[2] + ')';
+      g.beginPath();
+      g.moveTo(cx + 27, 10);
+      g.lineTo(cx + 62, 10);
+      g.lineTo(cx + 62, 78);
+      g.lineTo(cx + 44.5, 88);
+      g.lineTo(cx + 27, 78);
+      g.closePath();
+      g.fill();
+      g.strokeStyle = 'rgba(40,20,20,0.45)';
+      g.lineWidth = 1.2;
+      g.stroke();
+      // эмблема (венок)
+      g.strokeStyle = '#1a1210';
+      g.lineWidth = 2;
+      g.beginPath();
+      g.arc(cx + 44.5, 42, 10, 0.2, Math.PI * 2 - 0.2);
+      g.stroke();
+      g.beginPath();
+      g.arc(cx + 44.5, 42, 6, 0, Math.PI * 2);
+      g.stroke();
+
+      // табличка имени
+      var labelY = 122;
+      var labelW = 150;
+      var labelX = (c.width - labelW) / 2;
+      g.fillStyle = '#6a1e1e';
+      g.fillRect(labelX, labelY, labelW, 26);
+      g.strokeStyle = 'rgba(220,190,120,0.55)';
+      g.strokeRect(labelX + 0.5, labelY + 0.5, labelW - 1, 25);
+      g.fillStyle = '#f2e6c8';
+      g.font = 'bold 15px Georgia, "Times New Roman", serif';
+      g.textAlign = 'center';
+      g.textBaseline = 'middle';
+      g.fillText(name, c.width / 2, labelY + 13);
+
+      // строка статуса
+      g.fillStyle = 'rgba(28, 24, 20, 0.88)';
+      g.fillRect(labelX, labelY + 26, labelW, 28);
+      g.strokeStyle = 'rgba(0,0,0,0.35)';
+      g.strokeRect(labelX + 0.5, labelY + 26.5, labelW - 1, 27);
+
+      // монеты
+      var ix = labelX + 14;
+      var iy = labelY + 40;
+      g.fillStyle = '#d4a824';
+      g.beginPath(); g.arc(ix, iy, 7, 0, Math.PI * 2); g.fill();
+      g.fillStyle = '#f0d060';
+      g.beginPath(); g.arc(ix + 5, iy - 2, 6, 0, Math.PI * 2); g.fill();
+      g.fillStyle = '#f5ecd0';
+      g.font = 'bold 13px Segoe UI, Arial, sans-serif';
+      g.textAlign = 'left';
+      g.fillText(String(st.income), ix + 14, iy + 1);
+
+      // счастье
+      var hx2 = labelX + 78;
+      if (st.happy >= 1) {
+        g.fillStyle = '#3cb84a';
+        g.beginPath(); g.arc(hx2, iy, 8, 0, Math.PI * 2); g.fill();
+        g.fillStyle = '#1a3018';
+        g.beginPath(); g.arc(hx2 - 3, iy - 2, 1.4, 0, Math.PI * 2); g.fill();
+        g.beginPath(); g.arc(hx2 + 3, iy - 2, 1.4, 0, Math.PI * 2); g.fill();
+        g.strokeStyle = '#1a3018';
+        g.lineWidth = 1.4;
+        g.beginPath(); g.arc(hx2, iy + 2, 3.5, 0.15, Math.PI - 0.15); g.stroke();
+      } else {
+        g.fillStyle = '#c0a030';
+        g.beginPath(); g.arc(hx2, iy, 8, 0, Math.PI * 2); g.fill();
+      }
+
+      // рост
+      var gx = labelX + 118;
+      g.fillStyle = st.growth ? '#3cb84a' : '#888';
+      g.beginPath();
+      g.moveTo(gx, iy - 8);
+      g.lineTo(gx + 7, iy + 6);
+      g.lineTo(gx - 7, iy + 6);
+      g.closePath();
+      g.fill();
+      g.fillStyle = '#e8f8e0';
+      g.font = 'bold 12px Segoe UI, Arial, sans-serif';
+      g.textAlign = 'left';
+      g.fillText('+', gx + 10, iy + 1);
+
       return c;
     }
     function makePineCanvas() {
       var c = document.createElement('canvas');
-      c.width = 32; c.height = 48;
+      c.width = 40; c.height = 52;
       var g = c.getContext('2d');
-      g.fillStyle = 'rgba(0,0,0,0.22)';
+      g.fillStyle = 'rgba(0,0,0,0.18)';
       g.beginPath();
-      g.ellipse(16, 44, 7, 3, 0, 0, Math.PI * 2);
+      g.ellipse(20, 48, 10, 3.5, 0, 0, Math.PI * 2);
       g.fill();
-      g.fillStyle = '#4a3420';
-      g.fillRect(14, 32, 4, 12);
-      g.fillStyle = '#1a3820';
+      g.fillStyle = '#3a2818';
+      g.fillRect(18, 36, 4, 12);
+      g.fillStyle = '#1a3a1c';
       g.beginPath();
-      g.moveTo(16, 2); g.lineTo(28, 20); g.lineTo(4, 20); g.closePath(); g.fill();
-      g.fillStyle = '#245028';
+      g.moveTo(20, 2); g.lineTo(34, 22); g.lineTo(6, 22); g.closePath(); g.fill();
+      g.fillStyle = '#245024';
       g.beginPath();
-      g.moveTo(16, 10); g.lineTo(30, 36); g.lineTo(2, 36); g.closePath(); g.fill();
+      g.moveTo(20, 10); g.lineTo(36, 34); g.lineTo(4, 34); g.closePath(); g.fill();
+      g.fillStyle = '#2e6a30';
+      g.beginPath();
+      g.moveTo(20, 16); g.lineTo(30, 38); g.lineTo(10, 38); g.closePath(); g.fill();
       return c;
     }
     function buildReliefMesh(scene, texKey) {
@@ -1707,56 +2193,53 @@
       var w = Math.max(2, scene.scale.width);
       var h = Math.max(2, scene.scale.height);
       var mesh = scene.add.mesh(w / 2, h / 2, texKey);
-      var cols = 168, rows = 200;
-      var verts = [], uvs = [], inds = [], colors = [], heights = [], landMask = [];
-      var i, j, lon, lat, m, a, b, cIdx, d, stride, x, z, y, nx, ny, nz, nlen, shade, byte, lx, ly, lz;
-      var seaM = 6;
-      lx = -0.35; ly = 0.92; lz = 0.25;
+      // умеренная сетка: плотнее — берег мягче, слишком плотно — плитки
+      var cols = 56, rows = 64;
+      var verts = [], uvs = [], inds = [], colors = [], heights = [];
+      var i, j, lon, lat, m, a, b, cIdx, d, stride, x, z, y, nx, ny, nz, nlen, shade, byte;
+      var lx = -0.35, ly = 0.35, lz = 0.9;
       for (j = 0; j <= rows; j++) {
         lat = bbox[3] - j / rows * latSpan;
-        z = (j / rows - 0.5) * mapD;
         for (i = 0; i <= cols; i++) {
           lon = bbox[0] + i / cols * lonSpan;
-          x = (i / cols - 0.5) * mapW;
           m = (window.ItalyDEM && ItalyDEM.ready()) ? (ItalyDEM.meters(lon, lat) || 0) : 0;
-          y = elevY(m, lat, lon);
-          if (!(m > seaM) && alpineBandZ(lon, lat) <= 0) y = -0.012;
-          verts.push(x, y, z);
-          uvs.push(i / cols, j / rows);
-          heights.push(y);
-          landMask.push((m > seaM || alpineBandZ(lon, lat) > 0) ? 1 : 0);
+          heights.push(elevY(m));
         }
       }
+      blurHeightField(heights, cols, rows, 2);
       stride = cols + 1;
+      for (j = 0; j <= rows; j++) {
+        z = (0.5 - j / rows) * mapD;
+        for (i = 0; i <= cols; i++) {
+          x = (i / cols - 0.5) * mapW;
+          y = heights[j * stride + i];
+          verts.push(x, z, y);
+          uvs.push(i / cols, j / rows);
+        }
+      }
       for (j = 0; j <= rows; j++) {
         for (i = 0; i <= cols; i++) {
           var hL = heights[j * stride + Math.max(0, i - 1)];
           var hR = heights[j * stride + Math.min(cols, i + 1)];
           var hU = heights[Math.max(0, j - 1) * stride + i];
           var hD = heights[Math.min(rows, j + 1) * stride + i];
-          nx = (hL - hR) * 0.35;
-          nz = (hU - hD) * 0.35;
-          ny = 0.75;
+          nx = (hL - hR) * 1.8;
+          ny = (hU - hD) * 1.8;
+          nz = 1;
           nlen = Math.sqrt(nx * nx + ny * ny + nz * nz) || 1;
-          shade = 0.88 + 0.16 * Math.max(0, (nx * lx + ny * ly + nz * lz) / nlen);
-          byte = Math.max(200, Math.min(255, Math.round(shade * 255)));
+          shade = 0.74 + 0.26 * Math.max(0, (nx * lx + ny * ly + nz * lz) / nlen);
+          byte = Math.max(168, Math.min(255, Math.round(shade * 255)));
           colors.push((byte << 16) | (byte << 8) | byte);
         }
       }
-      // полный прямоугольник (суша+море): при зуме нет дыр и синей «шторы» из фона
       for (j = 0; j < rows; j++) {
         for (i = 0; i < cols; i++) {
           a = j * stride + i;
           b = a + 1;
           cIdx = a + stride;
           d = cIdx + 1;
-          inds.push(a, cIdx, b, b, cIdx, d);
+          inds.push(a, b, cIdx, b, d, cIdx);
         }
-      }
-      if (!inds.length) {
-        window.__phaserMeshErr = 'no land faces';
-        try { mesh.destroy(); } catch (_) {}
-        return null;
       }
       try {
         mesh.addVertices(verts, uvs, inds, true, null, colors);
@@ -1764,23 +2247,21 @@
         mesh.setDepth(2);
         if (typeof mesh.setSize === 'function') mesh.setSize(w, h);
         else { mesh.width = w; mesh.height = h; }
-        if (typeof mesh.setPerspective === 'function') {
-          mesh.setPerspective(w, h, 44, 0.6, 220);
-        }
+        if (typeof mesh.setPerspective === 'function') mesh.setPerspective(w, h, PHASER_FOV, PHASER_NEAR, PHASER_FAR);
         if (mesh.viewPosition) {
           mesh.viewPosition.x = 0;
-          mesh.viewPosition.y = 0.02;
+          mesh.viewPosition.y = 0;
           mesh.viewPosition.z = 5.8;
         }
         if (mesh.modelRotation) {
-          mesh.modelRotation.x = 0.48;
+          mesh.modelRotation.x = -phaserTiltRad(52);
           mesh.modelRotation.y = 0;
           mesh.modelRotation.z = 0;
         }
         if (mesh.modelScale) {
-          mesh.modelScale.x = 1.62;
-          mesh.modelScale.y = 1.62;
-          mesh.modelScale.z = 1.62;
+          mesh.modelScale.x = 2.2;
+          mesh.modelScale.y = 2.2;
+          mesh.modelScale.z = 2.2;
         }
         if (mesh.dirtyCache) mesh.dirtyCache[10] = 1;
         if (typeof mesh.preUpdate === 'function') mesh.preUpdate();
@@ -1797,12 +2278,12 @@
       key: 'italy',
       create: function () {
         var scene = this;
-        scene.cameras.main.setBackgroundColor('#163c4c');
+        scene.cameras.main.setBackgroundColor('#4a8fa0');
         scene.cameras.main.setScroll(0, 0);
         scene.cameras.main.setZoom(1);
 
-        // без gradient-«шторки»: только цвет моря, совпадающий с текстурой
-        scene.cameras.main.setBackgroundColor('#163c4c');
+        // море в стиле RTW (светлая бирюза)
+        scene.cameras.main.setBackgroundColor('#4a8fa0');
 
         var texCanvas = paintPhaserTex(2048, 2048);
         if (scene.textures.exists('italy-relief')) scene.textures.remove('italy-relief');
@@ -1821,63 +2302,107 @@
         current.phaser.flatMap = null;
         current.phaser.meshes = [terrain];
         current.phaser.baseZ = 5.8;
-        current.phaser.baseScale = 1.62;
+        current.phaser.baseScale = 2.2;
+        current.phaser.mapExtent = mapD;
+        current.phaser.mapHalfW = mapW * 0.5;
+        current.phaser.mapHalfD = mapD * 0.5;
         current.phaser.panX = 0;
-        current.phaser.panZ = 0.08;
-        camTilt = 34;
-        camZoom = 1.0;
-        stage.style.background = '#163c4c';
-        scene.cameras.main.setBackgroundColor('#163c4c');
-        setStatus('Phaser 3D · ЛКМ перетаскивание · колесо — зум · Q/E — наклон');
+        current.phaser.panY = 0;
+        current.phaser._perspW = 0;
+        current.phaser._perspH = 0;
+        camTilt = 52;
+        camZoom = 0.95;
+        stage.style.background = '#4a8fa0';
+        scene.cameras.main.setBackgroundColor('#4a8fa0');
+        window.__phaserTerrain = terrain;
+        window.__phaserPack = current.phaser;
+        setStatus('Phaser · красный Рим · белый Карфаген · клик по врагу — бой');
 
         if (!scene.textures.exists('pine-phaser')) {
           scene.textures.addCanvas('pine-phaser', makePineCanvas());
         }
         var trees = [];
         var planted = 0, tries = 0;
-        while (planted < 70 && tries < 4000) {
+        while (planted < 220 && tries < 9000) {
           tries++;
           var tlon = bbox[0] + Math.random() * lonSpan;
           var tlat = bbox[1] + Math.random() * latSpan;
           var tm = (window.ItalyDEM && ItalyDEM.ready()) ? ItalyDEM.meters(tlon, tlat) : 0;
-          if (!(tm > 90) || tm > 1050) continue;
+          // лес на склонах холмов, не на пиках и не у моря
+          if (!(tm > 180) || tm > 1350) continue;
+          var tdx = (ItalyDEM.meters(tlon + 0.04, tlat) || tm) - tm;
+          var tdy = (ItalyDEM.meters(tlon, tlat + 0.04) || tm) - tm;
+          var tslope = Math.sqrt(tdx * tdx + tdy * tdy);
+          if (tslope < 8 || tslope > 220) continue;
+          if (Math.random() > 0.62) continue;
           var mp = lonLatToModel(tlon, tlat);
           var spr = scene.add.image(0, 0, 'pine-phaser');
           spr.setOrigin(0.5, 0.92);
           spr.setDepth(8);
-          trees.push({ sprite: spr, x: mp.x, z: mp.z, y: elevY(tm, tlat, tlon), s: 0.55 + Math.random() * 0.45 });
+          trees.push({ sprite: spr, x: mp.x, z: mp.z, y: elevY(tm), s: 0.5 + Math.random() * 0.55 });
           planted++;
         }
 
         var BridgeP = window.CampaignMapBridge;
         var cityMarksP = [];
         var citiesP = (BridgeP && BridgeP.getCities()) ? BridgeP.getCities() : [];
-        if (!scene.textures.exists('city-flag-phaser')) {
-          var fc = document.createElement('canvas');
-          fc.width = 32; fc.height = 40;
-          var fg = fc.getContext('2d');
-          fg.fillStyle = '#a03030';
-          fg.fillRect(4, 2, 24, 28);
-          fg.fillStyle = '#c9b070';
-          fg.fillRect(2, 0, 4, 40);
-          scene.textures.addCanvas('city-flag-phaser', fc);
-        }
-        citiesP.forEach(function (city) {
+        citiesP.forEach(function (city, ci) {
           var cm = lonLatToModel(city.lon, city.lat);
-          var hy = elevY((window.ItalyDEM && ItalyDEM.ready()) ? (ItalyDEM.meters(city.lon, city.lat) || 120) : 120, city.lat, city.lon);
-          var spr = scene.add.image(0, 0, 'city-flag-phaser');
-          spr.setOrigin(0.5, 0.9);
-          spr.setDepth(12);
+          var hy = elevY((window.ItalyDEM && ItalyDEM.ready()) ? (ItalyDEM.meters(city.lon, city.lat) || 120) : 120);
+          var texKey = 'city-rtw-' + (city.name || ci);
+          if (scene.textures.exists(texKey)) scene.textures.remove(texKey);
+          scene.textures.addCanvas(texKey, makeRtwCityCanvas(city));
+          var spr = scene.add.image(0, 0, texKey);
+          spr.setOrigin(0.5, 0.92);
+          spr.setDepth(14);
           spr.setInteractive({ useHandCursor: true });
-          spr.on('pointerdown', function (pointer) {
-            if (pointer && pointer.event) pointer.event.stopPropagation();
+          function openCityFromMap(tab) {
             if (!BridgeP) return;
-            BridgeP.postCitySelect(BridgeP.selectCityPayload(city));
-            setStatus('Город: ' + (city.ru || city.name));
+            BridgeP.postCitySelect(BridgeP.selectCityPayload(city), tab || 'settlement');
+            setStatus('Город: ' + (city.ru || city.name) + (tab === 'army' ? ' · армия' : ' · строительство'));
             scene._cityClickHandled = true;
+          }
+          spr.on('pointerdown', function (pointer) {
+            if (pointer && pointer.event) {
+              try { pointer.event.stopPropagation(); } catch (_) {}
+              try { pointer.event.preventDefault(); } catch (_) {}
+            }
+            var armyTab = !!(pointer && (
+              pointer.rightButtonDown() ||
+              (pointer.buttons & 2) ||
+              (pointer.event && (pointer.event.button === 2 || pointer.event.ctrlKey || pointer.event.metaKey))
+            ));
+            openCityFromMap(armyTab ? 'army' : 'settlement');
           });
-          cityMarksP.push({ sprite: spr, x: cm.x, z: cm.z, y: hy + 0.15, s: city.capital ? 0.95 : 0.72, city: city });
+          spr.on('pointerover', function () {
+            spr.setTint(0xfff0d0);
+          });
+          spr.on('pointerout', function () {
+            spr.clearTint();
+          });
+          cityMarksP.push({
+            sprite: spr,
+            x: cm.x,
+            z: cm.z,
+            y: hy + 0.04,
+            s: city.capital ? 0.72 : 0.58,
+            city: city,
+            open: openCityFromMap
+          });
         });
+        // ПКМ по городу не должно открывать контекстное меню браузера
+        try {
+          var phCv = stage.querySelector('canvas');
+          if (phCv && !phCv._rtwCityCtx) {
+            phCv._rtwCityCtx = true;
+            phCv.addEventListener('contextmenu', function (ev) {
+              if (scene._cityClickHandled) {
+                ev.preventDefault();
+                scene._cityClickHandled = false;
+              }
+            });
+          }
+        } catch (_) {}
 
         function hitModel(pointer) {
           if (!terrain || typeof terrain.getFaceAt !== 'function') return null;
@@ -1902,13 +2427,76 @@
           var w = 1 - u - v;
           return {
             x: v1.x * w + v2.x * v + v3.x * u,
-            z: v1.z * w + v2.z * v + v3.z * u
+            z: v1.y * w + v2.y * v + v3.y * u
           };
         }
 
-        var romeM = lonLatToModel(12.5, 41.9);
+        var romeM = lonLatToModel(12.35, 41.78);
+        var capuaM = lonLatToModel(14.08, 41.18);
+        try {
+          var CS0p = BridgeP && BridgeP.parentCS ? BridgeP.parentCS() : null;
+          var faR = CS0p && CS0p.getFieldArmy && CS0p.getFieldArmy('field_rome_1');
+          var faC = CS0p && CS0p.getFieldArmy && CS0p.getFieldArmy('field_carthage_1');
+          if (faR) romeM = lonLatToModel(faR.lon, faR.lat);
+          if (faC) capuaM = lonLatToModel(faC.lon, faC.lat);
+        } catch (_) {}
+
+        function modelToLonLat(x, z) {
+          return {
+            lon: bbox[0] + (x / mapW + 0.5) * lonSpan,
+            lat: bbox[1] + (z / mapD + 0.5) * latSpan
+          };
+        }
+
+        var unitsP = null;
         var walkerP = null;
-        if (window.WalkUnitPhaser) {
+        if (window.WalkUnitPhaser && WalkUnitPhaser.mountPair) {
+          unitsP = WalkUnitPhaser.mountPair({
+            scene: scene,
+            playerStart: romeM,
+            npcStart: capuaM,
+            speed: 0.42,
+            combatStop: 0.2,
+            armyId: 'field_rome_1',
+            npcArmyId: 'field_carthage_1',
+            project: projectModel,
+            getModelY: heightXZ,
+            onStatus: setStatus,
+            onSelect: function (on) {
+              if (!on || !BridgeP) return;
+              try { BridgeP.postArmySelect('field_rome_1'); } catch (_) {}
+            },
+            onArrive: function (meta) {
+              if (meta && meta.combat) return;
+              try {
+                var CS = BridgeP && BridgeP.parentCS ? BridgeP.parentCS() : null;
+                if (!CS || !unitsP || !unitsP.player) return;
+                var ll = modelToLonLat(unitsP.player.model.x, unitsP.player.model.z);
+                if (CS.updateFieldArmyPosition) CS.updateFieldArmyPosition('field_rome_1', ll.lon, ll.lat);
+              } catch (_) {}
+            },
+            onBattle: function () {
+              var ctx = {
+                getPair: function () { return unitsP; },
+                worldToLonLat: modelToLonLat,
+                xz: lonLatToModel,
+                getHeight: heightXZ,
+                hover: 0.04,
+                onStatus: setStatus
+              };
+              if (window.BattleMapHook) BattleMapHook.showBattleDialog(ctx);
+              else if (window.BattleSystem) {
+                BattleSystem.bindMap(ctx);
+                BattleSystem.openContact(ctx);
+              } else showBattleDialog();
+            },
+            onNpcInspect: function () {
+              if (window.BattleSystem && BattleSystem.inspectCarthageArmy) BattleSystem.inspectCarthageArmy();
+            }
+          });
+          walkerP = unitsP.player;
+          current.phaser.units = unitsP;
+        } else if (window.WalkUnitPhaser) {
           walkerP = WalkUnitPhaser.mount({
             scene: scene,
             start: romeM,
@@ -1920,7 +2508,6 @@
         }
 
         current.phaser.syncProps = function () {
-          paintSky();
           var ti, t, p;
           for (ti = 0; ti < trees.length; ti++) {
             t = trees[ti];
@@ -1933,16 +2520,28 @@
             t = cityMarksP[ti];
             p = projectModel(t.x, t.y, t.z);
             t.sprite.setPosition(p.x, p.y);
-            t.sprite.setScale(t.s * (p.scale || 1));
-            t.sprite.setDepth(12 + t.y * 4);
+            t.sprite.setScale(t.s * (p.scale || 1) * 1.15);
+            t.sprite.setDepth(14 + t.y * 4 + (p.y || 0) * 0.01);
           }
-          if (walkerP && walkerP.sync) walkerP.sync();
+          if (unitsP && unitsP.sync) unitsP.sync();
+          else if (walkerP && walkerP.sync) walkerP.sync();
         };
 
         var drag = { on: false, x: 0, y: 0, moved: false };
         scene.input.on('pointerdown', function (pointer) {
           if (!pointer.leftButtonDown()) return;
-          if (walkerP && walkerP.sprite) {
+          if (unitsP) {
+            if (unitsP.npc && unitsP.npc.containsPointer(pointer)) {
+              drag.on = false;
+              return;
+            }
+            if (unitsP.player && unitsP.player.containsPointer(pointer)) {
+              drag.on = false;
+              unitsP.player.setSelected(true);
+              scene._walkIgnoreClick = true;
+              return;
+            }
+          } else if (walkerP && walkerP.sprite) {
             var hits = scene.input.hitTestPointer(pointer);
             if (hits && hits.indexOf(walkerP.sprite) !== -1) {
               drag.on = false;
@@ -1976,6 +2575,15 @@
             return;
           }
           if (pointer.getDistance && pointer.getDistance() > 8) return;
+          // клик рядом с белым солдатом = атака
+          if (unitsP && unitsP.npc) {
+            var nsp = unitsP.npc.sprite;
+            var dxs = pointer.worldX - nsp.x, dys = pointer.worldY - nsp.y;
+            if (dxs * dxs + dys * dys < 36 * 36) {
+              unitsP.attackNpc();
+              return;
+            }
+          }
           var hit = hitModel(pointer);
           if (hit) walkerP.moveTo(hit.x, hit.z);
         });
@@ -1985,26 +2593,25 @@
           if (!drag.moved && (dx * dx + dy * dy) > 9) drag.moved = true;
           drag.x = pointer.x; drag.y = pointer.y;
           var yaw = camYaw * Math.PI / 180;
-          var zNow = Math.max(0.92, Math.min(1.7, camZoom));
-          var s = current.phaser.baseScale || 1.62;
-          var dist = Math.max(4.35, Math.min(6.9, (current.phaser.baseZ || 5.8) / Math.pow(zNow, 0.4)));
+          var sScale = current.phaser._lastScale || current.phaser.baseScale || 2.2;
+          var dist = current.phaser._lastDist || (current.phaser.baseZ || 5.8);
           var vh = Math.max(2, scene.scale.height);
-          var k = (2 * Math.tan(22 * Math.PI / 180) * dist) / (vh * s);
-          var kY = k / Math.max(0.35, Math.sin(Math.max(18, camTilt) * Math.PI / 180));
-          // grab-пан: тянем карту за курсором (вправо → карта вправо)
-          current.phaser.panX += Math.cos(yaw) * dx * k + Math.sin(yaw) * dy * kY;
-          current.phaser.panZ += -Math.sin(yaw) * dx * k + Math.cos(yaw) * dy * kY;
+          // 1:1 «grab»: карта следует за курсором; Y инвертирован
+          var k = (2 * Math.tan((PHASER_FOV * 0.5) * Math.PI / 180) * dist) / (vh * Math.max(0.2, sScale));
+          k *= 0.85;
+          current.phaser.panX += Math.cos(yaw) * dx * k + Math.sin(yaw) * dy * k;
+          current.phaser.panY += Math.sin(yaw) * dx * k - Math.cos(yaw) * dy * k;
           applyPhaserCam();
         });
 
         current.phaser.reset = function () {
           current.phaser.panX = 0;
-          current.phaser.panZ = 0.08;
-          camTilt = 34;
-          camZoom = 1.0;
+          current.phaser.panY = 0;
+          camTilt = 52;
+          camZoom = 0.95;
           camYaw = 0;
           applyCam();
-          setStatus('Phaser 3D · ЛКМ перетаскивание · колесо — зум · Q/E — наклон');
+          setStatus('Phaser · красный — Рим · белый — Карфаген · клик по врагу — бой');
         };
         applyCam();
       }
@@ -2016,9 +2623,12 @@
       terrain: null,
       meshes: [],
       panX: 0,
-      panZ: 0,
-      baseZ: 5.8,
-      baseScale: 1.62,
+      panY: 0,
+      baseZ: 5.4,
+      baseScale: 2.4,
+      mapExtent: 4,
+      mapHalfW: 2.2,
+      mapHalfD: 2.0,
       syncProps: null
     };
     current.name = 'phaser';
@@ -2027,16 +2637,31 @@
       game = new Phaser.Game({
         type: Phaser.WEBGL,
         parent: stage,
-        width: Math.max(640, window.innerWidth || 1024),
-        height: Math.max(480, window.innerHeight || 768),
-        backgroundColor: '#163c4c',
-        render: { antialias: true },
+        width: Math.max(2, stage.clientWidth || window.innerWidth || 1024),
+        height: Math.max(2, stage.clientHeight || window.innerHeight || 768),
+        backgroundColor: '#4a8fa0',
+        input: {
+          mouse: { preventDefaultWheel: false }
+        },
+        render: {
+          antialias: true,
+          transparent: false,
+          clearBeforeRender: true,
+          preserveDrawingBuffer: true,
+          powerPreference: 'high-performance'
+        },
         scale: {
           mode: Phaser.Scale.RESIZE,
-          autoCenter: Phaser.Scale.CENTER_BOTH
+          autoCenter: Phaser.Scale.NO_CENTER
         },
         scene: sceneCfg
       });
+      window.__phaserGame = game;
+      try {
+        if (game.canvas) {
+          game.canvas.addEventListener('contextmenu', function (ev) { ev.preventDefault(); });
+        }
+      } catch (_) {}
     } catch (err) {
       setStatus('Phaser 3D: нужен WebGL · ' + err.message);
       return;
@@ -2045,12 +2670,24 @@
     setTimeout(function () {
       if (!current.phaser || current.phaser.game !== game) return;
       try {
-        game.scale.resize(Math.max(640, window.innerWidth), Math.max(480, window.innerHeight));
+        var rw = Math.max(2, stage.clientWidth || window.innerWidth || 640);
+        var rh = Math.max(2, stage.clientHeight || window.innerHeight || 480);
+        game.scale.resize(rw, rh);
         game.scale.refresh();
       } catch (_) {}
       applyCam();
     }, 80);
-    setStatus('Phaser 3D · рельеф · клик солдата, затем карта · колесо — зум · Q/E — наклон');
+    setTimeout(function () {
+      if (!current.phaser || current.phaser.game !== game) return;
+      try {
+        var rw2 = Math.max(2, stage.clientWidth || window.innerWidth || 640);
+        var rh2 = Math.max(2, stage.clientHeight || window.innerHeight || 480);
+        game.scale.resize(rw2, rh2);
+        game.scale.refresh();
+      } catch (_) {}
+      applyCam();
+    }, 400);
+    setStatus('Phaser · красный Рим · белый Карфаген · атака открывает окно боя');
   }
 
   function onResize() {
@@ -2067,7 +2704,9 @@
     }
     if (current.name === 'phaser' && current.phaser && current.phaser.game && current.phaser.game.scale) {
       try {
-        current.phaser.game.scale.resize(Math.max(640, window.innerWidth), Math.max(480, window.innerHeight));
+        var pw = Math.max(2, stage.clientWidth || window.innerWidth || 640);
+        var ph = Math.max(2, stage.clientHeight || window.innerHeight || 480);
+        current.phaser.game.scale.resize(pw, ph);
       } catch (_) {}
     }
     applyCam();
@@ -2113,19 +2752,42 @@
     if (current.babylon && current.babylon.reset) current.babylon.reset();
     if (current.phaser && current.phaser.reset) current.phaser.reset();
   });
+  document.getElementById('localBattleBtn').addEventListener('click', function () {
+    if (window.BattleMapHook) BattleMapHook.showBattleDialog({ onStatus: setStatus });
+    else if (window.BattleSystem) BattleSystem.showBattleDialog();
+    else {
+      try { window.parent.postMessage({ type: 'battle-open-local' }, '*'); } catch (_) {}
+    }
+  });
   window.addEventListener('wheel', function (e) {
     e.preventDefault();
-    nudgeZoom(e.deltaY < 0 ? 1.1 : 1 / 1.1);
-  }, { passive: false });
+    var factor = current.name === 'phaser' ? 1.1 : 1.1;
+    nudgeZoom(e.deltaY < 0 ? factor : 1 / factor);
+  }, { passive: false, capture: true });
   window.addEventListener('keydown', function (e) {
     if (e.code === 'KeyQ') { e.preventDefault(); nudgeTilt(-TILT_STEP); }
     else if (e.code === 'KeyE') { e.preventDefault(); nudgeTilt(TILT_STEP); }
     else if (e.code === 'KeyZ') { e.preventDefault(); nudgeYaw(-YAW_STEP); }
     else if (e.code === 'KeyC') { e.preventDefault(); nudgeYaw(YAW_STEP); }
-  });
+  }, true);
   window.addEventListener('message', function (e) {
     if (!e.data) return;
-    if (e.data.type === 'set-engine' && e.data.engine) startEngine(e.data.engine);
+    if (e.data.type === 'set-map-paint-view' && e.data.view != null) {
+      var vid = Number(e.data.view) || 12;
+      if (!(window.MapPaint && MapPaint.setView)) return;
+      MapPaint.setView(vid).then(function () {
+        if (current && current.name) startEngine(current.name);
+      });
+    }
+    if (e.data.type === 'set-engine' && e.data.engine) {
+      if (e.data.engine === engine && current.name === e.data.engine && current.phaser && current.phaser.game) return;
+      if (e.data.engine === engine && current.name === e.data.engine && current.three) return;
+      if (e.data.engine === engine && current.name === e.data.engine && current.babylon) return;
+      var nextEng = e.data.engine;
+      var paintVid = nextEng === 'phaser' ? 12 : (Number(localStorage.getItem('campaignMapVariant')) || 10);
+      var paintP = (window.MapPaint && MapPaint.setView) ? MapPaint.setView(paintVid) : Promise.resolve();
+      paintP.then(function () { startEngine(nextEng); });
+    }
     if (e.data.type === 'camera-tilt') {
       if (typeof e.data.delta === 'number') nudgeTilt(e.data.delta);
       else if (typeof e.data.deg === 'number') { camTilt = e.data.deg; nudgeTilt(0); }
@@ -2133,6 +2795,13 @@
     if (e.data.type === 'camera-rotate') {
       if (typeof e.data.delta === 'number') nudgeYaw(e.data.delta);
       else if (typeof e.data.deg === 'number') { camYaw = wrapYaw(e.data.deg); nudgeYaw(0); }
+    }
+    if (e.data.type === 'camera-zoom') {
+      if (typeof e.data.factor === 'number') nudgeZoom(e.data.factor);
+      else if (typeof e.data.deltaY === 'number') {
+        var f = 1.1;
+        nudgeZoom(e.data.deltaY < 0 ? f : 1 / f);
+      }
     }
     if (e.data.type === 'camera-state-request') {
       try {
@@ -2158,24 +2827,42 @@
     return next();
   }
 
+  function resolvePaintView() {
+    try {
+      var params = new URLSearchParams(window.location.search);
+      var eng = (params.get('engine') || engine || 'three').toLowerCase();
+      if (eng === 'phaser') return 12;
+      var v = Number(localStorage.getItem('campaignMapVariant'));
+      if (v === 4 || v === 5 || v === 10 || v === 12 || v === 16) return v;
+    } catch (_) {}
+    return engine === 'phaser' ? 12 : 10;
+  }
+
+  function loadPaintForCurrentView() {
+    if (!(window.MapPaint && MapPaint.setView)) return Promise.resolve(false);
+    return MapPaint.setView(resolvePaintView());
+  }
+
   markButtons();
-  Promise.all([
-    fetchFirst(GEO_URLS).then(function (geo) {
-      extractItaly(geo);
-      return true;
-    }).catch(function () { return false; }),
-    // регионы поверх контура Italy из world.geojson (если доступны)
-    fetch('/maps/view1/regions.geojson').then(function (r) {
-      if (!r.ok) throw new Error('no regions');
-      return r.json();
-    }).then(function (geo) {
-      var outline = italyRings.slice();
-      extractItaly(geo);
-      if (outline.length) italyRings = outline;
-      return true;
-    }).catch(function () { return false; }),
-    window.ItalyDEM ? ItalyDEM.load() : Promise.resolve(false)
-  ]).then(function () {
+  loadPaintForCurrentView().then(function () {
+    return Promise.all([
+      fetchFirst(GEO_URLS).then(function (geo) {
+        extractItaly(geo);
+        return true;
+      }).catch(function () { return false; }),
+      // регионы поверх контура Italy из world.geojson (если доступны)
+      fetch('/maps/view1/regions.geojson').then(function (r) {
+        if (!r.ok) throw new Error('no regions');
+        return r.json();
+      }).then(function (geo) {
+        var outline = italyRings.slice();
+        extractItaly(geo);
+        if (outline.length) italyRings = outline;
+        return true;
+      }).catch(function () { return false; }),
+      window.ItalyDEM ? ItalyDEM.load() : Promise.resolve(false)
+    ]);
+  }).then(function () {
     startEngine(engine);
   });
 })();

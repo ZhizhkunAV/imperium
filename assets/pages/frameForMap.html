@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
@@ -970,19 +970,13 @@
                 </aside>
 
                 <div class="map-toolbar">
-                    <button type="button" class="map-variant-btn active" id="view1Btn" data-view="1">Вид 1 (3D)</button>
-                    <button type="button" class="map-variant-btn" id="view2Btn" data-view="2">Вид 2 (3D)</button>
-                    <button type="button" class="map-variant-btn" id="view3Btn" data-view="3">Вид 3 (Total War)</button>
-                    <button type="button" class="map-variant-btn" id="view4Btn" data-view="4">Вид 4 (3D)</button>
-                    <button type="button" class="map-variant-btn" id="view5Btn" data-view="5">Вид 5 (3D)</button>
-                    <button type="button" class="map-variant-btn" id="view10Btn" data-view="10">Вид 10 (Three.js 3D)</button>
-                    <button type="button" class="map-variant-btn" id="view11Btn" data-view="11">Вид 11 (Babylon.js 3D)</button>
-                    <button type="button" class="map-variant-btn" id="view12Btn" data-view="12">Вид 12 (Phaser 3D)</button>
-    <button type="button" class="map-variant-btn" id="view13Btn" data-view="13">Вид 13 (3D)</button>
-                    <button type="button" class="map-variant-btn" id="view14Btn" data-view="14">Вид 14 (Rome Remastered)</button>
-                    <button type="button" class="map-variant-btn" id="view15Btn" data-view="15">Вид 15 (3D)</button>
-                    <button type="button" class="map-variant-btn" id="view16Btn" data-view="16">Вид 16 (Medieval II)</button>
-                    <button type="button" class="map-variant-btn" id="view17Btn" data-view="17">Вид 17 (Godot 4)</button>
+                    <button type="button" class="map-variant-btn active" id="view4Btn" data-view="4">Вид 4 (Three.js)</button>
+                    <button type="button" class="map-variant-btn" id="view5Btn" data-view="5">Вид 5 (Three.js)</button>
+                    <button type="button" class="map-variant-btn" id="view10Btn" data-view="10">Вид 10 (Three.js)</button>
+                    <button type="button" class="map-variant-btn" id="view12Btn" data-view="12">Вид 12 (Phaser)</button>
+                    <button type="button" class="map-variant-btn" id="view16Btn" data-view="16">Вид 16 (Godot 4)</button>
+                    <a href="mapEditor.html" class="map-variant-btn" id="mapEditorBtn">Редактор карт</a>
+                    <button type="button" class="map-variant-btn" id="localBattleToolbarBtn" title="Открыть локальный бой">Локальный бой</button>
                     <a href="windowDownload.html" class="btn-home">На главную</a>
                 </div>
             </div>
@@ -1046,17 +1040,18 @@
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/@turf/turf@6.5.0/turf.min.js"></script>
-    <script src="/maps/view1/view.js"></script>
     <script src="/maps/view2/view.js"></script>
     <script src="/maps/view2/provinces.js"></script>
     <script src="/maps/view4/provinces.js"></script>
-    <script src="/maps/view14/provinces.js"></script>
+    <script src="/js/italy-provinces.js"></script>
     <script src="/js/map-engine.js"></script>
-    <script src="/js/italy-dem.js"></script>
+    <script src="/js/map-paint.js?v=20260831editor2"></script>
+    <script src="/js/italy-dem.js?v=20260831paint"></script>
     <script src="/js/view4-relief.js"></script>
-    <script src="/js/campaign-state.js"></script>
+    <script src="/js/campaign-state.js?v=20260826size"></script>
     <script src="/js/campaign-map-bridge.js"></script>
     <script src="/js/campaign-ui.js"></script>
+    <script src="/js/battle-system.js"></script>
     <script>
 (function () {
   'use strict';
@@ -1186,8 +1181,6 @@
   const sidePanel = document.getElementById('mapSidePanel');
   const sidePanelName = document.getElementById('sidePanelName');
   const sidePanelNote = document.getElementById('sidePanelNote');
-  const view1Btn = document.getElementById('view1Btn');
-  const view2Btn = document.getElementById('view2Btn');
 
   function isPixelView(v) {
     // Вид 2 теперь iframe-3D (EXTRA_MAPS); пиксельный canvas-режим отключён
@@ -1251,28 +1244,19 @@
   /** Города кампании — из CampaignState */
   const VIEW2_CITIES = (window.CampaignState && window.CampaignState.CITIES) || [];
 
-  const view3Btn = document.getElementById('view3Btn');
   const cameraBtn = null;
   const mapArea = document.getElementById('mapArea');
   const mapExtraFrame = document.getElementById('mapExtraFrame');
 
   const EXTRA_MAPS = {
-    1: '/maps/view1/map.html',
-    2: '/maps/view2/map.html',
-    3: '/maps/view3/map.html',
     4: '/maps/rome/map.html?view=4',
     5: '/maps/rome/map.html?view=5',
     10: '/maps/view10/map.html?engine=three',
-    11: '/maps/view10/map.html?engine=babylon',
-    12: '/maps/view10/map.html?engine=phaser',
-    13: '/maps/view13/map.html',
-    14: '/maps/view14/map.html',
-    15: '/maps/view15/map.html',
-    16: '/maps/view16/map.html',
-    17: '/maps/view17/map.html'
+    12: '/maps/view10/map.html?engine=phaser&v=20260831paint2',
+    16: '/maps/view16/map.html'
   };
-  const ENGINE_VIEWS = { 10: 'three', 11: 'babylon', 12: 'phaser' };
-  const VALID_VIEWS = [1, 2, 3, 4, 5, 10, 11, 12, 13, 14, 15, 16, 17];
+  const ENGINE_VIEWS = { 10: 'three', 12: 'phaser' };
+  const VALID_VIEWS = [4, 5, 10, 12, 16];
 
   const pixelCache = {};
   let minimapGeo = null;
@@ -2508,13 +2492,19 @@
   function setView(view) {
     view = Number(view);
     if (view === 7) view = 3;
-    if (!VALID_VIEWS.includes(view)) view = 1;
+    if (!VALID_VIEWS.includes(view)) view = 4;
 
     if (isPixelView(state.view) && state.view !== view) stashPixelView(state.view);
 
     const prevView = state.view;
     state.view = view;
     localStorage.setItem('campaignMapVariant', String(view));
+    try { localStorage.setItem('campaignMapPaintActiveView', String(view)); } catch (_) {}
+    if (mapExtraFrame && mapExtraFrame.contentWindow) {
+      try {
+        mapExtraFrame.contentWindow.postMessage({ type: 'set-map-paint-view', view: view }, '*');
+      } catch (_) {}
+    }
 
     document.querySelectorAll('.map-variant-btn[data-view]').forEach((btn) => {
       btn.classList.toggle('active', Number(btn.dataset.view) === view);
@@ -2651,7 +2641,16 @@
   }
 
   viewport.addEventListener('wheel', (e) => {
-    if (EXTRA_MAPS[state.view]) return;
+    if (EXTRA_MAPS[state.view]) {
+      e.preventDefault();
+      if (mapExtraFrame && mapExtraFrame.contentWindow) {
+        mapExtraFrame.contentWindow.postMessage({
+          type: 'camera-zoom',
+          deltaY: e.deltaY
+        }, '*');
+      }
+      return;
+    }
     e.preventDefault();
     const factor = e.deltaY < 0 ? 1.1 : 1 / 1.1;
     const next = Math.min(state.maxScale || 8, Math.max(state.minScale || 0.5, state.scale * factor));
@@ -2764,6 +2763,44 @@
       if (window.CampaignUI && CampaignUI.openFieldArmy) {
         CampaignUI.openFieldArmy(e.data.armyId || (CampaignState.state.fieldArmies[0] && CampaignState.state.fieldArmies[0].id));
       }
+      if (typeof window.switchTab === 'function') window.switchTab('army');
+      return;
+    }
+    if (e.data.type === 'battle-open-local') {
+      if (window.BattleSystem && BattleSystem.openLocalBattleOverlay) {
+        BattleSystem.openLocalBattleOverlay();
+      } else {
+        var ov = document.getElementById('battleLocalOverlay');
+        if (!ov) {
+          ov = document.createElement('iframe');
+          ov.id = 'battleLocalOverlay';
+          ov.title = 'Локальный бой';
+          document.body.appendChild(ov);
+        }
+        ov.style.cssText =
+          'display:block;position:fixed;left:0;top:0;width:100vw;height:100vh;' +
+          'border:0;z-index:5000;background:#0a1208;margin:0;padding:0';
+        ov.classList.add('show', 'is-open');
+        ov.src = '/pages/battleLocal.html?v=20260831soldiers';
+      }
+      return;
+    }
+    if (e.data.type === 'battle-local-done') {
+      if (window.BattleSystem && BattleSystem.closeLocalBattleOverlay) {
+        BattleSystem.closeLocalBattleOverlay();
+      } else {
+        var ov2 = document.getElementById('battleLocalOverlay');
+        if (ov2) {
+          ov2.classList.remove('show', 'is-open');
+          ov2.style.display = 'none';
+          ov2.src = 'about:blank';
+        }
+      }
+      if (mapExtraFrame && mapExtraFrame.contentWindow) {
+        try { mapExtraFrame.contentWindow.postMessage(e.data, '*'); } catch (_) {}
+      }
+      // потери в CampaignState; отступление — на карте (если есть pair), иначе здесь
+      if (window.BattleSystem && BattleSystem.finishLocalBattle) BattleSystem.finishLocalBattle(e.data);
       return;
     }
     if (e.data.type === 'army-deselect') {
@@ -2806,17 +2843,30 @@
         x: 2100,
         y: 1680
       };
+      var wantTab = e.data.tab === 'army' ? 'army' : 'settlement';
       if (window.CampaignUI) {
         CampaignUI.openCity(target, {
+          tab: wantTab,
           switchTab: function (tab) {
-            window.switchTab(e.data.tab === 'army' ? 'army' : (tab || 'settlement'));
-          }
+            window.switchTab(wantTab === 'army' ? 'army' : (tab || 'settlement'));
+          },
+          openPanel: openSidePanel
         });
       } else if (typeof window.switchTab === 'function') {
-        window.switchTab(e.data.tab === 'army' ? 'army' : 'settlement');
+        window.switchTab(wantTab);
       }
-      if (e.data.tab === 'army' && typeof window.switchTab === 'function') {
-        window.switchTab('army');
+      if (typeof window.switchTab === 'function') {
+        window.switchTab(wantTab);
+      }
+      selectedCityName = target.name;
+      if (sidePanelNote) {
+        sidePanelNote.textContent = wantTab === 'army'
+          ? 'Армия города · вкладка «Поселение» или 🏗️ — строительство.'
+          : 'Строительство · вкладка «Отряды» или ⚔️ — армия.';
+      }
+      // страницы строительство / армия (buildArmy.html)
+      if (typeof window.openBuildArmy === 'function') {
+        window.openBuildArmy(wantTab === 'army' ? 'recruit' : 'build');
       }
       return;
     }
@@ -2859,6 +2909,28 @@
       applyTransform();
     }
   });
+
+  const localBattleToolbarBtn = document.getElementById('localBattleToolbarBtn');
+  if (localBattleToolbarBtn) {
+    localBattleToolbarBtn.addEventListener('click', () => {
+      try {
+        const win = mapExtraFrame && mapExtraFrame.contentWindow;
+        if (win && win.BattleMapHook && typeof win.BattleMapHook.showBattleDialog === 'function') {
+          win.BattleMapHook.showBattleDialog();
+          return;
+        }
+        if (win && win.BattleSystem && typeof win.BattleSystem.showBattleDialog === 'function') {
+          win.BattleSystem.showBattleDialog();
+          return;
+        }
+      } catch (_) {}
+      if (window.BattleSystem && BattleSystem.openContact) {
+        BattleSystem.openContact({});
+      } else if (window.BattleSystem && BattleSystem.openLocalBattleOverlay) {
+        BattleSystem.openLocalBattleOverlay();
+      }
+    });
+  }
   document.getElementById('sidePanelClose').addEventListener('click', () => {
     state.selectedIndex = -1;
     pixelSelectedIndex = -1;
@@ -2903,7 +2975,9 @@
   async function boot() {
     let saved = Number(localStorage.getItem('campaignMapVariant') || 1);
     if (saved === 7) saved = 3;
-    if (!VALID_VIEWS.includes(saved)) saved = 1;
+    if (saved === 14) saved = 10;
+    if (saved === 11) saved = 10;
+    if (!VALID_VIEWS.includes(saved)) saved = 4;
     state.cameraMode = 0;
     updateCameraBtn();
 

@@ -1,0 +1,9 @@
+9cad1ddce9e5a63143ba340c9520626b
+::res://::1787680233
+export_presets.cfg::TextFile::-1::1787679940::0::1::::<><><>0<>0<><>::
+icon.svg::CompressedTexture2D::8097551030078501277::1787478708::1787680229::1::::<><><>0<>0<>36f01508d23aff8a54a62400f374c503<>res://.godot/imported/icon.svg-218a8f2b3041327d8a5756f3a245f83b.ctex::
+italy-height.png::CompressedTexture2D::5234302607407835700::1787478708::1787680233::1::::<><><>0<>0<>b1da3fc3b1847306c04e8f6499a01aee<>res://.godot/imported/italy-height.png-8d3dbe3561b3570cef387e591fd77fb1.ctex::
+::res://scenes/::1787679896
+main.tscn::PackedScene::104508476204640813::1787679940::0::1::::<><><>0<>0<><>::res://scripts/main.gd
+::res://scripts/::1787680228
+main.gd::GDScript::1450833736864027936::1787685046::0::1::::<>Node3D<><>0<>0<><>::

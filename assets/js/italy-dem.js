@@ -25,7 +25,12 @@
           var data = new Float32Array(img.width * img.height);
           for (var i = 0; i < data.length; i++) data[i] = px[i * 4] * 256 + px[i * 4 + 1] - OFFSET;
           DEM = { w: img.width, h: img.height, data: data };
-          resolve(true);
+          var boot = Promise.resolve(true);
+          if (global.MapPaint && MapPaint.load) {
+            // Keep the view already chosen by the host (editor / map iframe).
+            boot = MapPaint.load().catch(function () { return false; });
+          }
+          boot.then(function () { resolve(true); });
         } catch (e) { resolve(false); }
       };
       img.onerror = function () { resolve(false); };
@@ -43,8 +48,10 @@
     var x0 = Math.floor(x), y0 = Math.floor(y);
     var x1 = Math.min(DEM.w - 1, x0 + 1), y1 = Math.min(DEM.h - 1, y0 + 1);
     var tx = x - x0, ty = y - y0, d = DEM.data, w = DEM.w;
-    return d[y0 * w + x0] * (1 - tx) * (1 - ty) + d[y0 * w + x1] * tx * (1 - ty)
+    var m = d[y0 * w + x0] * (1 - tx) * (1 - ty) + d[y0 * w + x1] * tx * (1 - ty)
       + d[y1 * w + x0] * (1 - tx) * ty + d[y1 * w + x1] * tx * ty;
+    if (global.MapPaint && MapPaint.ready()) m = MapPaint.applyHeight(lon, lat, m);
+    return m;
   }
 
   function isLand(lon, lat, minM) {
@@ -55,6 +62,11 @@
   function lerp3(a, b, t) {
     t = t < 0 ? 0 : t > 1 ? 1 : t;
     return [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t];
+  }
+
+  function hash2(x, y) {
+    var n = Math.sin(x * 127.1 + y * 311.7) * 43758.5453;
+    return n - Math.floor(n);
   }
 
   function rgbForMeters(m) {
@@ -83,21 +95,65 @@
     return stops[stops.length - 1][1];
   }
 
+  /** Rome TW–like palette: sand coast, green plains, forest patches, grey rock, snow. */
+  function rgbForMetersRtw(m, slope, x, y) {
+    var sand = [214, 196, 148];
+    var grass = [118, 148, 72];
+    var grass2 = [92, 128, 58];
+    var forest = [42, 88, 42];
+    var forest2 = [58, 108, 52];
+    var rock = [132, 128, 118];
+    var rockHi = [168, 166, 158];
+    var snow = [236, 240, 242];
+    var col;
+    if (m < 25) {
+      col = lerp3(sand, grass, Math.max(0, Math.min(1, (m - 4) / 22)));
+    } else if (m < 220) {
+      col = lerp3(grass, grass2, (m - 25) / 195);
+    } else if (m < 900) {
+      col = lerp3(grass2, [78, 108, 56], (m - 220) / 680);
+    } else if (m < 1500) {
+      col = lerp3([78, 108, 56], rock, (m - 900) / 600);
+    } else if (m < 2100) {
+      col = lerp3(rock, rockHi, (m - 1500) / 600);
+    } else {
+      col = lerp3(rockHi, snow, Math.min(1, (m - 2100) / 900));
+    }
+    // лесные пятна на склонах (как кроны в RTW)
+    var forestBand = m > 160 && m < 1250 && slope > 12 && slope < 280;
+    if (forestBand) {
+      var n = hash2(x * 0.37, y * 0.41);
+      var n2 = hash2(x * 0.11 + 3.1, y * 0.09);
+      if (n > 0.38 && n2 > 0.28) {
+        var ft = 0.55 + n * 0.35;
+        col = lerp3(col, n > 0.72 ? forest : forest2, ft);
+      }
+    }
+    // снежные шапки
+    if (m > 1750) {
+      var st = Math.max(0, Math.min(1, (m - 1750) / 700));
+      if (slope < 90) st *= 1.15;
+      col = lerp3(col, snow, Math.min(1, st));
+    }
+    return col;
+  }
+
   function paintGeo(w, h, box, opts) {
     opts = opts || {};
     box = box || BBOX;
+    var rtw = opts.style === 'rtw';
     var c = document.createElement('canvas');
     c.width = w;
     c.height = h;
     var g = c.getContext('2d');
-    var sea = opts.sea || '#1a4e60';
+    var sea = opts.sea || (rtw ? '#4a8fa0' : '#1a4e60');
     g.fillStyle = sea;
     g.fillRect(0, 0, w, h);
     if (!DEM) return c;
     var img = g.getImageData(0, 0, w, h);
     var px = img.data;
     var elev = new Float32Array(w * h);
-    var i, x, y, lon, lat, m, col, shade, mx, my, nx, ny, nlen, k;
+    var i, x, y, lon, lat, m, col, shade, mx, my, nx, ny, nlen, k, slope;
     for (y = 0; y < h; y++) {
       lat = box[3] - y / Math.max(1, h - 1) * (box[3] - box[1]);
       for (x = 0; x < w; x++) {
@@ -110,32 +166,95 @@
       for (x = 0; x < w; x++) {
         m = elev[y * w + x];
         i = (y * w + x) * 4;
-        if (!(m > 6)) {
-          k = Math.max(0, Math.min(1, (8 - m) / 50));
-          col = lerp3([48, 98, 112], [16, 46, 62], k);
-          px[i] = col[0]; px[i + 1] = col[1]; px[i + 2] = col[2]; px[i + 3] = 255;
-          continue;
-        }
-        col = rgbForMeters(m);
         mx = x + 1 < w ? elev[y * w + x + 1] : m;
         my = y + 1 < h ? elev[(y + 1) * w + x] : m;
         nx = m - mx;
         ny = m - my;
+        slope = Math.sqrt(nx * nx + ny * ny);
+
+        if (rtw) {
+          // светлое море RTW + мелководье у берега
+          var depth = Math.max(0, Math.min(1, (22 - m) / 55));
+          var seaDeep = [58, 130, 148];
+          var seaShallow = [110, 178, 186];
+          var seaCol = lerp3(seaShallow, seaDeep, depth);
+          var landBlend = 0;
+          if (m > -2) {
+            var tb = Math.max(0, Math.min(1, (m + 2) / 28));
+            landBlend = tb * tb * (3 - 2 * tb);
+          }
+          if (landBlend <= 0.015) {
+            // лёгкая рябь
+            var ripple = (hash2(x * 0.2, y * 0.2) - 0.5) * 6;
+            px[i] = Math.max(0, Math.min(255, seaCol[0] + ripple));
+            px[i + 1] = Math.max(0, Math.min(255, seaCol[1] + ripple));
+            px[i + 2] = Math.max(0, Math.min(255, seaCol[2] + ripple * 0.6));
+            px[i + 3] = 255;
+            continue;
+          }
+          col = rgbForMetersRtw(Math.max(m, 2), slope, x, y);
+          // песчаная кромка у воды
+          if (m < 55) {
+            var sandT = 1 - m / 55;
+            col = lerp3(col, [220, 204, 158], sandT * 0.85);
+          }
+          nlen = Math.sqrt(nx * nx + ny * ny + 120 * 120) || 1;
+          shade = Math.max(0.7, Math.min(1.22, (nx * 0.42 + 120) / nlen * 1.35));
+          var lr = Math.max(0, Math.min(255, col[0] * shade));
+          var lg = Math.max(0, Math.min(255, col[1] * shade));
+          var lb = Math.max(0, Math.min(255, col[2] * shade));
+          px[i] = Math.round(seaCol[0] * (1 - landBlend) + lr * landBlend);
+          px[i + 1] = Math.round(seaCol[1] * (1 - landBlend) + lg * landBlend);
+          px[i + 2] = Math.round(seaCol[2] * (1 - landBlend) + lb * landBlend);
+          px[i + 3] = 255;
+          continue;
+        }
+
+        // плавный переход мелководье → суша (без резкой кромки)
+        var landBlend2 = 0;
+        if (m > 0) {
+          var tb2 = Math.max(0, Math.min(1, m / 90));
+          landBlend2 = tb2 * tb2 * (3 - 2 * tb2);
+        }
+        k = Math.max(0, Math.min(1, (12 - m) / 70));
+        var seaCol2 = lerp3([48, 98, 112], [16, 46, 62], k);
+        if (landBlend2 <= 0.02) {
+          px[i] = seaCol2[0]; px[i + 1] = seaCol2[1]; px[i + 2] = seaCol2[2]; px[i + 3] = 255;
+          continue;
+        }
+        col = rgbForMeters(Math.max(m, 8));
         nlen = Math.sqrt(nx * nx + ny * ny + 90 * 90) || 1;
         shade = Math.max(0.62, Math.min(1.28, (nx * 0.48 + 90) / nlen * 1.48));
-        px[i] = Math.max(0, Math.min(255, col[0] * shade));
-        px[i + 1] = Math.max(0, Math.min(255, col[1] * shade));
-        px[i + 2] = Math.max(0, Math.min(255, col[2] * shade));
+        var lr2 = Math.max(0, Math.min(255, col[0] * shade));
+        var lg2 = Math.max(0, Math.min(255, col[1] * shade));
+        var lb2 = Math.max(0, Math.min(255, col[2] * shade));
+        px[i] = Math.round(seaCol2[0] * (1 - landBlend2) + lr2 * landBlend2);
+        px[i + 1] = Math.round(seaCol2[1] * (1 - landBlend2) + lg2 * landBlend2);
+        px[i + 2] = Math.round(seaCol2[2] * (1 - landBlend2) + lb2 * landBlend2);
         px[i + 3] = 255;
       }
     }
-    sharpenCoast(px, elev, w, h);
+    if (rtw) paintBeachStrip(px, elev, w, h);
+    else sharpenCoast(px, elev, w, h);
+    if (global.MapPaint && MapPaint.ready()) {
+      for (y = 0; y < h; y++) {
+        lat = box[3] - y / Math.max(1, h - 1) * (box[3] - box[1]);
+        for (x = 0; x < w; x++) {
+          lon = box[0] + x / Math.max(1, w - 1) * (box[2] - box[0]);
+          i = (y * w + x) * 4;
+          col = MapPaint.applyColor([px[i], px[i + 1], px[i + 2]], lon, lat);
+          px[i] = col[0];
+          px[i + 1] = col[1];
+          px[i + 2] = col[2];
+        }
+      }
+    }
     g.putImageData(img, 0, 0);
     return c;
   }
 
-  function sharpenCoast(px, elev, w, h) {
-    var x, y, i, m, land, nSea, nLand, t;
+  function paintBeachStrip(px, elev, w, h) {
+    var x, y, i, m, t, nearSea;
     function sample(ix, iy) {
       if (ix < 0 || iy < 0 || ix >= w || iy >= h) return 0;
       return elev[iy * w + ix];
@@ -143,26 +262,45 @@
     for (y = 0; y < h; y++) {
       for (x = 0; x < w; x++) {
         m = elev[y * w + x];
-        land = m > 6;
-        nSea = (sample(x - 1, y) <= 6 ? 1 : 0) + (sample(x + 1, y) <= 6 ? 1 : 0)
-          + (sample(x, y - 1) <= 6 ? 1 : 0) + (sample(x, y + 1) <= 6 ? 1 : 0);
-        nLand = 4 - nSea;
+        if (!(m > 2) || m > 90) continue;
+        nearSea = (sample(x - 1, y) < 18 ? 1 : 0) + (sample(x + 1, y) < 18 ? 1 : 0)
+          + (sample(x, y - 1) < 18 ? 1 : 0) + (sample(x, y + 1) < 18 ? 1 : 0)
+          + (sample(x - 2, y) < 18 ? 1 : 0) + (sample(x + 2, y) < 18 ? 1 : 0);
+        if (!nearSea) continue;
+        t = Math.min(0.72, (nearSea / 6) * (1 - m / 90) * 0.95);
         i = (y * w + x) * 4;
-        if (land && nSea > 0) {
-          t = nSea >= 2 ? 0.72 : 0.42;
-          px[i] = px[i] * (1 - t) + 186 * t;
-          px[i + 1] = px[i + 1] * (1 - t) + 168 * t;
-          px[i + 2] = px[i + 2] * (1 - t) + 118 * t;
-          if (nSea >= 2) {
-            px[i] = px[i] * 0.72 + 52 * 0.28;
-            px[i + 1] = px[i + 1] * 0.72 + 48 * 0.28;
-            px[i + 2] = px[i + 2] * 0.72 + 38 * 0.28;
-          }
-        } else if (!land && nLand > 0) {
-          t = nLand >= 2 ? 0.55 : 0.28;
-          px[i] = px[i] * (1 - t) + 72 * t;
-          px[i + 1] = px[i + 1] * (1 - t) + 128 * t;
-          px[i + 2] = px[i + 2] * (1 - t) + 138 * t;
+        px[i] = px[i] * (1 - t) + 224 * t;
+        px[i + 1] = px[i + 1] * (1 - t) + 206 * t;
+        px[i + 2] = px[i + 2] * (1 - t) + 158 * t;
+      }
+    }
+  }
+
+  function sharpenCoast(px, elev, w, h) {
+    var x, y, i, m, t, nearSea, nearLand, s;
+    function sample(ix, iy) {
+      if (ix < 0 || iy < 0 || ix >= w || iy >= h) return 0;
+      return elev[iy * w + ix];
+    }
+    for (y = 0; y < h; y++) {
+      for (x = 0; x < w; x++) {
+        m = elev[y * w + x];
+        nearSea = (sample(x - 1, y) < 40 ? 1 : 0) + (sample(x + 1, y) < 40 ? 1 : 0)
+          + (sample(x, y - 1) < 40 ? 1 : 0) + (sample(x, y + 1) < 40 ? 1 : 0);
+        nearLand = (sample(x - 1, y) > 20 ? 1 : 0) + (sample(x + 1, y) > 20 ? 1 : 0)
+          + (sample(x, y - 1) > 20 ? 1 : 0) + (sample(x, y + 1) > 20 ? 1 : 0);
+        i = (y * w + x) * 4;
+        if (m > 12 && nearSea > 0) {
+          t = (nearSea >= 2 ? 0.38 : 0.22) * Math.max(0, 1 - m / 160);
+          px[i] = px[i] * (1 - t) + 168 * t;
+          px[i + 1] = px[i + 1] * (1 - t) + 152 * t;
+          px[i + 2] = px[i + 2] * (1 - t) + 112 * t;
+        } else if (m < 35 && nearLand > 0) {
+          t = (nearLand >= 2 ? 0.32 : 0.16) * Math.max(0, 1 - m / 50);
+          s = 1 - t;
+          px[i] = px[i] * s + 78 * t;
+          px[i + 1] = px[i + 1] * s + 122 * t;
+          px[i + 2] = px[i + 2] * s + 130 * t;
         }
       }
     }
